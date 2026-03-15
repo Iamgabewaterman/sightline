@@ -41,14 +41,9 @@ function AppIcon({ size = 40 }: { size?: number }) {
   return (
     <svg viewBox="0 0 512 512" width={size} height={size} style={{ borderRadius: "22%" }}>
       <rect width="512" height="512" fill="#0F0F0F"/>
-      <polyline
-        points="105,315 160,186 460,315 105,315"
-        fill="none" stroke="white" strokeWidth="22"
-        strokeLinejoin="miter" strokeMiterlimit={10} strokeLinecap="round"
-      />
-      <rect x="105" y="152" width="110" height="34" rx="9"
-        fill="none" stroke="white" strokeWidth="13"/>
-      <ellipse cx="160" cy="169" rx="16" ry="8" fill="#F97316"/>
+      <polygon points="126,410 386,410 256,100" fill="none" stroke="white" strokeWidth="20"/>
+      <rect x="126" y="80" width="260" height="34" fill="none" stroke="white" strokeWidth="12"/>
+      <ellipse cx="256" cy="97" rx="22" ry="10" fill="#F97316"/>
     </svg>
   );
 }

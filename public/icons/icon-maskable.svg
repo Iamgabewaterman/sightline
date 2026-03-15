@@ -1,28 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Full-bleed black background (OS applies the mask shape) -->
   <rect width="512" height="512" fill="#0F0F0F"/>
-
-  <!--
-    Speed square — scaled so all vertices fit within maskable safe zone (r≤205).
-    A = (163, 188), B = (110, 313), C = (453, 313)
-    All vertices ≤205px from center (256,256). ✓
-  -->
-  <polyline
-    points="110,313 163,188 453,313 110,313"
-    fill="none"
-    stroke="white"
-    stroke-width="20"
-    stroke-linejoin="miter"
-    stroke-miterlimit="10"
-    stroke-linecap="round"
-  />
-
-  <!--
-    Bubble level at A=(163,188). 106×33px, bottom at y=188.
-  -->
-  <rect x="110" y="155" width="106" height="33" rx="8"
-    fill="none" stroke="white" stroke-width="12"/>
-
-  <!-- Orange vial bubble -->
-  <ellipse cx="163" cy="171" rx="15" ry="7" fill="#F97316"/>
+  <polygon points="126,410 386,410 256,100" fill="none" stroke="white" stroke-width="20"/>
+  <rect x="126" y="80" width="260" height="34" fill="none" stroke="white" stroke-width="12"/>
+  <ellipse cx="256" cy="97" rx="22" ry="10" fill="#F97316"/>
 </svg>

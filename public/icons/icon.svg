@@ -1,36 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Full black background — no circles -->
   <rect width="512" height="512" fill="#0F0F0F"/>
-
-  <!--
-    Speed square: right triangle, right angle at TOP-LEFT corner.
-    Resting on hypotenuse (BC is horizontal at bottom).
-
-    A = (160, 186) — right-angle corner, upper-left
-    B = (105, 315) — bottom-left  (short leg: A→B, going down-left)
-    C = (460, 315) — bottom-right (long leg:  A→C, going down-right)
-
-    AB = (-55, 129),  AC = (300, 129)
-    AB · AC = (-55×300) + (129×129) = -16500 + 16641 ≈ 0  (true right angle)
-  -->
-  <polyline
-    points="105,315 160,186 460,315 105,315"
-    fill="none"
-    stroke="white"
-    stroke-width="22"
-    stroke-linejoin="miter"
-    stroke-miterlimit="10"
-    stroke-linecap="round"
-  />
-
-  <!--
-    Bubble level balanced on the right-angle corner A=(160,186).
-    Horizontal rectangle (levels are always horizontal).
-    110×34px, bottom flush with the corner.
-  -->
-  <rect x="105" y="152" width="110" height="34" rx="9"
-    fill="none" stroke="white" stroke-width="13"/>
-
-  <!-- Orange vial bubble, centered inside the level -->
-  <ellipse cx="160" cy="169" rx="16" ry="8" fill="#F97316"/>
+  <polygon points="126,410 386,410 256,100" fill="none" stroke="white" stroke-width="20"/>
+  <rect x="126" y="80" width="260" height="34" fill="none" stroke="white" stroke-width="12"/>
+  <ellipse cx="256" cy="97" rx="22" ry="10" fill="#F97316"/>
 </svg>

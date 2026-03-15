@@ -10,7 +10,7 @@ export default function BrandLogo() {
         width={120}
         height={120}
         priority
-        className="rounded-full"
+        className="rounded-2xl"
       />
 
       {/* Wordmark */}
