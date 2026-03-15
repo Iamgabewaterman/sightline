@@ -48,22 +48,31 @@ export async function middleware(request: NextRequest) {
 
   // Subscription enforcement (skip for auth/subscribe/api routes)
   if (user && !isAuthPage && !isSubscribePage && !isApiRoute && !isAuthCallback) {
-    const trialEndsAt = new Date(user.created_at);
-    trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
-    const onTrial = new Date() < trialEndsAt;
+    // Lifetime access bypasses all Stripe checks
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_lifetime")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (!onTrial) {
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("status")
-        .eq("user_id", user.id)
-        .maybeSingle();
+    if (!profile?.is_lifetime) {
+      const trialEndsAt = new Date(user.created_at);
+      trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
+      const onTrial = new Date() < trialEndsAt;
 
-      const isActive =
-        sub?.status === "active" || sub?.status === "trialing";
+      if (!onTrial) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("status")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (!isActive) {
-        return NextResponse.redirect(new URL("/subscribe", request.url));
+        const isActive =
+          sub?.status === "active" || sub?.status === "trialing";
+
+        if (!isActive) {
+          return NextResponse.redirect(new URL("/subscribe", request.url));
+        }
       }
     }
   }
