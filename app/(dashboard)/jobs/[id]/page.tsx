@@ -57,12 +57,13 @@ export default async function JobDetailPage({
       .returns<Material[]>(),
     supabase
       .from("estimates")
-      .select("material_total, labor_total, profit_margin_pct, final_quote")
+      .select("material_total, labor_total, profit_margin_pct, final_quote, addons")
       .eq("job_id", params.id)
+      .eq("type", "job_quote")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<
-        Pick<Estimate, "material_total" | "labor_total" | "profit_margin_pct" | "final_quote">
+        Pick<Estimate, "material_total" | "labor_total" | "profit_margin_pct" | "final_quote" | "addons">
       >(),
     supabase
       .from("receipts")
@@ -102,6 +103,16 @@ export default async function JobDetailPage({
     .not("calculated_sqft", "is", null)
     .overlaps("types", job.types);
 
+  const initialQuoteData = estimate
+    ? {
+        materialBudget: estimate.material_total,
+        laborBudget: estimate.labor_total,
+        profitMarginPct: estimate.profit_margin_pct,
+        finalQuote: estimate.final_quote,
+        addons: (estimate.addons as import("@/types").QuoteAddon[]) ?? [],
+      }
+    : null;
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
@@ -128,6 +139,7 @@ export default async function JobDetailPage({
         <JobCostProvider
           initialMaterialCost={initialMaterialCost}
           initialLaborCost={initialLaborCost}
+          initialQuoteData={initialQuoteData}
         >
           {/* Job Status */}
           <div className="mb-4">
@@ -141,19 +153,7 @@ export default async function JobDetailPage({
 
           {/* Profitability bar */}
           <div className="mb-4">
-            {estimate ? (
-              <ProfitBar
-                materialBudget={estimate.material_total}
-                laborBudget={estimate.labor_total}
-                totalQuote={estimate.final_quote}
-              />
-            ) : (
-              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
-                <p className="text-gray-500 text-sm text-center">
-                  Generate a quote first to track profitability.
-                </p>
-              </div>
-            )}
+            <ProfitBar />
           </div>
 
           {/* Detail cards */}

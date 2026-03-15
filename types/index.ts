@@ -93,6 +93,12 @@ export interface ReceiptExtractionResult {
   auto_confirm: boolean;
 }
 
+export interface QuoteAddon {
+  name: string;
+  description: string;
+  amount: number;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;
@@ -102,5 +108,6 @@ export interface Estimate {
   labor_total: number;
   profit_margin_pct: number;
   final_quote: number;
+  addons: QuoteAddon[];
   created_at: string;
 }
