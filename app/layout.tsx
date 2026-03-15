@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} antialiased bg-[#0F0F0F] text-white`}>
         <Nav />
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
