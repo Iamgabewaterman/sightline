@@ -7,9 +7,25 @@ import { useState, useEffect } from "react";
 function useServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Registration failed — app still works, just no offline caching
-    });
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        // Force the waiting SW to activate immediately if there's an update
+        if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        reg.addEventListener("updatefound", () => {
+          const newSw = reg.installing;
+          if (newSw) {
+            newSw.addEventListener("statechange", () => {
+              if (newSw.state === "installed" && navigator.serviceWorker.controller) {
+                newSw.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
+          }
+        });
+      })
+      .catch(() => {
+        // Registration failed — app still works, just no offline caching
+      });
   }, []);
 }
 
@@ -18,6 +34,23 @@ function useServiceWorker() {
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+// Speed square + bubble level icon (matches the actual app icon)
+function AppIcon({ size = 40 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 512 512" width={size} height={size} style={{ borderRadius: "22%" }}>
+      <circle cx="256" cy="256" r="252" fill="#0F0F0F"/>
+      <polyline
+        points="71,400 256,215 441,400 71,400"
+        fill="none" stroke="white" strokeWidth="18"
+        strokeLinejoin="miter" strokeMiterlimit={12} strokeLinecap="square"
+      />
+      <rect x="189" y="175" width="134" height="40" rx="11"
+        fill="none" stroke="white" strokeWidth="12"/>
+      <ellipse cx="256" cy="195" rx="21" ry="9" fill="#F97316"/>
+    </svg>
+  );
 }
 
 function InstallBanner() {
@@ -35,7 +68,8 @@ function InstallBanner() {
     // Don't show if already dismissed
     if (localStorage.getItem("pwa-dismissed")) return;
 
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) &&
+      !(window as Window & { MSStream?: unknown }).MSStream;
     setIsIOS(ios);
 
     if (ios) {
@@ -79,13 +113,8 @@ function InstallBanner() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
-            {/* Mini app icon */}
-            <div className="w-12 h-12 bg-[#0F0F0F] rounded-xl flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 48 48" width="32" height="32">
-                <circle cx="24" cy="24" r="16" fill="#f97316" />
-                <circle cx="24" cy="24" r="9"  fill="#0F0F0F" />
-                <circle cx="24" cy="24" r="5"  fill="#f97316" />
-              </svg>
+            <div className="shrink-0">
+              <AppIcon size={48} />
             </div>
             <div>
               <p className="text-white font-bold text-base leading-tight">Add Sightline to your home screen</p>

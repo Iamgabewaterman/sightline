@@ -1,11 +1,17 @@
-const STATIC_CACHE = 'sightline-static-v1';
-const PAGES_CACHE  = 'sightline-pages-v1';
+const STATIC_CACHE = 'sightline-static-v2';
+const PAGES_CACHE  = 'sightline-pages-v2';
 
 // Pre-cache the manifest and icons on install
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) =>
-      cache.addAll(['/manifest.json', '/icons/icon.svg', '/icons/icon-maskable.svg'])
+      cache.addAll([
+        '/manifest.json',
+        '/icons/icon-192.png',
+        '/icons/icon-512.png',
+        '/icons/icon.svg',
+        '/icons/icon-maskable.svg',
+      ])
     )
   );
   self.skipWaiting();
