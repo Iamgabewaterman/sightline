@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { QuoteAddon } from "@/types";
+import { QuoteAddon, SavedLineItem } from "@/types";
 
 export async function saveJobQuote(data: {
   jobId: string;
@@ -37,4 +37,24 @@ export async function saveJobQuote(data: {
 
   if (error) return { error: error.message };
   return { success: true };
+}
+
+export async function saveLineItem(
+  name: string,
+  amount: number
+): Promise<{ item?: SavedLineItem; error?: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("saved_line_items")
+    .insert({ user_id: user.id, name, amount })
+    .select()
+    .single<SavedLineItem>();
+
+  if (error) return { error: error.message };
+  return { item: data };
 }

@@ -95,8 +95,16 @@ export interface ReceiptExtractionResult {
 
 export interface QuoteAddon {
   name: string;
-  description: string;
+  description?: string;
   amount: number;
+}
+
+export interface SavedLineItem {
+  id: string;
+  user_id: string;
+  name: string;
+  amount: number;
+  created_at: string;
 }
 
 export interface Contact {

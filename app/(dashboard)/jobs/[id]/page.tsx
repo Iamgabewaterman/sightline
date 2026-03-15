@@ -5,12 +5,11 @@ import { Job, Photo, Material, Estimate, Receipt, LaborLog } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
-import ProfitBar from "@/components/ProfitBar";
+import QuoteProfitSection from "@/components/QuoteProfitSection";
 import ReceiptsSection from "@/components/ReceiptsSection";
 import LaborSection from "@/components/LaborSection";
 import LockboxCode from "@/components/LockboxCode";
 import DeleteJobButton from "@/components/DeleteJobButton";
-import GenerateQuote from "@/components/GenerateQuote";
 import DimensionsSection from "@/components/DimensionsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
@@ -146,14 +145,9 @@ export default async function JobDetailPage({
             <JobStatus jobId={job.id} initialStatus={job.status ?? "active"} />
           </div>
 
-          {/* Generate Quote */}
+          {/* Quote + Profitability (merged) */}
           <div className="mb-4">
-            <GenerateQuote job={job} />
-          </div>
-
-          {/* Profitability bar */}
-          <div className="mb-4">
-            <ProfitBar />
+            <QuoteProfitSection job={job} />
           </div>
 
           {/* Detail cards */}
