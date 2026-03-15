@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 export async function createJob(formData: FormData) {
   const supabase = createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
   const name = formData.get("name") as string;
   const types = formData.getAll("types") as string[];
   const address = formData.get("address") as string;
@@ -16,7 +19,7 @@ export async function createJob(formData: FormData) {
 
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ name, types, address, notes: notes || null })
+    .insert({ name, types, address, notes: notes || null, user_id: user.id })
     .select("id")
     .single();
 
