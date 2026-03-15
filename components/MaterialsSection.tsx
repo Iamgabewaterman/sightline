@@ -237,6 +237,7 @@ function MaterialRow({
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
   const [usedVal,    setUsedVal]    = useState(material.quantity_used?.toString() ?? "");
   const [costVal,    setCostVal]    = useState(material.unit_cost?.toString() ?? "");
+  const [notesVal,   setNotesVal]   = useState(material.notes ?? "");
   const [lengthPreset, setLengthPreset] = useState(getLengthPresetKey(material.length_ft));
   const [customLength, setCustomLength] = useState(
     material.length_ft !== null && !LENGTH_PRESETS.includes(material.length_ft)
@@ -257,12 +258,13 @@ function MaterialRow({
     const quantity_used    = usedVal    !== "" ? parseFloat(usedVal)    : null;
     const unit_cost        = costVal    !== "" ? parseFloat(costVal)    : null;
     const length_ft        = effectiveLengthFt;
+    const notes            = notesVal.trim() || null;
 
-    const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft });
+    const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes });
     if (result.error) {
       setError(result.error);
     } else {
-      onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft });
+      onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes });
       setEditing(false);
     }
     setSaving(false);
@@ -277,15 +279,20 @@ function MaterialRow({
   return (
     <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
       {/* Name row */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-white font-semibold text-base">{material.name}</span>
-          {material.length_ft && (
-            <span className="text-orange-400 text-sm font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
-              {material.length_ft}ft
-            </span>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-white font-semibold text-base">{material.name}</span>
+            {material.length_ft && (
+              <span className="text-orange-400 text-sm font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
+                {material.length_ft}ft
+              </span>
+            )}
+            <span className="text-gray-400 text-sm">({material.unit})</span>
+          </div>
+          {material.notes && (
+            <p className="text-gray-500 text-sm mt-0.5 italic">{material.notes}</p>
           )}
-          <span className="text-gray-400 text-sm">({material.unit})</span>
         </div>
         <div className="flex gap-2 shrink-0">
           <button onClick={() => setEditing((e) => !e)}
@@ -366,6 +373,17 @@ function MaterialRow({
             onPresetChange={setLengthPreset}
             onCustomChange={setCustomLength}
           />
+
+          <div>
+            <label className="text-gray-400 text-xs uppercase tracking-wider">Notes</label>
+            <input
+              type="text"
+              value={notesVal}
+              onChange={(e) => setNotesVal(e.target.value)}
+              placeholder="pressure treated, primed, cedar, structural…"
+              className="w-full mt-1 bg-[#242424] border border-[#333333] text-white rounded-lg px-3 py-3 text-base placeholder:text-gray-600 focus:outline-none focus:border-orange-500"
+            />
+          </div>
 
           <CostPerLFChip
             qtyOrdered={orderedVal}
@@ -523,6 +541,16 @@ export default function MaterialsSection({
               value={unitCost}
               onChange={(e) => setUnitCost(e.target.value)}
               placeholder="0.00 — fill in from receipt later" className={inputClass} />
+          </div>
+
+          {/* Notes */}
+          <div className="flex flex-col gap-1">
+            <label className="text-gray-400 text-xs uppercase tracking-wider">
+              Notes <span className="text-gray-600 normal-case">(optional)</span>
+            </label>
+            <input name="notes" type="text"
+              placeholder="pressure treated, primed, cedar, structural…"
+              className={inputClass} />
           </div>
 
           {/* Live $/LF preview */}

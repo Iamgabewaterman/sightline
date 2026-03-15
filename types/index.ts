@@ -49,6 +49,7 @@ export interface Material {
   quantity_used: number | null;
   unit_cost: number | null;
   length_ft: number | null;
+  notes: string | null;
   created_at: string;
 }
 
