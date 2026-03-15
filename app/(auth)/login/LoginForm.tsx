@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/client";
+import BrandLogo from "@/components/BrandLogo";
 
 function GoogleIcon() {
   return (
@@ -63,20 +64,8 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen bg-[#0F0F0F] flex flex-col">
       {/* ── HERO ── */}
-      <div className="flex flex-col items-center px-6 pt-14 pb-10">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-6">
-          <span className="w-3.5 h-3.5 rounded-full bg-orange-500 shrink-0" />
-          <span className="text-white font-black text-4xl tracking-tight leading-none">
-            Sightline
-          </span>
-        </div>
-
-        {/* Tagline */}
-        <p className="text-2xl font-bold text-white text-center leading-snug mb-1">
-          Every job.{" "}
-          <span className="text-orange-500">One view.</span>
-        </p>
+      <div className="flex flex-col items-center px-6 pt-12 pb-10">
+        <BrandLogo />
         <p className="text-gray-400 text-base text-center mb-8">
           The job management app built for contractors.
         </p>

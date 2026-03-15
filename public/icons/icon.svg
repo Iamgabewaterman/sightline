@@ -1,8 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Background -->
-  <rect width="512" height="512" rx="96" fill="#0F0F0F"/>
-  <!-- Sightline reticle: outer ring, gap, inner dot -->
-  <circle cx="256" cy="256" r="168" fill="#f97316"/>
-  <circle cx="256" cy="256" r="100" fill="#0F0F0F"/>
-  <circle cx="256" cy="256" r="52"  fill="#f97316"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Black circle background -->
+  <circle cx="256" cy="256" r="252" fill="#0F0F0F"/>
+
+  <!--
+    Speed square: right-isoceles triangle resting on its hypotenuse.
+    Right-angle apex at (256,215). Hypotenuse: (71,400)→(441,400).
+    Vectors AB=(-185,185) AC=(185,185) — dot product = 0, true right angle.
+  -->
+  <polyline
+    points="71,400 256,215 441,400 71,400"
+    fill="none"
+    stroke="white"
+    stroke-width="18"
+    stroke-linejoin="miter"
+    stroke-miterlimit="12"
+    stroke-linecap="square"
+  />
+
+  <!--
+    Bubble level resting on the apex.
+    Rect 134×40, bottom at y=215, rounded ends like a real vial housing.
+  -->
+  <rect x="189" y="175" width="134" height="40" rx="11"
+    fill="none" stroke="white" stroke-width="12"/>
+
+  <!-- Orange bubble — the vial indicator, centered in the level -->
+  <ellipse cx="256" cy="195" rx="21" ry="9" fill="#F97316"/>
 </svg>

@@ -1,8 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Full bleed background (maskable — no rounded corners) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full-bleed black background (OS applies the mask shape) -->
   <rect width="512" height="512" fill="#0F0F0F"/>
-  <!-- Reticle kept within maskable safe zone (inner 80% = 205–307px) -->
-  <circle cx="256" cy="256" r="148" fill="#f97316"/>
-  <circle cx="256" cy="256" r="88"  fill="#0F0F0F"/>
-  <circle cx="256" cy="256" r="44"  fill="#f97316"/>
+
+  <!--
+    Speed square — scaled to fit within maskable safe zone (r≤205 from center).
+    Right-angle apex at (256,255). Hypotenuse: (111,400)→(401,400).
+    Vectors AB=(-145,145) AC=(145,145) — dot product = 0, true right angle.
+    All vertices: B dist≈204px, A dist=1px from center — within safe zone.
+  -->
+  <polyline
+    points="111,400 256,255 401,400 111,400"
+    fill="none"
+    stroke="white"
+    stroke-width="16"
+    stroke-linejoin="miter"
+    stroke-miterlimit="12"
+    stroke-linecap="square"
+  />
+
+  <!--
+    Bubble level on apex — 106×37, bottom at y=255.
+  -->
+  <rect x="203" y="218" width="106" height="37" rx="9"
+    fill="none" stroke="white" stroke-width="11"/>
+
+  <!-- Orange bubble -->
+  <ellipse cx="256" cy="236" rx="17" ry="8" fill="#F97316"/>
 </svg>
