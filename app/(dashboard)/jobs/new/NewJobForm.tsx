@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createJob } from "@/app/actions/jobs";
 
 const JOB_TYPES = [
@@ -15,7 +16,8 @@ const JOB_TYPES = [
 ] as const;
 
 export default function NewJobForm() {
-  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [photoNames, setPhotoNames] = useState<string[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
@@ -32,33 +34,13 @@ export default function NewJobForm() {
       setErrorMsg(result.error);
       setStatus("error");
     } else {
-      setStatus("success");
-      formRef.current?.reset();
-      setPhotoNames([]);
+      router.push("/jobs");
     }
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     setPhotoNames(files.map((f) => f.name));
-  }
-
-  if (status === "success") {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4">
-        <div className="text-center">
-          <div className="text-5xl mb-6">✓</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Job Saved</h2>
-          <p className="text-zinc-400 mb-8">Your job has been created successfully.</p>
-          <button
-            onClick={() => setStatus("idle")}
-            className="w-full bg-white text-black font-bold text-lg py-4 px-8 rounded-xl active:scale-95 transition-transform"
-          >
-            Create Another Job
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
