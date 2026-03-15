@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job } from "@/types";
+import { Job, Photo } from "@/types";
 import TypeTags from "@/components/TypeTags";
-
+import PhotoSection from "@/components/PhotoSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -20,11 +20,16 @@ export default async function JobDetailPage({
   params: { id: string };
 }) {
   const supabase = createClient();
-  const { data: job } = await supabase
-    .from("jobs")
-    .select("*")
-    .eq("id", params.id)
-    .single<Job>();
+
+  const [{ data: job }, { data: photos }] = await Promise.all([
+    supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
+    supabase
+      .from("photos")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<Photo[]>(),
+  ]);
 
   if (!job) notFound();
 
@@ -55,7 +60,6 @@ export default async function JobDetailPage({
 
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
-          {/* Types */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
             <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-3">
               Job Type
@@ -67,6 +71,9 @@ export default async function JobDetailPage({
           <DetailRow label="Created" value={formatDate(job.created_at)} />
           {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
         </div>
+
+        {/* Photos */}
+        <PhotoSection jobId={job.id} initialPhotos={photos ?? []} />
       </div>
     </div>
   );
