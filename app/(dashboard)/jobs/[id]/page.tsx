@@ -11,6 +11,7 @@ import ReceiptsSection from "@/components/ReceiptsSection";
 import LaborSection from "@/components/LaborSection";
 import LockboxCode from "@/components/LockboxCode";
 import DeleteJobButton from "@/components/DeleteJobButton";
+import GenerateQuote from "@/components/GenerateQuote";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -102,6 +103,15 @@ export default async function JobDetailPage({
         {/* Job Status */}
         <div className="mb-4">
           <JobStatus jobId={job.id} initialStatus={job.status ?? "active"} />
+        </div>
+
+        {/* Generate Quote */}
+        <div className="mb-4">
+          <GenerateQuote
+            job={job}
+            materials={materials ?? []}
+            laborLogs={laborLogs ?? []}
+          />
         </div>
 
         {/* Profitability bar — only shown when an estimate exists */}
