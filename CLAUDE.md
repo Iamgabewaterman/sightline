@@ -73,6 +73,10 @@ The user knows construction deeply but not code. Explain things in plain English
 
 Every material entry should capture `cut_length_needed` as an optional field alongside quantity and stock length purchased. This data trains the future blueprint estimation feature. After enough completed jobs the AI can reverse-engineer material lists from dimensions alone. Never remove or simplify material data fields as they are all training inputs for the estimation engine. Future feature: contractor uploads a photo or sketch of a project, AI analyzes dimensions and scope, outputs a complete optimized material list with cut optimization showing the most efficient stock lengths to purchase.
 
+### Crews and Scheduling
+
+GCs need a people database with saved contacts and crews (individual workers, subcontractor crews, trade specialists). Each person has name, phone, trade, rate, and job history. Saved crews can be assigned to jobs from the dashboard. Calendar view shows crew assignments by day. Crew clock in/out through the app replaces manual labor logging. Automated notifications send job details and lockbox codes to assigned crew when scheduled. This is the feature that replaces group texts and moves toward replacing QuickBooks for full business management.
+
 ## Future Phase 2 — Homeowner Accounts (DO NOT BUILD NOW)
 
 Future plan: add a `user_type` field to distinguish user roles. Contractors have `user_type = 'contractor'`, homeowners have `user_type = 'homeowner'`. Homeowners would get a read-only or limited view of jobs shared with them by a contractor.
