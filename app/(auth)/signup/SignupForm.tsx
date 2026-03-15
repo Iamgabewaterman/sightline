@@ -16,6 +16,21 @@ function GoogleIcon() {
   );
 }
 
+const BULLETS = [
+  {
+    headline: "Stop losing money on material runs",
+    sub: "Every receipt scanned, every cost tracked automatically.",
+  },
+  {
+    headline: "Every job documented automatically",
+    sub: "Photos, materials, and labor all attached to one job.",
+  },
+  {
+    headline: "Estimates that get smarter over time",
+    sub: "Your real costs feed every future quote you build.",
+  },
+];
+
 export default function SignupForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -27,9 +42,7 @@ export default function SignupForm() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   }
 
@@ -59,9 +72,19 @@ export default function SignupForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-4 text-center">
+      <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-6 text-center">
         <div className="w-full max-w-sm">
-          <div className="text-5xl mb-6 text-orange-500">✓</div>
+          <div className="w-16 h-16 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto mb-6">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path
+                d="M5 14l6 6 12-12"
+                stroke="#F97316"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
           <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
           <p className="text-gray-400 mb-8">
             We sent a confirmation link to your email. Click it to activate your account.
@@ -78,84 +101,132 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-[#0F0F0F] flex flex-col">
+      {/* ── HERO ── */}
+      <div className="flex flex-col items-center px-6 pt-14 pb-10">
         {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="w-3 h-3 rounded-full bg-orange-500" />
-            <h1 className="text-4xl font-black text-white tracking-tight">Sightline</h1>
-          </div>
-          <p className="text-gray-400 mt-1">Create your account</p>
+        <div className="flex items-center gap-2.5 mb-6">
+          <span className="w-3.5 h-3.5 rounded-full bg-orange-500 shrink-0" />
+          <span className="text-white font-black text-4xl tracking-tight leading-none">
+            Sightline
+          </span>
         </div>
 
-        {/* Google Sign-In */}
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading}
-          className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mb-4"
-        >
-          <GoogleIcon />
-          {googleLoading ? "Redirecting..." : "Continue with Google"}
-        </button>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-[#242424]" />
-          <span className="text-gray-500 text-sm">or</span>
-          <div className="flex-1 h-px bg-[#242424]" />
-        </div>
-
-        {/* Email form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="Email"
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-          />
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="new-password"
-            placeholder="Password"
-            minLength={6}
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-          />
-          <input
-            name="confirm"
-            type="password"
-            required
-            autoComplete="new-password"
-            placeholder="Confirm password"
-            minLength={6}
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-          />
-
-          {error && (
-            <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mt-2"
-          >
-            {loading ? "Creating account..." : "Create Account"}
-          </button>
-        </form>
-
-        <p className="text-center text-gray-400 mt-6">
-          Already have an account?{" "}
-          <Link href="/login" className="text-orange-500 font-semibold">
-            Sign in
-          </Link>
+        {/* Tagline */}
+        <p className="text-2xl font-bold text-white text-center leading-snug mb-1">
+          Every job.{" "}
+          <span className="text-orange-500">One view.</span>
         </p>
+        <p className="text-gray-400 text-base text-center mb-8">
+          The job management app built for contractors.
+        </p>
+
+        {/* Bullet points */}
+        <div className="w-full max-w-sm flex flex-col gap-4">
+          {BULLETS.map(({ headline, sub }) => (
+            <div key={headline} className="flex items-start gap-3">
+              <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-orange-500/15 flex items-center justify-center">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M1.5 5l2.5 2.5 4.5-4.5"
+                    stroke="#F97316"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div>
+                <p className="text-white font-semibold text-base leading-snug">
+                  {headline}
+                </p>
+                <p className="text-gray-500 text-sm mt-0.5">{sub}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── FORM ── */}
+      <div className="flex-1 bg-[#111111] border-t border-[#1e1e1e] px-6 pt-8 pb-10 flex flex-col items-center">
+        <div className="w-full max-w-sm">
+          {/* Tabs */}
+          <div className="flex bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl p-1 mb-6">
+            <Link
+              href="/login"
+              className="flex-1 text-center text-gray-400 font-semibold text-base py-2.5 rounded-lg active:scale-95 transition-transform"
+            >
+              Sign In
+            </Link>
+            <span className="flex-1 text-center text-white font-bold text-base py-2.5 rounded-lg bg-orange-500">
+              Create Account
+            </span>
+          </div>
+
+          {/* Google */}
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+            className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mb-4"
+          >
+            <GoogleIcon />
+            {googleLoading ? "Redirecting..." : "Continue with Google"}
+          </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-[#242424]" />
+            <span className="text-gray-600 text-sm">or</span>
+            <div className="flex-1 h-px bg-[#242424]" />
+          </div>
+
+          {/* Email form */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="Email"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            />
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder="Password"
+              minLength={6}
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            />
+            <input
+              name="confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder="Confirm password"
+              minLength={6}
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            />
+
+            {error && (
+              <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mt-1"
+            >
+              {loading ? "Creating account..." : "Start Free Trial"}
+            </button>
+          </form>
+
+          <p className="text-center text-gray-500 text-sm mt-6">
+            $50/month · 3-month free trial · Cancel anytime
+          </p>
+        </div>
       </div>
     </div>
   );

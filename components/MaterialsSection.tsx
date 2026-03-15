@@ -92,11 +92,12 @@ function MaterialRow({
       {/* Edit mode */}
       {editing && (
         <div className="mt-3 flex flex-col gap-2">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1">
               <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Used</label>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="any"
                 value={usedVal}
@@ -109,6 +110,7 @@ function MaterialRow({
               <label className="text-gray-400 text-xs uppercase tracking-wider">Unit Cost $</label>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="any"
                 value={costVal}
@@ -210,7 +212,7 @@ export default function MaterialsSection({
             className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
           />
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 flex flex-col gap-1">
               <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Ordered *</label>
               <input
