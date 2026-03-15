@@ -73,6 +73,36 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.client_reference_id;
+      const customerId = session.customer as string;
+      const subscriptionId = session.subscription as string;
+
+      if (!userId || !subscriptionId) break;
+
+      // Retrieve subscription to get full status + period
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      await supabase.from("subscriptions").upsert(
+        {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          status: subscription.status,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          current_period_end: (subscription as any).current_period_end
+            ? new Date(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (subscription as any).current_period_end * 1000
+              ).toISOString()
+            : null,
+        },
+        { onConflict: "user_id" }
+      );
+      break;
+    }
+
     case "invoice.payment_failed": {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const invoice = event.data.object as any;
