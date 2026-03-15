@@ -15,7 +15,7 @@ export default async function Nav() {
         <div className="flex items-center gap-3">
           <Link
             href="/jobs"
-            className="text-white font-semibold text-base bg-zinc-900 border border-zinc-700 px-5 py-2 rounded-xl active:scale-95 transition-transform"
+            className="text-white font-semibold text-base bg-zinc-900 border border-zinc-700 px-5 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Jobs
           </Link>

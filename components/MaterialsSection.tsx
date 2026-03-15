@@ -56,13 +56,13 @@ function MaterialRow({
         <div className="flex gap-2">
           <button
             onClick={() => setEditing((e) => !e)}
-            className="text-zinc-400 text-sm px-3 py-1.5 rounded-lg border border-zinc-700 active:scale-95 transition-transform"
+            className="text-zinc-400 text-sm px-4 py-3 rounded-xl border border-zinc-700 active:scale-95 transition-transform"
           >
             {editing ? "Cancel" : "Edit"}
           </button>
           <button
             onClick={handleDelete}
-            className="text-red-500 text-sm px-3 py-1.5 rounded-lg border border-zinc-800 active:scale-95 transition-transform"
+            className="text-red-500 text-sm px-4 py-3 rounded-xl border border-zinc-800 active:scale-95 transition-transform"
           >
             ✕
           </button>
@@ -179,7 +179,7 @@ export default function MaterialsSection({
         <h2 className="text-white font-bold text-xl">Materials</h2>
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="text-white font-semibold text-sm bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-xl active:scale-95 transition-transform"
+          className="text-white font-semibold text-sm bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl active:scale-95 transition-transform"
         >
           {showForm ? "Cancel" : "+ Add"}
         </button>

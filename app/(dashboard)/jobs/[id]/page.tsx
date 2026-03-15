@@ -49,7 +49,7 @@ export default async function JobDetailPage({
           <div className="flex items-center gap-3">
             <Link
               href="/jobs"
-              className="text-zinc-400 text-2xl leading-none active:scale-95 transition-transform"
+              className="text-zinc-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
               aria-label="Back"
             >
               ←
