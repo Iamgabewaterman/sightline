@@ -1,19 +1,22 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { JobType } from "@/types";
 
 export async function createJob(formData: FormData) {
   const supabase = createClient();
 
   const name = formData.get("name") as string;
-  const type = formData.get("type") as JobType;
+  const types = formData.getAll("types") as string[];
   const address = formData.get("address") as string;
   const notes = formData.get("notes") as string;
 
+  if (types.length === 0) {
+    return { error: "Select at least one job type." };
+  }
+
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ name, type, address, notes: notes || null })
+    .insert({ name, types, address, notes: notes || null })
     .select("id")
     .single();
 

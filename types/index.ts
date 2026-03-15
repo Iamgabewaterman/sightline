@@ -6,14 +6,18 @@ export type JobType =
   | "trim"
   | "roofing"
   | "tile"
-  | "flooring";
+  | "flooring"
+  | "electrical"
+  | "hvac"
+  | "concrete"
+  | "landscaping";
 
 export type PhotoCategory = "before" | "during" | "after" | "receipts" | "damages";
 
 export interface Job {
   id: string;
   name: string;
-  type: JobType;
+  types: JobType[];
   address: string;
   notes: string | null;
   created_at: string;

@@ -2,17 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Job } from "@/types";
-
-const TYPE_LABELS: Record<string, string> = {
-  drywall: "Drywall",
-  framing: "Framing",
-  plumbing: "Plumbing",
-  paint: "Paint",
-  trim: "Trim",
-  roofing: "Roofing",
-  tile: "Tile",
-  flooring: "Flooring",
-};
+import TypeTags from "@/components/TypeTags";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -64,7 +54,14 @@ export default async function JobDetailPage({
 
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
-          <DetailRow label="Job Type" value={TYPE_LABELS[job.type] ?? job.type} />
+          {/* Types */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
+            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-3">
+              Job Type
+            </p>
+            <TypeTags types={job.types} />
+          </div>
+
           <DetailRow label="Address" value={job.address} />
           <DetailRow label="Created" value={formatDate(job.created_at)} />
           {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}

@@ -1,17 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Job } from "@/types";
-
-const TYPE_LABELS: Record<string, string> = {
-  drywall: "Drywall",
-  framing: "Framing",
-  plumbing: "Plumbing",
-  paint: "Paint",
-  trim: "Trim",
-  roofing: "Roofing",
-  tile: "Tile",
-  flooring: "Flooring",
-};
+import TypeTags from "@/components/TypeTags";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -62,18 +52,14 @@ export default async function JobsPage() {
               <li key={job.id}>
                 <Link
                   href={`/jobs/${job.id}`}
-                  className="block bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-5 active:scale-95 transition-transform hover:border-zinc-600"
+                  className="block bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-5 active:scale-95 transition-transform"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-white font-bold text-xl leading-tight">
-                      {job.name}
-                    </h2>
-                    <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-800 px-3 py-1 rounded-full mt-1">
-                      {TYPE_LABELS[job.type] ?? job.type}
-                    </span>
-                  </div>
-                  <p className="text-zinc-400 text-sm mt-2">{job.address}</p>
-                  <p className="text-zinc-600 text-xs mt-3">
+                  <h2 className="text-white font-bold text-xl leading-tight mb-3">
+                    {job.name}
+                  </h2>
+                  <TypeTags types={job.types} />
+                  <p className="text-zinc-400 text-sm mt-3">{job.address}</p>
+                  <p className="text-zinc-600 text-xs mt-2">
                     {formatDate(job.created_at)}
                   </p>
                 </Link>

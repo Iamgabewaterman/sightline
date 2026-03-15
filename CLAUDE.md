@@ -61,7 +61,7 @@ As jobs complete, actual vs. estimated material usage is logged. Over time, the 
 
 ## Job Types
 
-Job types are multi-select checkboxes, not a single dropdown. A job can have multiple types simultaneously (e.g. Roofing + Electrical + Tile). Available types: Drywall, Framing, Plumbing, Paint, Trim, Roofing, Tile, Flooring, Electrical. Store as a text array in Supabase (`text[]` column). Never use a single-select dropdown for job type.
+Job types are multi-select checkboxes, not a single dropdown. A job can have multiple types simultaneously (e.g. Roofing + Electrical + Tile). Available types: Drywall, Framing, Plumbing, Paint, Trim, Roofing, Tile, Flooring, Electrical, HVAC, Concrete, Landscaping. Store as a text array in Supabase (`text[]` column). Never use a single-select dropdown for job type.
 
 ## Collaboration Style
 
