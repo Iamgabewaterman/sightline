@@ -71,3 +71,13 @@ export async function updateJob(id: string, formData: FormData) {
 
   return { success: true };
 }
+
+export async function updateJobStatus(id: string, status: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("jobs")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  return { success: true };
+}

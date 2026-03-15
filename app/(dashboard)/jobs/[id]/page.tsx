@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo } from "@/types";
+import { Job, Photo, Material } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
+import JobStatus from "@/components/JobStatus";
+import MaterialsSection from "@/components/MaterialsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -21,7 +23,7 @@ export default async function JobDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: job }, { data: photos }] = await Promise.all([
+  const [{ data: job }, { data: photos }, { data: materials }] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
       .from("photos")
@@ -29,12 +31,18 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<Photo[]>(),
+    supabase
+      .from("materials")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<Material[]>(),
   ]);
 
   if (!job) notFound();
 
   return (
-    <div className="min-h-screen bg-black px-4 py-8">
+    <div className="min-h-screen bg-black px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-8">
@@ -58,6 +66,11 @@ export default async function JobDetailPage({
           </Link>
         </div>
 
+        {/* Job Status */}
+        <div className="mb-4">
+          <JobStatus jobId={job.id} initialStatus={job.status ?? "active"} />
+        </div>
+
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
@@ -71,6 +84,9 @@ export default async function JobDetailPage({
           <DetailRow label="Created" value={formatDate(job.created_at)} />
           {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
         </div>
+
+        {/* Materials */}
+        <MaterialsSection jobId={job.id} initialMaterials={materials ?? []} />
 
         {/* Photos */}
         <PhotoSection jobId={job.id} initialPhotos={photos ?? []} />

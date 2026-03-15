@@ -12,12 +12,15 @@ export type JobType =
   | "concrete"
   | "landscaping";
 
+export type JobStatus = "active" | "on_hold" | "completed";
+
 export type PhotoCategory = "before" | "during" | "after" | "receipts" | "damages";
 
 export interface Job {
   id: string;
   name: string;
   types: JobType[];
+  status: JobStatus;
   address: string;
   notes: string | null;
   created_at: string;
@@ -29,5 +32,16 @@ export interface Photo {
   job_id: string;
   category: PhotoCategory;
   storage_path: string;
+  created_at: string;
+}
+
+export interface Material {
+  id: string;
+  job_id: string;
+  name: string;
+  unit: string;
+  quantity_ordered: number;
+  quantity_used: number | null;
+  unit_cost: number | null;
   created_at: string;
 }
