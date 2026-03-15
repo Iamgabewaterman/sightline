@@ -107,11 +107,7 @@ export default async function JobDetailPage({
 
         {/* Generate Quote */}
         <div className="mb-4">
-          <GenerateQuote
-            job={job}
-            materials={materials ?? []}
-            laborLogs={laborLogs ?? []}
-          />
+          <GenerateQuote job={job} />
         </div>
 
         {/* Profitability bar — only shown when an estimate exists */}
