@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { saveEstimate } from "@/app/actions/estimates";
 import { saveCalculatorPrefs } from "@/app/actions/calculator-prefs";
 import { CalcPrefs } from "@/lib/calculator-prefs-types";
+import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 
 const TRADES = [
   { id: "drywall",  label: "Drywall"  },
@@ -25,30 +26,45 @@ interface CalcResult {
 }
 
 interface Props {
-  defaultSheetCost: string;
   jobs: { id: string; name: string }[];
   initialPrefs: CalcPrefs;
+  regionalPricing: RegionalCalcPricing;
 }
 
-export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs }: Props) {
+// Small label shown under cost inputs indicating the data source
+function PriceHint({ label, isBaseline }: { label: string; isBaseline: boolean }) {
+  return (
+    <p className={`text-xs mt-1 pl-1 ${isBaseline ? "text-gray-600" : "text-orange-400"}`}>
+      {label}
+    </p>
+  );
+}
+
+export default function CalculatorClient({ jobs, initialPrefs, regionalPricing }: Props) {
   const [trade, setTrade] = useState<TradeId>("drywall");
 
-  // Shared inputs
+  // Shared dimension inputs
   const [length, setLength] = useState("");
   const [width, setWidth]   = useState("");
   const [height, setHeight] = useState("");
 
-  // Trade-specific inputs
-  const [wallLF, setWallLF]     = useState(""); // framing: linear feet of wall
-  const [openings, setOpenings] = useState(""); // framing: doors + windows
+  // Framing inputs
+  const [wallLF, setWallLF]     = useState("");
+  const [openings, setOpenings] = useState("");
 
-  const [totalSqft, setTotalSqft] = useState(""); // paint / roofing
+  // Paint / roofing: can enter total sqft directly
+  const [totalSqft, setTotalSqft] = useState("");
+
+  // Trim inputs
+  const [trimLF, setTrimLF]             = useState("");
+  const [trimDoorLF, setTrimDoorLF]     = useState("");
+  const [trimWindowLF, setTrimWindowLF] = useState("");
 
   // User-preference selectors (loaded from DB, auto-saved on change)
-  const [drywallWaste, setDrywallWaste]   = useState(initialPrefs.drywall_waste_pct);
-  const [studSpacing, setStudSpacing]     = useState(initialPrefs.framing_stud_spacing);
-  const [coats, setCoats]                 = useState(initialPrefs.paint_coats);
-  const [roofingWaste, setRoofingWaste]   = useState(initialPrefs.roofing_waste_pct);
+  const [drywallWaste, setDrywallWaste] = useState(initialPrefs.drywall_waste_pct);
+  const [studSpacing, setStudSpacing]   = useState(initialPrefs.framing_stud_spacing);
+  const [coats, setCoats]               = useState(initialPrefs.paint_coats);
+  const [roofingWaste, setRoofingWaste] = useState(initialPrefs.roofing_waste_pct);
 
   function persistPref(update: Partial<CalcPrefs>) {
     const prefs: CalcPrefs = {
@@ -57,25 +73,23 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
       paint_coats:          update.paint_coats          ?? coats,
       roofing_waste_pct:    update.roofing_waste_pct    ?? roofingWaste,
     };
-    saveCalculatorPrefs(prefs); // fire-and-forget
+    saveCalculatorPrefs(prefs);
   }
 
-  function setPrefDrywallWaste(v: number)  { setDrywallWaste(v);  persistPref({ drywall_waste_pct: v }); }
-  function setPrefStudSpacing(v: number)   { setStudSpacing(v);   persistPref({ framing_stud_spacing: v }); }
-  function setPrefCoats(v: number)         { setCoats(v);         persistPref({ paint_coats: v }); }
-  function setPrefRoofingWaste(v: number)  { setRoofingWaste(v);  persistPref({ roofing_waste_pct: v }); }
+  function setPrefDrywallWaste(v: number) { setDrywallWaste(v); persistPref({ drywall_waste_pct: v }); }
+  function setPrefStudSpacing(v: number)  { setStudSpacing(v);  persistPref({ framing_stud_spacing: v }); }
+  function setPrefCoats(v: number)        { setCoats(v);        persistPref({ paint_coats: v }); }
+  function setPrefRoofingWaste(v: number) { setRoofingWaste(v); persistPref({ roofing_waste_pct: v }); }
 
-  const [trimLF, setTrimLF]             = useState(""); // trim: baseboard
-  const [trimDoorLF, setTrimDoorLF]     = useState(""); // trim: door casing
-  const [trimWindowLF, setTrimWindowLF] = useState(""); // trim: window casing
-
-  // Cost inputs
-  const [costPerSheet, setCostPerSheet]   = useState(defaultSheetCost); // drywall
-  const [costPerSqft, setCostPerSqft]     = useState(""); // tile / flooring
-  const [costPerGallon, setCostPerGallon] = useState(""); // paint
-  const [costPerSquare, setCostPerSquare] = useState(""); // roofing
-  const [costPerLF, setCostPerLF]         = useState(""); // framing / trim
-  const [costPerStud, setCostPerStud]     = useState(""); // framing
+  // Per-trade cost states — initialized from regional pricing
+  const [costPerSheet,       setCostPerSheet]       = useState(regionalPricing.drywall.value.toString());
+  const [framingCostPerStud, setFramingCostPerStud] = useState(regionalPricing.framingStud.value.toString());
+  const [framingCostPerLF,   setFramingCostPerLF]   = useState(regionalPricing.framingPlate.value.toString());
+  const [tileCostPerSqft,    setTileCostPerSqft]    = useState(regionalPricing.tile.value.toString());
+  const [costPerGallon,      setCostPerGallon]      = useState(regionalPricing.paint.value.toString());
+  const [costPerSquare,      setCostPerSquare]      = useState(regionalPricing.roofing.value.toString());
+  const [flooringCostPerSqft,setFlooringCostPerSqft]= useState(regionalPricing.flooring.value.toString());
+  const [trimCostPerLF,      setTrimCostPerLF]      = useState(regionalPricing.trim.value.toString());
 
   // Labor
   const [crew, setCrew]   = useState("");
@@ -96,55 +110,52 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
     setResult(null);
     setSaved(false);
     setSaveError("");
-
     switch (trade) {
-      case "drywall": calcDrywall(); break;
-      case "framing": calcFraming(); break;
-      case "tile":    calcTile();    break;
-      case "paint":   calcPaint();   break;
-      case "roofing": calcRoofing(); break;
-      case "flooring":calcFlooring();break;
-      case "trim":    calcTrim();    break;
+      case "drywall":  calcDrywall();  break;
+      case "framing":  calcFraming();  break;
+      case "tile":     calcTile();     break;
+      case "paint":    calcPaint();    break;
+      case "roofing":  calcRoofing();  break;
+      case "flooring": calcFlooring(); break;
+      case "trim":     calcTrim();     break;
     }
   }
 
   function calcDrywall() {
     const l = parseFloat(length), w = parseFloat(width), h = parseFloat(height);
     if (!l || !w || !h) return;
-    const total    = l * w + 2 * h * l + 2 * h * w;
-    const net      = Math.max(0, total - 40);
-    const waste    = net * (1 + drywallWaste / 100);
-    const sheets   = Math.ceil(waste / 32);
-    const cost     = parseFloat(costPerSheet) || 0;
-    const matTotal = Math.round(sheets * cost);
+    const total  = l * w + 2 * h * l + 2 * h * w;
+    const net    = Math.max(0, total - 40);
+    const waste  = net * (1 + drywallWaste / 100);
+    const sheets = Math.ceil(waste / 32);
+    const cost   = parseFloat(costPerSheet) || 0;
     setResult({
       lineItems: [
-        { label: "Total surface area", value: `${Math.round(total)} sq ft` },
-        { label: "Less doors/windows est.", value: "− 40 sq ft" },
-        { label: `+ ${drywallWaste}% waste`, value: `${Math.round(waste)} sq ft` },
+        { label: "Total surface area",        value: `${Math.round(total)} sq ft` },
+        { label: "Less doors/windows est.",   value: "− 40 sq ft" },
+        { label: `+ ${drywallWaste}% waste`,  value: `${Math.round(waste)} sq ft` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(sheets * cost),
       primaryDisplay: { qty: sheets, unit: "4×8 sheets", label: "Drywall Sheets Needed" },
     });
   }
 
   function calcFraming() {
     const lf  = parseFloat(wallLF);
-    const ops = parseInt(openings.toString()) || 0;
+    const ops = parseInt(openings) || 0;
     if (!lf) return;
     const studs   = Math.ceil((lf * 12) / studSpacing) + ops * 2 + Math.ceil(lf / 10);
     const plates  = Math.round(lf * 3);
     const headers = ops * 2;
-    const costStud  = parseFloat(costPerStud) || 0;
-    const costPlate = parseFloat(costPerLF) || 0;
-    const matTotal  = Math.round(studs * costStud + plates * costPlate);
+    const costStud  = parseFloat(framingCostPerStud) || 0;
+    const costPlate = parseFloat(framingCostPerLF)   || 0;
     setResult({
       lineItems: [
-        { label: `Studs (${studSpacing}" OC + corners/king studs)`, value: `${studs} studs` },
-        { label: "Plates (double top + single bottom)", value: `${plates} LF of 2x material` },
-        { label: "Headers (2x per opening)", value: `${headers} pieces` },
+        { label: `Studs (${studSpacing}" OC + corners/king studs)`,   value: `${studs} studs` },
+        { label: "Plates (double top + single bottom)",                value: `${plates} LF` },
+        { label: "Headers (2x per opening)",                           value: `${headers} pieces` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(studs * costStud + plates * costPlate),
       primaryDisplay: { qty: studs, unit: "studs", label: "Total Studs" },
     });
   }
@@ -152,16 +163,15 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
   function calcTile() {
     const l = parseFloat(length), w = parseFloat(width);
     if (!l || !w) return;
-    const sqft   = l * w;
-    const waste  = sqft * 1.1;
-    const cost   = parseFloat(costPerSqft) || 0;
-    const matTotal = Math.round(waste * cost);
+    const sqft  = l * w;
+    const waste = sqft * 1.1;
+    const cost  = parseFloat(tileCostPerSqft) || 0;
     setResult({
       lineItems: [
-        { label: "Room area", value: `${Math.round(sqft)} sq ft` },
+        { label: "Room area",   value: `${Math.round(sqft)} sq ft` },
         { label: "+ 10% waste", value: `${Math.round(waste)} sq ft` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(waste * cost),
       primaryDisplay: { qty: Math.round(waste), unit: "sq ft", label: "Tile Needed (with waste)" },
     });
   }
@@ -169,16 +179,15 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
   function calcPaint() {
     const sqft = parseFloat(totalSqft) || parseFloat(length) * parseFloat(width) * 2 || 0;
     if (!sqft) return;
-    const gallons  = Math.ceil((sqft * coats / 350) * 1.15);
-    const cost     = parseFloat(costPerGallon) || 0;
-    const matTotal = Math.round(gallons * cost);
+    const gallons = Math.ceil((sqft * coats / 350) * 1.15);
+    const cost    = parseFloat(costPerGallon) || 0;
     setResult({
       lineItems: [
-        { label: "Surface area", value: `${Math.round(sqft)} sq ft` },
-        { label: `${coats} coat(s) ÷ 350 sq ft/gal`, value: `${(sqft * coats / 350).toFixed(1)} gal` },
-        { label: "+ 15% waste", value: `${gallons} gal total` },
+        { label: "Surface area",                         value: `${Math.round(sqft)} sq ft` },
+        { label: `${coats} coat(s) ÷ 350 sq ft/gal`,   value: `${(sqft * coats / 350).toFixed(1)} gal` },
+        { label: "+ 15% waste",                          value: `${gallons} gal total` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(gallons * cost),
       primaryDisplay: { qty: gallons, unit: "gallons", label: "Paint Needed" },
     });
   }
@@ -186,17 +195,16 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
   function calcRoofing() {
     const sqft = parseFloat(totalSqft) || parseFloat(length) * parseFloat(width) || 0;
     if (!sqft) return;
-    const waste    = sqft * (1 + roofingWaste / 100);
-    const squares  = Math.ceil(waste / 100);
-    const cost     = parseFloat(costPerSquare) || 0;
-    const matTotal = Math.round(squares * cost);
+    const waste   = sqft * (1 + roofingWaste / 100);
+    const squares = Math.ceil(waste / 100);
+    const cost    = parseFloat(costPerSquare) || 0;
     setResult({
       lineItems: [
-        { label: "Roof area", value: `${Math.round(sqft)} sq ft` },
-        { label: `+ ${roofingWaste}% waste`, value: `${Math.round(waste)} sq ft` },
-        { label: "Squares (÷ 100)", value: `${squares} squares` },
+        { label: "Roof area",               value: `${Math.round(sqft)} sq ft` },
+        { label: `+ ${roofingWaste}% waste`,value: `${Math.round(waste)} sq ft` },
+        { label: "Squares (÷ 100)",         value: `${squares} squares` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(squares * cost),
       primaryDisplay: { qty: squares, unit: "squares", label: "Roofing Squares" },
     });
   }
@@ -206,14 +214,13 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
     if (!l || !w) return;
     const sqft  = l * w;
     const waste = sqft * 1.1;
-    const cost  = parseFloat(costPerSqft) || 0;
-    const matTotal = Math.round(waste * cost);
+    const cost  = parseFloat(flooringCostPerSqft) || 0;
     setResult({
       lineItems: [
-        { label: "Room area", value: `${Math.round(sqft)} sq ft` },
+        { label: "Room area",   value: `${Math.round(sqft)} sq ft` },
         { label: "+ 10% waste", value: `${Math.round(waste)} sq ft` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(waste * cost),
       primaryDisplay: { qty: Math.round(waste), unit: "sq ft", label: "Flooring Needed (with waste)" },
     });
   }
@@ -224,29 +231,28 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
     const window = parseFloat(trimWindowLF) || 0;
     const total  = base + door + window;
     if (!total) return;
-    const waste  = Math.ceil(total * 1.1);
-    const cost   = parseFloat(costPerLF) || 0;
-    const matTotal = Math.round(waste * cost);
+    const waste = Math.ceil(total * 1.1);
+    const cost  = parseFloat(trimCostPerLF) || 0;
     setResult({
       lineItems: [
-        { label: "Baseboard", value: `${base} LF` },
+        { label: "Baseboard",   value: `${base} LF` },
         { label: "Door casing", value: `${door} LF` },
-        { label: "Window casing", value: `${window} LF` },
+        { label: "Window casing",value: `${window} LF` },
         { label: "+ 10% waste", value: `${waste} LF total` },
       ],
-      materialTotal: matTotal,
+      materialTotal: Math.round(waste * cost),
       primaryDisplay: { qty: waste, unit: "linear feet", label: "Trim Needed (with waste)" },
     });
   }
 
-  const crewNum      = parseInt(crew) || 0;
-  const rateNum      = parseFloat(rate) || 0;
-  const hoursNum     = parseFloat(hours) || 0;
-  const laborTotal   = Math.round(crewNum * rateNum * hoursNum);
-  const matTot       = result?.materialTotal ?? 0;
-  const subtotal     = matTot + laborTotal;
-  const profit       = Math.round(subtotal * (margin / 100));
-  const finalQuote   = subtotal + profit;
+  const crewNum    = parseInt(crew) || 0;
+  const rateNum    = parseFloat(rate) || 0;
+  const hoursNum   = parseFloat(hours) || 0;
+  const laborTotal = Math.round(crewNum * rateNum * hoursNum);
+  const matTot     = result?.materialTotal ?? 0;
+  const subtotal   = matTot + laborTotal;
+  const profit     = Math.round(subtotal * (margin / 100));
+  const finalQuote = subtotal + profit;
 
   function handleSave() {
     if (!selectedJobId || !result) return;
@@ -275,7 +281,8 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
   const inputClass =
     "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors";
   const labelClass = "text-gray-400 text-sm font-medium uppercase tracking-wider";
-  const halfInput  = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center";
+  const halfInput  =
+    "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center";
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
@@ -304,9 +311,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
           ))}
         </div>
 
-        {/* ── Trade-specific inputs ── */}
-
-        {/* DRYWALL */}
+        {/* ── DRYWALL ── */}
         {trade === "drywall" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">4×8 sheets (32 sq ft each) — room dimensions</p>
@@ -337,11 +342,12 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per Sheet ($)</label>
               <input type="number" inputMode="decimal" min="0" step="any" value={costPerSheet} onChange={(e) => setCostPerSheet(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.drywall.label} isBaseline={regionalPricing.drywall.isBaseline} />
             </div>
           </div>
         )}
 
-        {/* FRAMING */}
+        {/* ── FRAMING ── */}
         {trade === "framing" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Studs, plates, and headers based on linear feet of wall</p>
@@ -368,17 +374,19 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <label className={labelClass}>Cost / Stud ($)</label>
-                <input type="number" inputMode="decimal" min="0" step="any" value={costPerStud} onChange={(e) => setCostPerStud(e.target.value)} placeholder="0.00" className={inputClass} />
+                <input type="number" inputMode="decimal" min="0" step="any" value={framingCostPerStud} onChange={(e) => setFramingCostPerStud(e.target.value)} placeholder="0.00" className={inputClass} />
+                <PriceHint label={regionalPricing.framingStud.label} isBaseline={regionalPricing.framingStud.isBaseline} />
               </div>
               <div className="flex flex-col gap-2">
                 <label className={labelClass}>Cost / LF Plate ($)</label>
-                <input type="number" inputMode="decimal" min="0" step="any" value={costPerLF} onChange={(e) => setCostPerLF(e.target.value)} placeholder="0.00" className={inputClass} />
+                <input type="number" inputMode="decimal" min="0" step="any" value={framingCostPerLF} onChange={(e) => setFramingCostPerLF(e.target.value)} placeholder="0.00" className={inputClass} />
+                <PriceHint label={regionalPricing.framingPlate.label} isBaseline={regionalPricing.framingPlate.isBaseline} />
               </div>
             </div>
           </div>
         )}
 
-        {/* TILE */}
+        {/* ── TILE ── */}
         {trade === "tile" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Square footage + 10% waste</p>
@@ -392,12 +400,13 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per Sq Ft ($)</label>
-              <input type="number" inputMode="decimal" min="0" step="any" value={costPerSqft} onChange={(e) => setCostPerSqft(e.target.value)} placeholder="0.00" className={inputClass} />
+              <input type="number" inputMode="decimal" min="0" step="any" value={tileCostPerSqft} onChange={(e) => setTileCostPerSqft(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.tile.label} isBaseline={regionalPricing.tile.isBaseline} />
             </div>
           </div>
         )}
 
-        {/* PAINT */}
+        {/* ── PAINT ── */}
         {trade === "paint" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Sq footage ÷ 350 sq ft/gal + 15% waste</p>
@@ -421,11 +430,12 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per Gallon ($)</label>
               <input type="number" inputMode="decimal" min="0" step="any" value={costPerGallon} onChange={(e) => setCostPerGallon(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.paint.label} isBaseline={regionalPricing.paint.isBaseline} />
             </div>
           </div>
         )}
 
-        {/* ROOFING */}
+        {/* ── ROOFING ── */}
         {trade === "roofing" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Squares (100 sq ft) + waste factor</p>
@@ -458,11 +468,12 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per Square ($)</label>
               <input type="number" inputMode="decimal" min="0" step="any" value={costPerSquare} onChange={(e) => setCostPerSquare(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.roofing.label} isBaseline={regionalPricing.roofing.isBaseline} />
             </div>
           </div>
         )}
 
-        {/* FLOORING */}
+        {/* ── FLOORING ── */}
         {trade === "flooring" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Square footage + 10% waste</p>
@@ -476,12 +487,13 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per Sq Ft ($)</label>
-              <input type="number" inputMode="decimal" min="0" step="any" value={costPerSqft} onChange={(e) => setCostPerSqft(e.target.value)} placeholder="0.00" className={inputClass} />
+              <input type="number" inputMode="decimal" min="0" step="any" value={flooringCostPerSqft} onChange={(e) => setFlooringCostPerSqft(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.flooring.label} isBaseline={regionalPricing.flooring.isBaseline} />
             </div>
           </div>
         )}
 
-        {/* TRIM */}
+        {/* ── TRIM ── */}
         {trade === "trim" && (
           <div className="flex flex-col gap-4">
             <p className="text-gray-400 text-sm">Linear feet — total with 10% waste</p>
@@ -499,7 +511,8 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Cost per LF ($)</label>
-              <input type="number" inputMode="decimal" min="0" step="any" value={costPerLF} onChange={(e) => setCostPerLF(e.target.value)} placeholder="0.00" className={inputClass} />
+              <input type="number" inputMode="decimal" min="0" step="any" value={trimCostPerLF} onChange={(e) => setTrimCostPerLF(e.target.value)} placeholder="0.00" className={inputClass} />
+              <PriceHint label={regionalPricing.trim.label} isBaseline={regionalPricing.trim.isBaseline} />
             </div>
           </div>
         )}
@@ -538,7 +551,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
               )}
             </div>
 
-            {/* ── Materials Cost ── */}
+            {/* Materials Cost */}
             <div className="mt-8">
               <h2 className="text-white font-bold text-xl mb-4">Materials Cost</h2>
               <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 flex justify-between items-center">
@@ -549,7 +562,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
               </div>
             </div>
 
-            {/* ── Labor ── */}
+            {/* Labor */}
             <div className="mt-8">
               <h2 className="text-white font-bold text-xl mb-4">Labor</h2>
               <div className="grid grid-cols-3 gap-3 mb-3">
@@ -576,7 +589,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
               </div>
             </div>
 
-            {/* ── Profit Margin ── */}
+            {/* Profit Margin */}
             <div className="mt-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-white font-bold text-xl">Profit Margin</h2>
@@ -592,7 +605,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
               </div>
             </div>
 
-            {/* ── Final Quote ── */}
+            {/* Final Quote */}
             <div className="mt-8 bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden">
               <div className="px-5 py-5 flex flex-col gap-3">
                 <div className="flex justify-between items-center">
@@ -614,7 +627,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs, initialPrefs 
               </div>
             </div>
 
-            {/* ── Save to Job ── */}
+            {/* Save to Job */}
             <div className="mt-6">
               {saved ? (
                 <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 text-center">

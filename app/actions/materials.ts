@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { parseAddress } from "@/lib/address-parser";
 
 export async function addMaterial(jobId: string, formData: FormData) {
   const supabase = createClient();
@@ -22,6 +23,8 @@ export async function addMaterial(jobId: string, formData: FormData) {
     return { error: "Name, unit, and quantity ordered are required." };
   }
 
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from("materials")
     .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes })
@@ -29,6 +32,29 @@ export async function addMaterial(jobId: string, formData: FormData) {
     .single();
 
   if (error) return { error: error.message };
+
+  // Fire-and-forget: record price data for regional intelligence
+  if (unit_cost !== null && user) {
+    supabase
+      .from("jobs")
+      .select("address")
+      .eq("id", jobId)
+      .single()
+      .then(({ data: job }) => {
+        const { zip, city, state } = parseAddress(job?.address);
+        supabase.from("regional_materials").insert({
+          material_name: name,
+          length_ft,
+          unit,
+          unit_cost,
+          zip_code: zip,
+          city,
+          state,
+          user_id: user.id,
+        });
+      });
+  }
+
   return { material: data };
 }
 
