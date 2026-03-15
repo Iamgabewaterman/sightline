@@ -24,6 +24,7 @@ export interface Job {
   status: JobStatus;
   address: string;
   notes: string | null;
+  lockbox_code: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -58,6 +58,7 @@ export async function updateJob(id: string, formData: FormData) {
   const types = formData.getAll("types") as string[];
   const address = formData.get("address") as string;
   const notes = formData.get("notes") as string;
+  const lockbox_code = formData.get("lockbox_code") as string;
 
   if (types.length === 0) {
     return { error: "Select at least one job type." };
@@ -65,13 +66,28 @@ export async function updateJob(id: string, formData: FormData) {
 
   const { error } = await supabase
     .from("jobs")
-    .update({ name, types, address, notes: notes || null, updated_at: new Date().toISOString() })
+    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {
     return { error: error.message };
   }
 
+  return { success: true };
+}
+
+export async function deleteJob(id: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("jobs")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id); // defence-in-depth
+
+  if (error) return { error: error.message };
   return { success: true };
 }
 

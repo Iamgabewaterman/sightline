@@ -22,6 +22,12 @@ export default async function Nav() {
           >
             Dashboard
           </Link>
+          <Link
+            href="/receipts"
+            className="text-white font-semibold text-base bg-[#1A1A1A] border border-[#2a2a2a] px-5 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Receipts
+          </Link>
           <LogoutButton />
         </div>
       )}

@@ -9,6 +9,8 @@ import MaterialsSection from "@/components/MaterialsSection";
 import ProfitBar from "@/components/ProfitBar";
 import ReceiptsSection from "@/components/ReceiptsSection";
 import LaborSection from "@/components/LaborSection";
+import LockboxCode from "@/components/LockboxCode";
+import DeleteJobButton from "@/components/DeleteJobButton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -126,6 +128,7 @@ export default async function JobDetailPage({
           <DetailRow label="Address" value={job.address} />
           <DetailRow label="Created" value={formatDate(job.created_at)} />
           {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
+          {job.lockbox_code && <LockboxCode code={job.lockbox_code} />}
         </div>
 
         {/* Materials */}
@@ -139,6 +142,11 @@ export default async function JobDetailPage({
 
         {/* Photos */}
         <PhotoSection jobId={job.id} initialPhotos={photos ?? []} />
+
+        {/* Danger zone */}
+        <div className="mt-10 pt-6 border-t border-[#2a2a2a]">
+          <DeleteJobButton jobId={job.id} jobName={job.name} />
+        </div>
       </div>
     </div>
   );
