@@ -32,15 +32,40 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isSubscribePage = pathname.startsWith("/subscribe");
+  const isApiRoute = pathname.startsWith("/api");
+  const isAuthCallback = pathname.startsWith("/auth");
 
-  // Not logged in and trying to access a protected page
-  if (!user && !isAuthPage) {
+  // Not logged in → send to login
+  if (!user && !isAuthPage && !isAuthCallback) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Logged in and hitting auth pages — send to jobs
+  // Logged in and hitting auth pages → send to dashboard
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL("/jobs", request.url));
+  }
+
+  // Subscription enforcement (skip for auth/subscribe/api routes)
+  if (user && !isAuthPage && !isSubscribePage && !isApiRoute && !isAuthCallback) {
+    const trialEndsAt = new Date(user.created_at);
+    trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
+    const onTrial = new Date() < trialEndsAt;
+
+    if (!onTrial) {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isActive =
+        sub?.status === "active" || sub?.status === "trialing";
+
+      if (!isActive) {
+        return NextResponse.redirect(new URL("/subscribe", request.url));
+      }
+    }
   }
 
   return supabaseResponse;

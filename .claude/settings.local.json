@@ -11,7 +11,10 @@
       "Bash(git push:*)",
       "Bash(ls:*)",
       "Bash(find app:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(node:*)"
     ]
   }
 }
