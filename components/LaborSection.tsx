@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor";
 import { LaborLog } from "@/types";
+import { useJobCost } from "@/components/JobCostContext";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -19,6 +20,13 @@ export default function LaborSection({
   initialLogs: LaborLog[];
 }) {
   const [logs, setLogs] = useState<LaborLog[]>(initialLogs);
+  const { setActualLaborCost } = useJobCost();
+
+  useEffect(() => {
+    const cost = logs.reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
+    setActualLaborCost(cost);
+  }, [logs, setActualLaborCost]);
+
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");

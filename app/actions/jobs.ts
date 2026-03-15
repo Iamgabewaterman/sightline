@@ -79,7 +79,12 @@ export async function updateJob(id: string, formData: FormData) {
 
 export async function updateJobDimensions(
   id: string,
-  dims: { dim_length: number | null; dim_width: number | null; dim_height: number | null }
+  dims: {
+    dim_length: number | null;
+    dim_width: number | null;
+    dim_height: number | null;
+    calculated_sqft: number | null;
+  }
 ) {
   const supabase = createClient();
   const { error } = await supabase

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial, getPastMaterialNames } from "@/app/actions/materials";
 import { Material } from "@/types";
+import { useJobCost } from "@/components/JobCostContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -407,11 +408,24 @@ function MaterialRow({
 export default function MaterialsSection({
   jobId,
   initialMaterials,
+  onMaterialsAdded,
 }: {
   jobId: string;
   initialMaterials: Material[];
+  onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
   const [materials,  setMaterials]  = useState<Material[]>(initialMaterials);
+  const { setActualMaterialCost } = useJobCost();
+
+  useEffect(() => {
+    const cost = materials.reduce((sum, m) => {
+      if (m.unit_cost === null) return sum;
+      const qty = m.quantity_used ?? m.quantity_ordered;
+      return sum + Number(qty) * Number(m.unit_cost);
+    }, 0);
+    setActualMaterialCost(cost);
+  }, [materials, setActualMaterialCost]);
+
   const [showForm,   setShowForm]   = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState("");
@@ -475,6 +489,10 @@ export default function MaterialsSection({
 
   function handleDelete(id: string) {
     setMaterials((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  function handleAddMany(newMaterials: Material[]) {
+    setMaterials((prev) => [...newMaterials, ...prev]);
   }
 
   const inputClass =

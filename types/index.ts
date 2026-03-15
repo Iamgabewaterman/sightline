@@ -28,6 +28,7 @@ export interface Job {
   dim_length: number | null;
   dim_width: number | null;
   dim_height: number | null;
+  calculated_sqft: number | null;
   created_at: string;
   updated_at: string;
 }
