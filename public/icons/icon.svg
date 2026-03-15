@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0F0F0F"/>
+  <!-- Sightline reticle: outer ring, gap, inner dot -->
+  <circle cx="256" cy="256" r="168" fill="#f97316"/>
+  <circle cx="256" cy="256" r="100" fill="#0F0F0F"/>
+  <circle cx="256" cy="256" r="52"  fill="#f97316"/>
+</svg>
