@@ -46,3 +46,15 @@ export interface Material {
   unit_cost: number | null;
   created_at: string;
 }
+
+export interface Estimate {
+  id: string;
+  job_id: string;
+  user_id: string;
+  type: string;
+  material_total: number;
+  labor_total: number;
+  profit_margin_pct: number;
+  final_quote: number;
+  created_at: string;
+}

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material } from "@/types";
+import { Job, Photo, Material, Estimate } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
 import MaterialsSection from "@/components/MaterialsSection";
+import ProfitBar from "@/components/ProfitBar";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -23,23 +24,39 @@ export default async function JobDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: job }, { data: photos }, { data: materials }] = await Promise.all([
-    supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
-    supabase
-      .from("photos")
-      .select("*")
-      .eq("job_id", params.id)
-      .order("created_at", { ascending: false })
-      .returns<Photo[]>(),
-    supabase
-      .from("materials")
-      .select("*")
-      .eq("job_id", params.id)
-      .order("created_at", { ascending: false })
-      .returns<Material[]>(),
-  ]);
+  const [{ data: job }, { data: photos }, { data: materials }, { data: estimate }] =
+    await Promise.all([
+      supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
+      supabase
+        .from("photos")
+        .select("*")
+        .eq("job_id", params.id)
+        .order("created_at", { ascending: false })
+        .returns<Photo[]>(),
+      supabase
+        .from("materials")
+        .select("*")
+        .eq("job_id", params.id)
+        .order("created_at", { ascending: false })
+        .returns<Material[]>(),
+      supabase
+        .from("estimates")
+        .select("material_total, labor_total, profit_margin_pct, final_quote")
+        .eq("job_id", params.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<Pick<Estimate, "material_total" | "labor_total" | "profit_margin_pct" | "final_quote">>(),
+    ]);
 
   if (!job) notFound();
+
+  // Actual materials cost = sum of (quantity_used × unit_cost) where both are logged
+  const actualMaterialCost = (materials ?? []).reduce((sum, m) => {
+    if (m.quantity_used !== null && m.unit_cost !== null) {
+      return sum + Number(m.quantity_used) * Number(m.unit_cost);
+    }
+    return sum;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-black px-4 py-8 pb-16">
@@ -70,6 +87,18 @@ export default async function JobDetailPage({
         <div className="mb-4">
           <JobStatus jobId={job.id} initialStatus={job.status ?? "active"} />
         </div>
+
+        {/* Profitability bar — only shown when an estimate exists */}
+        {estimate && (
+          <div className="mb-4">
+            <ProfitBar
+              materialBudget={estimate.material_total}
+              laborBudget={estimate.labor_total}
+              totalQuote={estimate.final_quote}
+              actualMaterialCost={actualMaterialCost}
+            />
+          </div>
+        )}
 
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
