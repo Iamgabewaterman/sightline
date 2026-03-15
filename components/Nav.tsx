@@ -7,8 +7,8 @@ export default async function Nav() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <nav className="bg-black border-b border-zinc-800 px-4 py-4 flex items-center justify-between">
-      <Link href={user ? "/jobs" : "/"} className="text-white font-bold text-xl tracking-tight">
+    <nav className="bg-black border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+      <Link href={user ? "/jobs" : "/"} className="text-white font-black text-2xl tracking-tight leading-none">
         Sightline
       </Link>
       {user && (
