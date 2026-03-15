@@ -15,7 +15,8 @@
       "Bash(npm install:*)",
       "mcp__claude_ai_Supabase__list_projects",
       "Bash(node:*)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "Bash(cd:*)"
     ]
   }
 }
