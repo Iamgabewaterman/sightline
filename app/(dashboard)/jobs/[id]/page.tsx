@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
 import MaterialsSection from "@/components/MaterialsSection";
 import ProfitBar from "@/components/ProfitBar";
 import ReceiptsSection from "@/components/ReceiptsSection";
+import LaborSection from "@/components/LaborSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -25,7 +26,7 @@ export default async function JobDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: job }, { data: photos }, { data: materials }, { data: estimate }, { data: receipts }] =
+  const [{ data: job }, { data: photos }, { data: materials }, { data: estimate }, { data: receipts }, { data: laborLogs }] =
     await Promise.all([
       supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
       supabase
@@ -53,6 +54,12 @@ export default async function JobDetailPage({
         .eq("job_id", params.id)
         .order("created_at", { ascending: false })
         .returns<Receipt[]>(),
+      supabase
+        .from("labor_logs")
+        .select("*")
+        .eq("job_id", params.id)
+        .order("created_at", { ascending: false })
+        .returns<LaborLog[]>(),
     ]);
 
   if (!job) notFound();
@@ -123,6 +130,9 @@ export default async function JobDetailPage({
 
         {/* Materials */}
         <MaterialsSection jobId={job.id} initialMaterials={materials ?? []} />
+
+        {/* Labor */}
+        <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
 
         {/* Receipts */}
         <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />

@@ -47,6 +47,15 @@ export interface Material {
   created_at: string;
 }
 
+export interface LaborLog {
+  id: string;
+  job_id: string;
+  crew_name: string;
+  hours: number;
+  rate: number;
+  created_at: string;
+}
+
 export interface Receipt {
   id: string;
   job_id: string;
