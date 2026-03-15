@@ -20,7 +20,7 @@ export default function TypeTags({ types }: { types: string[] }) {
       {types.map((t) => (
         <span
           key={t}
-          className="text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-800 px-3 py-1 rounded-full"
+          className="text-xs font-semibold uppercase tracking-wider text-white bg-[#292929] px-3 py-1 rounded-full"
         >
           {TYPE_LABELS[t] ?? t}
         </span>
