@@ -35,16 +35,16 @@ export default function SignupForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4 text-center">
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4 text-center">
         <div className="w-full max-w-sm">
-          <div className="text-5xl mb-6">✓</div>
+          <div className="text-5xl mb-6 text-orange-500">✓</div>
           <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
-          <p className="text-zinc-400 mb-8">
+          <p className="text-gray-400 mb-8">
             We sent a confirmation link to your email. Click it to activate your account.
           </p>
           <Link
             href="/login"
-            className="block bg-white text-black font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform"
+            className="block bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform"
           >
             Back to Sign In
           </Link>
@@ -54,12 +54,15 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-white tracking-tight">Sightline</h1>
-          <p className="text-zinc-500 mt-2">Create your account</p>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="w-3 h-3 rounded-full bg-orange-500" />
+            <h1 className="text-4xl font-black text-white tracking-tight">Sightline</h1>
+          </div>
+          <p className="text-gray-400 mt-1">Create your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -69,7 +72,7 @@ export default function SignupForm() {
             required
             autoComplete="email"
             placeholder="Email"
-            className="bg-zinc-900 border border-zinc-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-zinc-600 focus:outline-none focus:border-white transition-colors"
+            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
           <input
             name="password"
@@ -78,7 +81,7 @@ export default function SignupForm() {
             autoComplete="new-password"
             placeholder="Password"
             minLength={6}
-            className="bg-zinc-900 border border-zinc-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-zinc-600 focus:outline-none focus:border-white transition-colors"
+            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
           <input
             name="confirm"
@@ -87,7 +90,7 @@ export default function SignupForm() {
             autoComplete="new-password"
             placeholder="Confirm password"
             minLength={6}
-            className="bg-zinc-900 border border-zinc-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-zinc-600 focus:outline-none focus:border-white transition-colors"
+            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
 
           {error && (
@@ -99,15 +102,15 @@ export default function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-white text-black font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mt-2"
+            className="bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mt-2"
           >
             {loading ? "Creating account..." : "Create Account"}
           </button>
         </form>
 
-        <p className="text-center text-zinc-500 mt-6">
+        <p className="text-center text-gray-400 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-white font-semibold">
+          <Link href="/login" className="text-orange-500 font-semibold">
             Sign in
           </Link>
         </p>

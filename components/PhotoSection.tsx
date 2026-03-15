@@ -132,7 +132,6 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
     if (errors.length > 0) setError(errors.join(" · "));
     setUploading(false);
 
-    // Reset inputs so the same file can be re-selected
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   }
@@ -141,7 +140,6 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
 
   return (
     <div className="mt-8">
-      {/* Section header */}
       <h2 className="text-white font-bold text-xl mb-4">Photos</h2>
 
       {/* Category tabs */}
@@ -152,8 +150,8 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
             onClick={() => setActiveCategory(value)}
             className={`shrink-0 px-4 py-3 rounded-xl font-semibold text-sm transition-colors active:scale-95
               ${activeCategory === value
-                ? "bg-white text-black"
-                : "bg-zinc-900 text-zinc-400 border border-zinc-700"
+                ? "bg-orange-500 text-white"
+                : "bg-gray-800 text-gray-400 border border-gray-700"
               }`}
           >
             {label}
@@ -166,7 +164,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         <button
           onClick={() => cameraInputRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 bg-gray-800 border border-gray-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
         >
           <span className="text-xl">📷</span>
           Take Photo
@@ -174,7 +172,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         <button
           onClick={() => galleryInputRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 bg-gray-800 border border-gray-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
         >
           <span className="text-xl">🖼️</span>
           Upload Photo
@@ -182,7 +180,6 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
       </div>
 
       {/* Hidden inputs */}
-      {/* Camera: capture="environment" triggers rear camera on mobile */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -192,7 +189,6 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
-      {/* Gallery: no capture attr = file picker / photo library */}
       <input
         ref={galleryInputRef}
         type="file"
@@ -202,12 +198,10 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         onChange={(e) => handleFiles(e.target.files)}
       />
 
-      {/* Uploading indicator */}
       {uploading && (
-        <p className="text-zinc-400 text-sm mb-4 animate-pulse">Compressing and uploading...</p>
+        <p className="text-gray-400 text-sm mb-4 animate-pulse">Compressing and uploading...</p>
       )}
 
-      {/* Error */}
       {error && (
         <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3 mb-4">
           {error}
@@ -216,8 +210,8 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
 
       {/* Photo grid */}
       {visiblePhotos.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl py-12 text-center">
-          <p className="text-zinc-600 text-sm">
+        <div className="bg-gray-800 border border-gray-700 rounded-xl py-12 text-center">
+          <p className="text-gray-500 text-sm">
             No {activeCategory} photos yet
           </p>
         </div>
@@ -229,7 +223,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
               <button
                 key={photo.id}
                 onClick={() => setFullscreen(url)}
-                className="aspect-square rounded-xl overflow-hidden bg-zinc-900 active:scale-95 transition-transform"
+                className="aspect-square rounded-xl overflow-hidden bg-gray-800 active:scale-95 transition-transform"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

@@ -46,23 +46,23 @@ function MaterialRow({
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-4">
       {/* Name + unit */}
       <div className="flex items-center justify-between mb-3">
         <div>
           <span className="text-white font-semibold text-base">{material.name}</span>
-          <span className="text-zinc-500 text-sm ml-2">({material.unit})</span>
+          <span className="text-gray-400 text-sm ml-2">({material.unit})</span>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setEditing((e) => !e)}
-            className="text-zinc-400 text-sm px-4 py-3 rounded-xl border border-zinc-700 active:scale-95 transition-transform"
+            className="text-gray-400 text-sm px-4 py-3 rounded-xl border border-gray-700 active:scale-95 transition-transform"
           >
             {editing ? "Cancel" : "Edit"}
           </button>
           <button
             onClick={handleDelete}
-            className="text-red-500 text-sm px-4 py-3 rounded-xl border border-zinc-800 active:scale-95 transition-transform"
+            className="text-red-400 text-sm px-4 py-3 rounded-xl border border-gray-800 active:scale-95 transition-transform"
           >
             ✕
           </button>
@@ -71,19 +71,19 @@ function MaterialRow({
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-zinc-800 rounded-lg py-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-0.5">Ordered</p>
+        <div className="bg-gray-700 rounded-lg py-2">
+          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Ordered</p>
           <p className="text-white font-semibold">{material.quantity_ordered}</p>
         </div>
-        <div className="bg-zinc-800 rounded-lg py-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-0.5">Used</p>
-          <p className={`font-semibold ${material.quantity_used !== null ? "text-white" : "text-zinc-600"}`}>
+        <div className="bg-gray-700 rounded-lg py-2">
+          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Used</p>
+          <p className={`font-semibold ${material.quantity_used !== null ? "text-white" : "text-gray-600"}`}>
             {fmt(material.quantity_used)}
           </p>
         </div>
-        <div className="bg-zinc-800 rounded-lg py-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-0.5">Unit Cost</p>
-          <p className={`font-semibold ${material.unit_cost !== null ? "text-white" : "text-zinc-600"}`}>
+        <div className="bg-gray-700 rounded-lg py-2">
+          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Unit Cost</p>
+          <p className={`font-semibold ${material.unit_cost !== null ? "text-orange-500" : "text-gray-600"}`}>
             {fmt(material.unit_cost, "$")}
           </p>
         </div>
@@ -94,7 +94,7 @@ function MaterialRow({
         <div className="mt-3 flex flex-col gap-2">
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-zinc-500 text-xs uppercase tracking-wider">Qty Used</label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Used</label>
               <input
                 type="number"
                 min="0"
@@ -102,11 +102,11 @@ function MaterialRow({
                 value={usedVal}
                 onChange={(e) => setUsedVal(e.target.value)}
                 placeholder="0"
-                className="w-full mt-1 bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-white"
+                className="w-full mt-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
             <div className="flex-1">
-              <label className="text-zinc-500 text-xs uppercase tracking-wider">Unit Cost $</label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Unit Cost $</label>
               <input
                 type="number"
                 min="0"
@@ -114,7 +114,7 @@ function MaterialRow({
                 value={costVal}
                 onChange={(e) => setCostVal(e.target.value)}
                 placeholder="0.00"
-                className="w-full mt-1 bg-zinc-800 border border-zinc-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-white"
+                className="w-full mt-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ function MaterialRow({
           <button
             onClick={save}
             disabled={saving}
-            className="bg-white text-black font-bold py-3 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+            className="bg-orange-500 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -179,7 +179,7 @@ export default function MaterialsSection({
         <h2 className="text-white font-bold text-xl">Materials</h2>
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="text-white font-semibold text-sm bg-zinc-900 border border-zinc-700 px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          className="text-white font-semibold text-sm bg-gray-800 border border-gray-700 px-4 py-3 rounded-xl active:scale-95 transition-transform"
         >
           {showForm ? "Cancel" : "+ Add"}
         </button>
@@ -190,32 +190,29 @@ export default function MaterialsSection({
         <form
           ref={formRef}
           onSubmit={handleAdd}
-          className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-4 mb-4 flex flex-col gap-3"
+          className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-4 mb-4 flex flex-col gap-3"
         >
-          <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">New Material</p>
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">New Material</p>
 
-          {/* Name */}
           <input
             name="name"
             type="text"
             required
             placeholder="Material name (e.g. Drywall 5/8&quot; 4x8)"
-            className="bg-zinc-800 border border-zinc-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-zinc-600 focus:outline-none focus:border-white"
+            className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
           />
 
-          {/* Unit */}
           <input
             name="unit"
             type="text"
             required
             placeholder="Unit (sheets, studs, bags, rolls, lbs...)"
-            className="bg-zinc-800 border border-zinc-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-zinc-600 focus:outline-none focus:border-white"
+            className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
           />
 
-          {/* Qty ordered + Qty used */}
           <div className="flex gap-3">
             <div className="flex-1 flex flex-col gap-1">
-              <label className="text-zinc-500 text-xs uppercase tracking-wider">Qty Ordered *</label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Ordered *</label>
               <input
                 name="quantity_ordered"
                 type="number"
@@ -223,32 +220,31 @@ export default function MaterialsSection({
                 step="any"
                 required
                 placeholder="0"
-                className="bg-zinc-800 border border-zinc-600 text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-white"
+                className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <label className="text-zinc-500 text-xs uppercase tracking-wider">Qty Used</label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Used</label>
               <input
                 name="quantity_used"
                 type="number"
                 min="0"
                 step="any"
                 placeholder="Fill in later"
-                className="bg-zinc-800 border border-zinc-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-zinc-600 focus:outline-none focus:border-white"
+                className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
 
-          {/* Unit cost */}
           <div className="flex flex-col gap-1">
-            <label className="text-zinc-500 text-xs uppercase tracking-wider">Unit Cost $</label>
+            <label className="text-gray-400 text-xs uppercase tracking-wider">Unit Cost $</label>
             <input
               name="unit_cost"
               type="number"
               min="0"
               step="any"
               placeholder="0.00 — fill in from receipt later"
-              className="bg-zinc-800 border border-zinc-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-zinc-600 focus:outline-none focus:border-white"
+              className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
             />
           </div>
 
@@ -261,7 +257,7 @@ export default function MaterialsSection({
           <button
             type="submit"
             disabled={saving}
-            className="bg-white text-black font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+            className="bg-orange-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
           >
             {saving ? "Adding..." : "Add Material"}
           </button>
@@ -270,8 +266,8 @@ export default function MaterialsSection({
 
       {/* Materials list */}
       {materials.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl py-10 text-center">
-          <p className="text-zinc-600 text-sm">No materials logged yet</p>
+        <div className="bg-gray-800 border border-gray-700 rounded-xl py-10 text-center">
+          <p className="text-gray-500 text-sm">No materials logged yet</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

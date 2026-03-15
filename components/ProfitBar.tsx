@@ -15,22 +15,19 @@ export default function ProfitBar({
 
   const profitBudget = totalQuote - materialBudget - laborBudget;
 
-  // Zone widths as % of total quote
   const materialZonePct = (materialBudget / totalQuote) * 100;
   const laborZonePct = (laborBudget / totalQuote) * 100;
 
-  // Actual fill — capped at 100% visually
   const rawFillPct = (actualMaterialCost / totalQuote) * 100;
   const fillPct = Math.min(rawFillPct, 100);
   const hasData = actualMaterialCost > 0;
 
-  // Status + fill color
   const isOverQuote = actualMaterialCost >= totalQuote;
   const isOverMaterials = actualMaterialCost > materialBudget;
 
   let status = "No costs logged yet";
-  let statusColor = "text-zinc-600";
-  let fillHex = "#ffffff"; // white = on track
+  let statusColor = "text-gray-500";
+  let fillHex = "#F97316"; // orange = on track
 
   if (hasData) {
     if (isOverQuote) {
@@ -40,48 +37,40 @@ export default function ProfitBar({
     } else if (isOverMaterials) {
       status = "Eating into margin";
       statusColor = "text-yellow-400";
-      fillHex = "#facc15";
+      fillHex = "#eab308";
     } else {
       status = "On track";
-      statusColor = "text-emerald-400";
-      fillHex = "#ffffff";
+      statusColor = "text-orange-500";
+      fillHex = "#F97316";
     }
   }
 
-  const actualFormatted = `$${Math.round(actualMaterialCost).toLocaleString()}`;
-  const materialBudgetFormatted = `$${Math.round(materialBudget).toLocaleString()}`;
-  const laborBudgetFormatted = `$${Math.round(laborBudget).toLocaleString()}`;
-  const profitFormatted = `$${Math.round(profitBudget).toLocaleString()}`;
-  const quoteFormatted = `$${Math.round(totalQuote).toLocaleString()}`;
-
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
           Profitability
         </p>
         <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
       </div>
 
       {/* Bar */}
-      <div className="relative h-7 bg-zinc-800 rounded-xl overflow-hidden">
+      <div className="relative h-7 bg-gray-700 rounded-xl overflow-hidden">
         {/* Profit zone — slightly lighter to show it's the cushion */}
         <div
-          className="absolute top-0 bottom-0 bg-zinc-700"
+          className="absolute top-0 bottom-0 bg-gray-600"
           style={{ left: `${materialZonePct + laborZonePct}%`, right: 0 }}
         />
-
         {/* Zone divider lines */}
         <div
-          className="absolute top-0 bottom-0 w-px bg-zinc-600 z-10"
+          className="absolute top-0 bottom-0 w-px bg-gray-500 z-10"
           style={{ left: `${materialZonePct}%` }}
         />
         <div
-          className="absolute top-0 bottom-0 w-px bg-zinc-600 z-10"
+          className="absolute top-0 bottom-0 w-px bg-gray-500 z-10"
           style={{ left: `${materialZonePct + laborZonePct}%` }}
         />
-
         {/* Actual spend fill */}
         {hasData && (
           <div
@@ -91,16 +80,16 @@ export default function ProfitBar({
         )}
       </div>
 
-      {/* Zone labels under bar */}
+      {/* Zone labels */}
       <div className="relative h-5 mt-1">
         <span
-          className="absolute text-zinc-600 text-xs"
+          className="absolute text-gray-500 text-xs"
           style={{ left: `${materialZonePct / 2}%`, transform: "translateX(-50%)" }}
         >
           Mat.
         </span>
         <span
-          className="absolute text-zinc-600 text-xs"
+          className="absolute text-gray-500 text-xs"
           style={{
             left: `${materialZonePct + laborZonePct / 2}%`,
             transform: "translateX(-50%)",
@@ -109,7 +98,7 @@ export default function ProfitBar({
           Labor
         </span>
         <span
-          className="absolute text-zinc-600 text-xs"
+          className="absolute text-gray-500 text-xs"
           style={{
             left: `${materialZonePct + laborZonePct + (100 - materialZonePct - laborZonePct) / 2}%`,
             transform: "translateX(-50%)",
@@ -120,35 +109,31 @@ export default function ProfitBar({
       </div>
 
       {/* Stats */}
-      <div className="mt-3 flex flex-col gap-2 border-t border-zinc-800 pt-3">
+      <div className="mt-3 flex flex-col gap-2 border-t border-gray-700 pt-3">
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">Materials logged</span>
+          <span className="text-gray-400">Materials logged</span>
           <span>
             <span
               className={`font-semibold ${
-                isOverQuote
-                  ? "text-red-400"
-                  : isOverMaterials
-                  ? "text-yellow-400"
-                  : "text-white"
+                isOverQuote ? "text-red-400" : isOverMaterials ? "text-yellow-400" : "text-orange-500"
               }`}
             >
-              {actualFormatted}
+              ${Math.round(actualMaterialCost).toLocaleString()}
             </span>
-            <span className="text-zinc-600"> / {materialBudgetFormatted} est.</span>
+            <span className="text-gray-500"> / ${Math.round(materialBudget).toLocaleString()} est.</span>
           </span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">Labor est.</span>
-          <span className="text-zinc-400">{laborBudgetFormatted}</span>
+          <span className="text-gray-400">Labor est.</span>
+          <span className="text-gray-400">${Math.round(laborBudget).toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-500">Profit zone</span>
-          <span className="text-zinc-400">{profitFormatted}</span>
+          <span className="text-gray-400">Profit zone</span>
+          <span className="text-gray-400">${Math.round(profitBudget).toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm border-t border-zinc-800 pt-2 mt-0.5">
-          <span className="text-zinc-500">Total quote</span>
-          <span className="text-white font-semibold">{quoteFormatted}</span>
+        <div className="flex justify-between text-sm border-t border-gray-700 pt-2">
+          <span className="text-gray-400">Total quote</span>
+          <span className="text-white font-semibold">${Math.round(totalQuote).toLocaleString()}</span>
         </div>
       </div>
     </div>

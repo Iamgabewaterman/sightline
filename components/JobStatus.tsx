@@ -36,25 +36,29 @@ export default function JobStatusSelector({
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
-      <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-3">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+      <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
         Job Status
       </p>
       <div className="flex gap-2">
         {STATUSES.map(({ value, label, description }) => {
           const active = status === value;
+          let activeStyle = "";
+          if (active) {
+            if (value === "completed") activeStyle = "bg-green-600 text-white border-green-600";
+            else if (value === "active") activeStyle = "bg-orange-500 text-white border-orange-500";
+            else activeStyle = "bg-gray-600 text-white border-gray-600";
+          }
           return (
             <button
               key={value}
               onClick={() => handleChange(value)}
               disabled={isPending}
               title={description}
-              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors active:scale-95 disabled:opacity-60
+              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors active:scale-95 disabled:opacity-60 border
                 ${active
-                  ? value === "completed"
-                    ? "bg-white text-black"
-                    : "bg-zinc-100 text-black"
-                  : "bg-zinc-800 text-zinc-400 border border-zinc-700"
+                  ? activeStyle
+                  : "bg-gray-700 text-gray-400 border-gray-700"
                 }`}
             >
               {label}
@@ -63,7 +67,7 @@ export default function JobStatusSelector({
         })}
       </div>
       {status === "completed" && (
-        <p className="text-zinc-500 text-xs mt-2">
+        <p className="text-gray-400 text-xs mt-2">
           This job's materials data will train the estimator.
         </p>
       )}

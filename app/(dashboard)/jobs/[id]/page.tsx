@@ -59,14 +59,14 @@ export default async function JobDetailPage({
   }, 0);
 
   return (
-    <div className="min-h-screen bg-black px-4 py-8 pb-16">
+    <div className="min-h-screen bg-gray-900 px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-8">
           <div className="flex items-center gap-3">
             <Link
               href="/jobs"
-              className="text-zinc-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
+              className="text-gray-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
               aria-label="Back"
             >
               ←
@@ -77,7 +77,7 @@ export default async function JobDetailPage({
           </div>
           <Link
             href={`/jobs/${job.id}/edit`}
-            className="shrink-0 text-white border border-zinc-700 font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
+            className="shrink-0 text-white border border-gray-700 font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Edit
           </Link>
@@ -102,8 +102,8 @@ export default async function JobDetailPage({
 
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
-            <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-3">
+          <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
               Job Type
             </p>
             <TypeTags types={job.types} />
@@ -134,8 +134,8 @@ function DetailRow({
   multiline?: boolean;
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4">
-      <p className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-1">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+      <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">
         {label}
       </p>
       <p className={`text-white text-lg ${multiline ? "whitespace-pre-wrap" : ""}`}>
