@@ -5,11 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 export async function saveEstimate(data: {
   jobId: string;
   type: string;
-  lengthFt: number;
-  widthFt: number;
-  heightFt: number;
-  sheets: number;
-  costPerSheet: number;
   materialTotal: number;
   crewSize: number;
   hourlyRate: number;
@@ -17,6 +12,12 @@ export async function saveEstimate(data: {
   laborTotal: number;
   profitMarginPct: number;
   finalQuote: number;
+  // drywall-specific (optional)
+  lengthFt?: number;
+  widthFt?: number;
+  heightFt?: number;
+  sheets?: number;
+  costPerSheet?: number;
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -26,11 +27,11 @@ export async function saveEstimate(data: {
     job_id: data.jobId,
     user_id: user.id,
     type: data.type,
-    length_ft: data.lengthFt,
-    width_ft: data.widthFt,
-    height_ft: data.heightFt,
-    sheets: data.sheets,
-    cost_per_sheet: data.costPerSheet,
+    length_ft: data.lengthFt ?? null,
+    width_ft: data.widthFt ?? null,
+    height_ft: data.heightFt ?? null,
+    sheets: data.sheets ?? null,
+    cost_per_sheet: data.costPerSheet ?? null,
     material_total: data.materialTotal,
     crew_size: data.crewSize,
     hourly_rate: data.hourlyRate,

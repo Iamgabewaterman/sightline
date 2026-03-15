@@ -12,6 +12,7 @@ import LaborSection from "@/components/LaborSection";
 import LockboxCode from "@/components/LockboxCode";
 import DeleteJobButton from "@/components/DeleteJobButton";
 import GenerateQuote from "@/components/GenerateQuote";
+import DimensionsSection from "@/components/DimensionsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -136,6 +137,14 @@ export default async function JobDetailPage({
           {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
           {job.lockbox_code && <LockboxCode code={job.lockbox_code} />}
         </div>
+
+        {/* Dimensions */}
+        <DimensionsSection
+          jobId={job.id}
+          initialLength={job.dim_length ?? null}
+          initialWidth={job.dim_width ?? null}
+          initialHeight={job.dim_height ?? null}
+        />
 
         {/* Materials */}
         <MaterialsSection jobId={job.id} initialMaterials={materials ?? []} />

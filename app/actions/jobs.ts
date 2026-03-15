@@ -76,6 +76,19 @@ export async function updateJob(id: string, formData: FormData) {
   return { success: true };
 }
 
+export async function updateJobDimensions(
+  id: string,
+  dims: { dim_length: number | null; dim_width: number | null; dim_height: number | null }
+) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("jobs")
+    .update({ ...dims, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function deleteJob(id: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -25,6 +25,9 @@ export interface Job {
   address: string;
   notes: string | null;
   lockbox_code: string | null;
+  dim_length: number | null;
+  dim_width: number | null;
+  dim_height: number | null;
   created_at: string;
   updated_at: string;
 }

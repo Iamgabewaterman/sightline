@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "./LogoutButton";
+import AccountDropdown from "./AccountDropdown";
 
 export default async function Nav() {
   const supabase = createClient();
@@ -28,7 +28,7 @@ export default async function Nav() {
           >
             Receipts
           </Link>
-          <LogoutButton />
+          <AccountDropdown email={user.email ?? ""} />
         </div>
       )}
     </nav>

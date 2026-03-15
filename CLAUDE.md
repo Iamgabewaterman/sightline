@@ -66,3 +66,12 @@ Job types are multi-select checkboxes, not a single dropdown. A job can have mul
 ## Collaboration Style
 
 The user knows construction deeply but not code. Explain things in plain English, assume learning as we go. Prioritize a working product over perfection. Keep responses practical and direct.
+
+## Future Phase 2 — Homeowner Accounts (DO NOT BUILD NOW)
+
+Future plan: add a `user_type` field to distinguish user roles. Contractors have `user_type = 'contractor'`, homeowners have `user_type = 'homeowner'`. Homeowners would get a read-only or limited view of jobs shared with them by a contractor.
+
+Design considerations to keep in mind so this doesn't require a rebuild:
+- The `jobs` table is already keyed by `user_id` (contractor). When homeowner accounts arrive, a join table (e.g. `job_shares`) linking a job to a homeowner user_id is the right pattern — do not add a `homeowner_id` column directly to `jobs`.
+- Auth system (Supabase) already supports multiple user types via metadata. A `user_type` field on the user metadata or a separate `profiles` table will handle this cleanly.
+- Do not build any of this now — just don't make architectural choices that would force a rewrite later.

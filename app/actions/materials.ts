@@ -30,7 +30,7 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
 export async function updateMaterial(
   id: string,
-  fields: { quantity_used?: number | null; unit_cost?: number | null }
+  fields: { quantity_ordered?: number; quantity_used?: number | null; unit_cost?: number | null }
 ) {
   const supabase = createClient();
   const { error } = await supabase.from("materials").update(fields).eq("id", id);
