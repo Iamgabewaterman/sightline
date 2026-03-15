@@ -59,7 +59,7 @@ export default function SignupForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4 text-center">
+      <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-4 text-center">
         <div className="w-full max-w-sm">
           <div className="text-5xl mb-6 text-orange-500">✓</div>
           <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
@@ -78,7 +78,7 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
@@ -101,9 +101,9 @@ export default function SignupForm() {
 
         {/* Divider */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-gray-700" />
+          <div className="flex-1 h-px bg-[#242424]" />
           <span className="text-gray-500 text-sm">or</span>
-          <div className="flex-1 h-px bg-gray-700" />
+          <div className="flex-1 h-px bg-[#242424]" />
         </div>
 
         {/* Email form */}
@@ -114,7 +114,7 @@ export default function SignupForm() {
             required
             autoComplete="email"
             placeholder="Email"
-            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
           <input
             name="password"
@@ -123,7 +123,7 @@ export default function SignupForm() {
             autoComplete="new-password"
             placeholder="Password"
             minLength={6}
-            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
           <input
             name="confirm"
@@ -132,7 +132,7 @@ export default function SignupForm() {
             autoComplete="new-password"
             placeholder="Confirm password"
             minLength={6}
-            className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
           />
 
           {error && (

@@ -63,7 +63,7 @@ export default function NewJobForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-8">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -82,7 +82,7 @@ export default function NewJobForm() {
               type="text"
               required
               placeholder="e.g. Johnson Kitchen Remodel"
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -102,7 +102,7 @@ export default function NewJobForm() {
                     className={`flex items-center gap-3 px-4 py-4 rounded-xl border text-left transition-colors active:scale-95
                       ${checked
                         ? "bg-orange-500 text-white border-orange-500 font-semibold"
-                        : "bg-gray-800 text-white border-gray-700"
+                        : "bg-[#1A1A1A] text-white border-[#2a2a2a]"
                       }`}
                   >
                     <span className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center
@@ -131,7 +131,7 @@ export default function NewJobForm() {
               type="text"
               required
               placeholder="e.g. 123 Main St, Hillsboro, OR"
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -144,7 +144,7 @@ export default function NewJobForm() {
               name="notes"
               rows={4}
               placeholder="Any details, scope of work, client info..."
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
             />
           </div>
 
@@ -153,7 +153,7 @@ export default function NewJobForm() {
             <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
               Photos
             </label>
-            <label className="cursor-pointer bg-gray-800 border border-gray-700 rounded-xl px-4 py-4 flex items-center justify-center gap-3 active:scale-95 transition-transform">
+            <label className="cursor-pointer bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex items-center justify-center gap-3 active:scale-95 transition-transform">
               <span className="text-2xl">📷</span>
               <span className="text-white text-lg font-medium">
                 {photoNames.length > 0

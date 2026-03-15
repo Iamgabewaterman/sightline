@@ -7,7 +7,7 @@ export default async function Nav() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <nav className="bg-gray-950 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+    <nav className="bg-[#141414] border-b border-[#2a2a2a] px-4 py-3 flex items-center justify-between">
       <Link href={user ? "/jobs" : "/"} className="flex items-center gap-2">
         <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
         <span className="text-white font-black text-2xl tracking-tight leading-none">
@@ -18,9 +18,9 @@ export default async function Nav() {
         <div className="flex items-center gap-3">
           <Link
             href="/jobs"
-            className="text-white font-semibold text-base bg-gray-800 border border-gray-700 px-5 py-3 rounded-xl active:scale-95 transition-transform"
+            className="text-white font-semibold text-base bg-[#1A1A1A] border border-[#2a2a2a] px-5 py-3 rounded-xl active:scale-95 transition-transform"
           >
-            Jobs
+            Dashboard
           </Link>
           <LogoutButton />
         </div>

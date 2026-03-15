@@ -46,7 +46,7 @@ function MaterialRow({
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-4">
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
       {/* Name + unit */}
       <div className="flex items-center justify-between mb-3">
         <div>
@@ -56,13 +56,13 @@ function MaterialRow({
         <div className="flex gap-2">
           <button
             onClick={() => setEditing((e) => !e)}
-            className="text-gray-400 text-sm px-4 py-3 rounded-xl border border-gray-700 active:scale-95 transition-transform"
+            className="text-gray-400 text-sm px-4 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
           >
             {editing ? "Cancel" : "Edit"}
           </button>
           <button
             onClick={handleDelete}
-            className="text-red-400 text-sm px-4 py-3 rounded-xl border border-gray-800 active:scale-95 transition-transform"
+            className="text-red-400 text-sm px-4 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
           >
             ✕
           </button>
@@ -71,17 +71,17 @@ function MaterialRow({
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-gray-700 rounded-lg py-2">
+        <div className="bg-[#242424] rounded-lg py-2">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Ordered</p>
           <p className="text-white font-semibold">{material.quantity_ordered}</p>
         </div>
-        <div className="bg-gray-700 rounded-lg py-2">
+        <div className="bg-[#242424] rounded-lg py-2">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Used</p>
           <p className={`font-semibold ${material.quantity_used !== null ? "text-white" : "text-gray-600"}`}>
             {fmt(material.quantity_used)}
           </p>
         </div>
-        <div className="bg-gray-700 rounded-lg py-2">
+        <div className="bg-[#242424] rounded-lg py-2">
           <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Unit Cost</p>
           <p className={`font-semibold ${material.unit_cost !== null ? "text-orange-500" : "text-gray-600"}`}>
             {fmt(material.unit_cost, "$")}
@@ -102,7 +102,7 @@ function MaterialRow({
                 value={usedVal}
                 onChange={(e) => setUsedVal(e.target.value)}
                 placeholder="0"
-                className="w-full mt-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
+                className="w-full mt-1 bg-[#242424] border border-[#333333] text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
             <div className="flex-1">
@@ -114,7 +114,7 @@ function MaterialRow({
                 value={costVal}
                 onChange={(e) => setCostVal(e.target.value)}
                 placeholder="0.00"
-                className="w-full mt-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
+                className="w-full mt-1 bg-[#242424] border border-[#333333] text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function MaterialsSection({
         <h2 className="text-white font-bold text-xl">Materials</h2>
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="text-white font-semibold text-sm bg-gray-800 border border-gray-700 px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
         >
           {showForm ? "Cancel" : "+ Add"}
         </button>
@@ -190,7 +190,7 @@ export default function MaterialsSection({
         <form
           ref={formRef}
           onSubmit={handleAdd}
-          className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-4 mb-4 flex flex-col gap-3"
+          className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 mb-4 flex flex-col gap-3"
         >
           <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">New Material</p>
 
@@ -199,7 +199,7 @@ export default function MaterialsSection({
             type="text"
             required
             placeholder="Material name (e.g. Drywall 5/8&quot; 4x8)"
-            className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
+            className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
           />
 
           <input
@@ -207,7 +207,7 @@ export default function MaterialsSection({
             type="text"
             required
             placeholder="Unit (sheets, studs, bags, rolls, lbs...)"
-            className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
+            className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
           />
 
           <div className="flex gap-3">
@@ -220,7 +220,7 @@ export default function MaterialsSection({
                 step="any"
                 required
                 placeholder="0"
-                className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
+                className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
               />
             </div>
             <div className="flex-1 flex flex-col gap-1">
@@ -231,7 +231,7 @@ export default function MaterialsSection({
                 min="0"
                 step="any"
                 placeholder="Fill in later"
-                className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
+                className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function MaterialsSection({
               min="0"
               step="any"
               placeholder="0.00 — fill in from receipt later"
-              className="bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
+              className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
             />
           </div>
 
@@ -266,7 +266,7 @@ export default function MaterialsSection({
 
       {/* Materials list */}
       {materials.length === 0 ? (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl py-10 text-center">
+        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-10 text-center">
           <p className="text-gray-500 text-sm">No materials logged yet</p>
         </div>
       ) : (

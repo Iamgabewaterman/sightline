@@ -91,11 +91,11 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
   }
 
   const inputClass =
-    "bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors";
+    "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors";
   const labelClass = "text-gray-400 text-sm font-medium uppercase tracking-wider";
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-8 pb-16">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
 
         {/* Header */}
@@ -136,7 +136,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
         {sheets !== null && sqftBreakdown !== null && (
           <>
             {/* Sheet count */}
-            <div className="mt-8 bg-gray-800 border border-gray-700 rounded-xl px-5 py-6">
+            <div className="mt-8 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-6">
               <div className="text-center mb-4">
                 <p className="text-gray-400 text-sm uppercase tracking-wider mb-1">
                   4×8 Drywall Sheets
@@ -144,7 +144,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                 <p className="text-orange-500 text-6xl font-black">{sheets}</p>
                 <p className="text-gray-400 text-sm mt-1">sheets needed</p>
               </div>
-              <div className="border-t border-gray-700 pt-4 flex flex-col gap-2">
+              <div className="border-t border-[#2a2a2a] pt-4 flex flex-col gap-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Total surface area</span>
                   <span className="text-white">{Math.round(sqftBreakdown.totalSqft)} sq ft</span>
@@ -175,7 +175,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                     </p>
                   )}
                 </div>
-                <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 flex justify-between items-center">
+                <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 flex justify-between items-center">
                   <span className="text-gray-400 text-sm">
                     {sheets} sheets × ${sheetCostNum || "0"}
                   </span>
@@ -197,7 +197,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                   <input type="number" inputMode="numeric" min="0" step="1"
                     value={crew} onChange={(e) => setCrew(e.target.value)}
                     placeholder="0"
-                    className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
+                    className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-gray-400 text-xs font-medium uppercase tracking-wider text-center">
@@ -206,7 +206,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                   <input type="number" inputMode="decimal" min="0" step="any"
                     value={rate} onChange={(e) => setRate(e.target.value)}
                     placeholder="0"
-                    className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
+                    className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-gray-400 text-xs font-medium uppercase tracking-wider text-center">
@@ -215,10 +215,10 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                   <input type="number" inputMode="decimal" min="0" step="any"
                     value={hours} onChange={(e) => setHours(e.target.value)}
                     placeholder="0"
-                    className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
+                    className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-3 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors text-center" />
                 </div>
               </div>
-              <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 flex justify-between items-center">
+              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 flex justify-between items-center">
                 <span className="text-gray-400 text-sm">
                   {crewNum} × ${rateNum}/hr × {hoursNum} hrs
                 </span>
@@ -251,7 +251,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
             </div>
 
             {/* ── Final Quote ── */}
-            <div className="mt-8 bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
+            <div className="mt-8 bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden">
               <div className="px-5 py-5 flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Materials</span>
@@ -283,18 +283,18 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
             {/* ── Save to Job ── */}
             <div className="mt-6">
               {saved ? (
-                <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-5 text-center">
+                <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 text-center">
                   <p className="text-orange-500 font-bold text-lg">✓ Saved to job</p>
                 </div>
               ) : !showJobPicker ? (
                 <button
                   onClick={() => setShowJobPicker(true)}
-                  className="w-full bg-gray-800 border border-gray-700 text-white font-bold text-lg py-5 rounded-xl active:scale-95 transition-transform"
+                  className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-lg py-5 rounded-xl active:scale-95 transition-transform"
                 >
                   Save to Job
                 </button>
               ) : (
-                <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-4 flex flex-col gap-3">
+                <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex flex-col gap-3">
                   <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
                     Pick a job
                   </p>
@@ -311,7 +311,7 @@ export default function CalculatorClient({ defaultSheetCost, jobs }: Props) {
                           className={`text-left px-4 py-4 rounded-xl border transition-colors active:scale-95
                             ${selectedJobId === job.id
                               ? "bg-orange-500 text-white border-orange-500 font-semibold"
-                              : "bg-gray-700 text-white border-gray-700"
+                              : "bg-[#242424] text-white border-[#2a2a2a]"
                             }`}
                         >
                           {job.name}

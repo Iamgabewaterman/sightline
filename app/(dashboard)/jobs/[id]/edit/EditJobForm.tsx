@@ -58,7 +58,7 @@ export default function EditJobForm({ job }: { job: Job }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-8">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -77,7 +77,7 @@ export default function EditJobForm({ job }: { job: Job }) {
               type="text"
               required
               defaultValue={job.name}
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -97,7 +97,7 @@ export default function EditJobForm({ job }: { job: Job }) {
                     className={`flex items-center gap-3 px-4 py-4 rounded-xl border text-left transition-colors active:scale-95
                       ${checked
                         ? "bg-orange-500 text-white border-orange-500 font-semibold"
-                        : "bg-gray-800 text-white border-gray-700"
+                        : "bg-[#1A1A1A] text-white border-[#2a2a2a]"
                       }`}
                   >
                     <span className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center
@@ -126,7 +126,7 @@ export default function EditJobForm({ job }: { job: Job }) {
               type="text"
               required
               defaultValue={job.address}
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
@@ -140,7 +140,7 @@ export default function EditJobForm({ job }: { job: Job }) {
               rows={4}
               defaultValue={job.notes ?? ""}
               placeholder="Any details, scope of work, client info..."
-              className="bg-gray-800 border border-gray-700 text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
             />
           </div>
 
@@ -164,7 +164,7 @@ export default function EditJobForm({ job }: { job: Job }) {
               type="button"
               onClick={() => router.back()}
               disabled={status === "saving"}
-              className="bg-gray-800 text-white font-semibold text-lg py-5 rounded-xl border border-gray-700 active:scale-95 transition-transform disabled:opacity-50"
+              className="bg-[#1A1A1A] text-white font-semibold text-lg py-5 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform disabled:opacity-50"
             >
               Cancel
             </button>

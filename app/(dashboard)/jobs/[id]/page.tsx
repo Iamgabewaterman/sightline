@@ -59,7 +59,7 @@ export default async function JobDetailPage({
   }, 0);
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-8 pb-16">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-8">
@@ -77,7 +77,7 @@ export default async function JobDetailPage({
           </div>
           <Link
             href={`/jobs/${job.id}/edit`}
-            className="shrink-0 text-white border border-gray-700 font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
+            className="shrink-0 text-white border border-[#2a2a2a] font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Edit
           </Link>
@@ -102,7 +102,7 @@ export default async function JobDetailPage({
 
         {/* Detail cards */}
         <div className="flex flex-col gap-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
               Job Type
             </p>
@@ -134,7 +134,7 @@ function DetailRow({
   multiline?: boolean;
 }) {
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
       <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">
         {label}
       </p>

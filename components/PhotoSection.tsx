@@ -151,7 +151,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
             className={`shrink-0 px-4 py-3 rounded-xl font-semibold text-sm transition-colors active:scale-95
               ${activeCategory === value
                 ? "bg-orange-500 text-white"
-                : "bg-gray-800 text-gray-400 border border-gray-700"
+                : "bg-[#1A1A1A] text-gray-400 border border-[#2a2a2a]"
               }`}
           >
             {label}
@@ -164,7 +164,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         <button
           onClick={() => cameraInputRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-gray-800 border border-gray-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
         >
           <span className="text-xl">📷</span>
           Take Photo
@@ -172,7 +172,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
         <button
           onClick={() => galleryInputRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-gray-800 border border-gray-700 text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
         >
           <span className="text-xl">🖼️</span>
           Upload Photo
@@ -210,7 +210,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
 
       {/* Photo grid */}
       {visiblePhotos.length === 0 ? (
-        <div className="bg-gray-800 border border-gray-700 rounded-xl py-12 text-center">
+        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-12 text-center">
           <p className="text-gray-500 text-sm">
             No {activeCategory} photos yet
           </p>
@@ -223,7 +223,7 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
               <button
                 key={photo.id}
                 onClick={() => setFullscreen(url)}
-                className="aspect-square rounded-xl overflow-hidden bg-gray-800 active:scale-95 transition-transform"
+                className="aspect-square rounded-xl overflow-hidden bg-[#1A1A1A] active:scale-95 transition-transform"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

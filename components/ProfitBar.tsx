@@ -46,7 +46,7 @@ export default function ProfitBar({
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
@@ -56,10 +56,10 @@ export default function ProfitBar({
       </div>
 
       {/* Bar */}
-      <div className="relative h-7 bg-gray-700 rounded-xl overflow-hidden">
+      <div className="relative h-7 bg-[#242424] rounded-xl overflow-hidden">
         {/* Profit zone — slightly lighter to show it's the cushion */}
         <div
-          className="absolute top-0 bottom-0 bg-gray-600"
+          className="absolute top-0 bottom-0 bg-[#2a2a2a]"
           style={{ left: `${materialZonePct + laborZonePct}%`, right: 0 }}
         />
         {/* Zone divider lines */}
@@ -109,7 +109,7 @@ export default function ProfitBar({
       </div>
 
       {/* Stats */}
-      <div className="mt-3 flex flex-col gap-2 border-t border-gray-700 pt-3">
+      <div className="mt-3 flex flex-col gap-2 border-t border-[#2a2a2a] pt-3">
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Materials logged</span>
           <span>
@@ -131,7 +131,7 @@ export default function ProfitBar({
           <span className="text-gray-400">Profit zone</span>
           <span className="text-gray-400">${Math.round(profitBudget).toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm border-t border-gray-700 pt-2">
+        <div className="flex justify-between text-sm border-t border-[#2a2a2a] pt-2">
           <span className="text-gray-400">Total quote</span>
           <span className="text-white font-semibold">${Math.round(totalQuote).toLocaleString()}</span>
         </div>

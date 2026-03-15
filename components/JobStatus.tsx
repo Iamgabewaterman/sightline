@@ -36,7 +36,7 @@ export default function JobStatusSelector({
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
       <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
         Job Status
       </p>
@@ -47,7 +47,7 @@ export default function JobStatusSelector({
           if (active) {
             if (value === "completed") activeStyle = "bg-green-600 text-white border-green-600";
             else if (value === "active") activeStyle = "bg-orange-500 text-white border-orange-500";
-            else activeStyle = "bg-gray-600 text-white border-gray-600";
+            else activeStyle = "bg-[#2a2a2a] text-white border-[#333333]";
           }
           return (
             <button
@@ -58,7 +58,7 @@ export default function JobStatusSelector({
               className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-colors active:scale-95 disabled:opacity-60 border
                 ${active
                   ? activeStyle
-                  : "bg-gray-700 text-gray-400 border-gray-700"
+                  : "bg-[#242424] text-gray-400 border-[#2a2a2a]"
                 }`}
             >
               {label}

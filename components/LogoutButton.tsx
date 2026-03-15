@@ -7,7 +7,7 @@ export default function LogoutButton() {
     <form action={signOut}>
       <button
         type="submit"
-        className="text-gray-400 font-semibold text-sm px-4 py-3 rounded-xl border border-gray-700 active:scale-95 transition-transform"
+        className="text-gray-400 font-semibold text-sm px-4 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
       >
         Sign Out
       </button>
