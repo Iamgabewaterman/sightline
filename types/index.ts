@@ -72,6 +72,26 @@ export interface Receipt {
   created_at: string;
 }
 
+export interface ExtractedReceiptItem {
+  raw_name: string;
+  normalized_name: string;
+  qty: number | null;
+  unit: string | null;
+  unit_price: number | null;
+  line_total: number | null;
+  checked: boolean;
+}
+
+export interface ReceiptExtractionResult {
+  receipt_id: string;
+  vendor: string | null;
+  receipt_date: string | null;
+  items: ExtractedReceiptItem[];
+  total: number | null;
+  image_unclear: boolean;
+  auto_confirm: boolean;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;

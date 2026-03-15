@@ -2,9 +2,11 @@
 
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { uploadReceipt, deleteReceipt } from "@/app/actions/receipts";
-import { Receipt } from "@/types";
+import { deleteReceipt } from "@/app/actions/receipts";
+import { extractReceiptItems, confirmReceiptItems } from "@/app/actions/receipts-vision";
+import { Receipt, ReceiptExtractionResult } from "@/types";
 import { compressImage } from "@/lib/compress-image";
+import ReceiptConfirmationModal from "./ReceiptConfirmationModal";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -24,6 +26,7 @@ export default function ReceiptsSection({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState<string | null>(null);
+  const [extraction, setExtraction] = useState<ReceiptExtractionResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -47,16 +50,54 @@ export default function ReceiptsSection({
 
     const fd = new FormData();
     fd.append("receipt", fileToUpload, "receipt.jpg");
-    const result = await uploadReceipt(jobId, fd);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (result.receipt) {
-      setReceipts((prev) => [result.receipt!, ...prev]);
-    }
+    const result = await extractReceiptItems(jobId, fd);
 
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    if (!result.result) return;
+
+    if (result.result.image_unclear) {
+      setError("Image is unclear — please retake the photo in better lighting.");
+      return;
+    }
+
+    // Auto-confirm path: skip modal, add materials immediately
+    if (result.result.auto_confirm) {
+      await confirmReceiptItems(
+        jobId,
+        result.result.receipt_id,
+        result.result.items,
+        result.result.vendor
+      );
+      // Reload the receipt list
+      const { data } = await supabase
+        .from("receipts")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+      if (data) setReceipts(data as Receipt[]);
+      return;
+    }
+
+    // Show confirmation modal
+    setExtraction(result.result);
+  }
+
+  async function handleModalDone() {
+    setExtraction(null);
+    // Reload receipts
+    const { data } = await supabase
+      .from("receipts")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    if (data) setReceipts(data as Receipt[]);
   }
 
   async function handleDelete(id: string) {
@@ -92,13 +133,14 @@ export default function ReceiptsSection({
         ref={fileRef}
         type="file"
         accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleFile}
       />
 
       {uploading && (
         <p className="text-gray-400 text-sm mb-4 animate-pulse">
-          Uploading and extracting total with AI...
+          Scanning receipt with AI...
         </p>
       )}
 
@@ -199,6 +241,16 @@ export default function ReceiptsSection({
             onClick={(e) => e.stopPropagation()}
           />
         </div>
+      )}
+
+      {/* Receipt confirmation modal */}
+      {extraction && (
+        <ReceiptConfirmationModal
+          jobId={jobId}
+          extraction={extraction}
+          onDone={handleModalDone}
+          onCancel={() => setExtraction(null)}
+        />
       )}
     </div>
   );
