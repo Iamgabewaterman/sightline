@@ -18,6 +18,7 @@ export type PhotoCategory = "before" | "during" | "after" | "receipts" | "damage
 
 export interface Job {
   id: string;
+  user_id: string;
   name: string;
   types: JobType[];
   status: JobStatus;

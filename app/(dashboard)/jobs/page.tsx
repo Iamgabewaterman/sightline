@@ -13,9 +13,11 @@ function formatDate(iso: string) {
 
 export default async function JobsPage() {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const { data: jobs } = await supabase
     .from("jobs")
     .select("*")
+    .eq("user_id", user!.id)
     .order("created_at", { ascending: false })
     .returns<Job[]>();
 
