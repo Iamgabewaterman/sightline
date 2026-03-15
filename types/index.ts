@@ -47,6 +47,16 @@ export interface Material {
   created_at: string;
 }
 
+export interface Receipt {
+  id: string;
+  job_id: string;
+  storage_path: string;
+  vendor: string | null;
+  amount: number | null;
+  ocr_raw: string | null;
+  created_at: string;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;

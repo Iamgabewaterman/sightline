@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
 import MaterialsSection from "@/components/MaterialsSection";
 import ProfitBar from "@/components/ProfitBar";
+import ReceiptsSection from "@/components/ReceiptsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -24,7 +25,7 @@ export default async function JobDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: job }, { data: photos }, { data: materials }, { data: estimate }] =
+  const [{ data: job }, { data: photos }, { data: materials }, { data: estimate }, { data: receipts }] =
     await Promise.all([
       supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
       supabase
@@ -46,6 +47,12 @@ export default async function JobDetailPage({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle<Pick<Estimate, "material_total" | "labor_total" | "profit_margin_pct" | "final_quote">>(),
+      supabase
+        .from("receipts")
+        .select("*")
+        .eq("job_id", params.id)
+        .order("created_at", { ascending: false })
+        .returns<Receipt[]>(),
     ]);
 
   if (!job) notFound();
@@ -116,6 +123,9 @@ export default async function JobDetailPage({
 
         {/* Materials */}
         <MaterialsSection jobId={job.id} initialMaterials={materials ?? []} />
+
+        {/* Receipts */}
+        <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
 
         {/* Photos */}
         <PhotoSection jobId={job.id} initialPhotos={photos ?? []} />
