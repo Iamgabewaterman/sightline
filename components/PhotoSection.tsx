@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
+import { compressImage } from "@/lib/compress-image";
 
 const CATEGORIES: { value: PhotoCategory; label: string }[] = [
   { value: "before", label: "Before" },
@@ -10,61 +11,6 @@ const CATEGORIES: { value: PhotoCategory; label: string }[] = [
   { value: "after", label: "After" },
   { value: "damages", label: "Damages" },
 ];
-
-async function compressImage(file: File, maxMB = 1): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-
-      let { width, height } = img;
-      const MAX_DIM = 1920;
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width >= height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas not supported"));
-      ctx.drawImage(img, 0, 0, width, height);
-
-      let quality = 0.85;
-      const attempt = () => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return reject(new Error("Compression failed"));
-            if (blob.size <= maxMB * 1024 * 1024 || quality <= 0.2) {
-              resolve(blob);
-            } else {
-              quality = Math.round((quality - 0.1) * 10) / 10;
-              attempt();
-            }
-          },
-          "image/jpeg",
-          quality
-        );
-      };
-      attempt();
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error("Image load failed"));
-    };
-
-    img.src = objectUrl;
-  });
-}
 
 interface Props {
   jobId: string;

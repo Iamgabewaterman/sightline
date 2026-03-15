@@ -19,7 +19,7 @@ export default async function AllJobsPage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("*")
+    .select("id, name, types, address, updated_at")
     .eq("user_id", user!.id)
     .order("updated_at", { ascending: false })
     .returns<Job[]>();

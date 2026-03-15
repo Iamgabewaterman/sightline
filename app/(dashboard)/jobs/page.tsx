@@ -45,7 +45,7 @@ export default async function DashboardPage() {
     supabase.from("jobs").select("id").eq("user_id", user!.id),
     supabase
       .from("jobs")
-      .select("*")
+      .select("id, name, status, types, address, updated_at")
       .eq("user_id", user!.id)
       .order("updated_at", { ascending: false })
       .returns<Job[]>(),

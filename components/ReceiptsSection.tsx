@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadReceipt, deleteReceipt } from "@/app/actions/receipts";
 import { Receipt } from "@/types";
+import { compressImage } from "@/lib/compress-image";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -37,8 +38,15 @@ export default function ReceiptsSection({
     setUploading(true);
     setError("");
 
+    let fileToUpload: Blob = file;
+    try {
+      fileToUpload = await compressImage(file);
+    } catch {
+      // compression failed — upload original
+    }
+
     const fd = new FormData();
-    fd.append("receipt", file);
+    fd.append("receipt", fileToUpload, "receipt.jpg");
     const result = await uploadReceipt(jobId, fd);
 
     if (result.error) {
