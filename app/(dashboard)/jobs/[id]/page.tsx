@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Job } from "@/types";
 import TypeTags from "@/components/TypeTags";
 
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "short",
@@ -44,12 +45,12 @@ export default async function JobDetailPage({
               {job.name}
             </h1>
           </div>
-          <button
-            disabled
-            className="shrink-0 text-zinc-500 border border-zinc-700 font-semibold text-sm px-4 py-2 rounded-xl cursor-not-allowed"
+          <Link
+            href={`/jobs/${job.id}/edit`}
+            className="shrink-0 text-white border border-zinc-700 font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Edit
-          </button>
+          </Link>
         </div>
 
         {/* Detail cards */}
