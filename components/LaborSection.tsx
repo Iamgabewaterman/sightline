@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { addLaborLog, deleteLaborLog } from "@/app/actions/labor";
+import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor";
 import { LaborLog } from "@/types";
 
 function formatDate(iso: string) {
@@ -22,6 +22,8 @@ export default function LaborSection({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editError, setEditError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
@@ -42,6 +44,23 @@ export default function LaborSection({
     setSaving(false);
   }
 
+  async function handleEdit(e: React.FormEvent<HTMLFormElement>, id: string) {
+    e.preventDefault();
+    setSaving(true);
+    setEditError("");
+
+    const fd = new FormData(e.currentTarget);
+    const result = await updateLaborLog(id, fd);
+
+    if (result.error) {
+      setEditError(result.error);
+    } else if (result.log) {
+      setLogs((prev) => prev.map((l) => (l.id === id ? result.log! : l)));
+      setEditingId(null);
+    }
+    setSaving(false);
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("Remove this labor entry?")) return;
     await deleteLaborLog(id);
@@ -54,6 +73,9 @@ export default function LaborSection({
     0
   );
 
+  const inputClass =
+    "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500";
+
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
@@ -65,7 +87,7 @@ export default function LaborSection({
             </span>
           )}
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => { setShowForm((s) => !s); setFormError(""); }}
             className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             {showForm ? "Cancel" : "+ Log"}
@@ -83,20 +105,16 @@ export default function LaborSection({
           <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
             Log Labor
           </p>
-
           <input
             name="crew_name"
             type="text"
             required
             placeholder="Crew name (e.g. Mike, Sub crew, You)"
-            className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
+            className={inputClass}
           />
-
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">
-                Hours
-              </label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Hours</label>
               <input
                 name="hours"
                 type="number"
@@ -105,13 +123,11 @@ export default function LaborSection({
                 step="0.5"
                 required
                 placeholder="8"
-                className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
+                className={inputClass}
               />
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">
-                Rate $/hr
-              </label>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Rate $/hr</label>
               <input
                 name="rate"
                 type="number"
@@ -120,17 +136,15 @@ export default function LaborSection({
                 step="any"
                 required
                 placeholder="35"
-                className="bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
+                className={inputClass}
               />
             </div>
           </div>
-
           {formError && (
             <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
               {formError}
             </p>
           )}
-
           <button
             type="submit"
             disabled={saving}
@@ -150,6 +164,78 @@ export default function LaborSection({
         <div className="flex flex-col gap-3">
           {logs.map((log) => {
             const lineTotal = Number(log.hours) * Number(log.rate);
+            const isEditing = editingId === log.id;
+
+            if (isEditing) {
+              return (
+                <form
+                  key={log.id}
+                  onSubmit={(e) => handleEdit(e, log.id)}
+                  className="bg-[#1A1A1A] border border-orange-500/40 rounded-xl px-4 py-4 flex flex-col gap-3"
+                >
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                    Edit Labor Entry
+                  </p>
+                  <input
+                    name="crew_name"
+                    type="text"
+                    required
+                    defaultValue={log.crew_name}
+                    className={inputClass}
+                  />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 flex flex-col gap-1">
+                      <label className="text-gray-400 text-xs uppercase tracking-wider">Hours</label>
+                      <input
+                        name="hours"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.5"
+                        required
+                        defaultValue={Number(log.hours)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1">
+                      <label className="text-gray-400 text-xs uppercase tracking-wider">Rate $/hr</label>
+                      <input
+                        name="rate"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                        required
+                        defaultValue={Number(log.rate)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  {editError && (
+                    <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
+                      {editError}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex-1 bg-orange-500 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(null); setEditError(""); }}
+                      className="px-5 py-4 bg-[#242424] text-gray-400 font-semibold rounded-xl active:scale-95 transition-transform"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              );
+            }
+
             return (
               <div
                 key={log.id}
@@ -157,37 +243,35 @@ export default function LaborSection({
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="text-white font-semibold text-base">
-                      {log.crew_name}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      {formatDate(log.created_at)}
-                    </p>
+                    <p className="text-white font-semibold text-base">{log.crew_name}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{formatDate(log.created_at)}</p>
                   </div>
-                  <button
-                    onClick={() => handleDelete(log.id)}
-                    className="text-red-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setEditingId(log.id); setShowForm(false); setEditError(""); }}
+                      className="text-gray-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(log.id)}
+                      className="text-red-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-[#242424] rounded-lg py-2">
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">
-                      Hours
-                    </p>
+                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Hours</p>
                     <p className="text-white font-semibold">{Number(log.hours)}</p>
                   </div>
                   <div className="bg-[#242424] rounded-lg py-2">
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">
-                      Rate
-                    </p>
+                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Rate</p>
                     <p className="text-white font-semibold">${Number(log.rate)}/hr</p>
                   </div>
                   <div className="bg-[#242424] rounded-lg py-2">
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">
-                      Total
-                    </p>
+                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total</p>
                     <p className="text-orange-500 font-bold">
                       ${Math.round(lineTotal).toLocaleString()}
                     </p>

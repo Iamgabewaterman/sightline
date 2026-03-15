@@ -1,6 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+
+  <!-- Black square background -->
   <rect width="512" height="512" fill="#0F0F0F"/>
-  <polygon points="126,410 386,410 256,100" fill="none" stroke="white" stroke-width="20"/>
-  <rect x="126" y="80" width="260" height="34" fill="none" stroke="white" stroke-width="12"/>
-  <ellipse cx="256" cy="97" rx="22" ry="10" fill="#F97316"/>
+
+  <!--
+    Triangle: mountain/speed-square shape.
+    Apex (256,118) · Bottom-left (106,418) · Bottom-right (406,418)
+    Stroke-width 44 — bold, tool-like.
+  -->
+  <polygon
+    points="106,418 406,418 256,118"
+    fill="none"
+    stroke="white"
+    stroke-width="44"
+    stroke-linejoin="miter"
+    stroke-miterlimit="4"
+  />
+
+  <!--
+    Ruler tick marks on RIGHT edge: (256,118) → (406,418)
+    Direction vector: (150, 300), length ≈ 335px
+    Unit dir: (0.447, 0.894)
+    Right-outward perp: (0.894, -0.447)
+    Ticks at t=0.2, 0.4, 0.6, 0.8 — 20px outward, stroke-width 5
+    Numbers: 4 8 12 16, font-size 20, rotated 63.4°
+  -->
+  <!-- t=0.2: (286, 178) outward → (304, 169) -->
+  <line x1="286" y1="178" x2="304" y2="169" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <text x="310" y="166" fill="white" font-size="20" font-family="sans-serif" font-weight="700"
+    transform="rotate(63, 310, 166)">4</text>
+
+  <!-- t=0.4: (316, 238) outward → (334, 229) -->
+  <line x1="316" y1="238" x2="334" y2="229" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <text x="340" y="226" fill="white" font-size="20" font-family="sans-serif" font-weight="700"
+    transform="rotate(63, 340, 226)">8</text>
+
+  <!-- t=0.6: (346, 298) outward → (364, 289) -->
+  <line x1="346" y1="298" x2="364" y2="289" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <text x="369" y="286" fill="white" font-size="20" font-family="sans-serif" font-weight="700"
+    transform="rotate(63, 369, 286)">12</text>
+
+  <!-- t=0.8: (376, 358) outward → (394, 349) -->
+  <line x1="376" y1="358" x2="394" y2="349" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <text x="399" y="346" fill="white" font-size="20" font-family="sans-serif" font-weight="700"
+    transform="rotate(63, 399, 346)">16</text>
+
+  <!--
+    Bubble level: wide rectangle sitting on the apex (256,118).
+    Width matches triangle base width.
+    rect: x=106, y=48, width=300, height=70 (bottom at y=118 = apex)
+    Fill black to cover triangle tip stroke.
+  -->
+  <rect x="106" y="48" width="300" height="70" rx="10"
+    fill="#0F0F0F" stroke="white" stroke-width="12"/>
+
+  <!--
+    Curved vial cavity inside the level: arc concave upward.
+    Goes from (160, 105) through top (256, 66) to (352, 105)
+    Bezier gives the glass-tube curve impression.
+  -->
+  <path
+    d="M 160 108 Q 256 62 352 108"
+    fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Orange bubble centered in vial -->
+  <ellipse cx="256" cy="83" rx="28" ry="15" fill="#F97316"/>
+
 </svg>
