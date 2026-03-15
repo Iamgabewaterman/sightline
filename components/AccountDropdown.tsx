@@ -27,13 +27,16 @@ export default function AccountDropdown({ email }: Props) {
 
   return (
     <div ref={ref} className="relative">
+      {/* Icon-only button — fits in compact mobile nav */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform flex items-center gap-2"
+        aria-label="Account menu"
+        className="w-9 h-9 flex items-center justify-center bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl active:scale-95 transition-transform shrink-0"
       >
-        <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-        Account
-        <span className="text-gray-500 text-xs">{open ? "▲" : "▼"}</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
       </button>
 
       {open && (

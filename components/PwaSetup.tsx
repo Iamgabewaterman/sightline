@@ -40,15 +40,15 @@ interface BeforeInstallPromptEvent extends Event {
 function AppIcon({ size = 40 }: { size?: number }) {
   return (
     <svg viewBox="0 0 512 512" width={size} height={size} style={{ borderRadius: "22%" }}>
-      <circle cx="256" cy="256" r="252" fill="#0F0F0F"/>
+      <rect width="512" height="512" fill="#0F0F0F"/>
       <polyline
-        points="71,400 256,215 441,400 71,400"
-        fill="none" stroke="white" strokeWidth="18"
-        strokeLinejoin="miter" strokeMiterlimit={12} strokeLinecap="square"
+        points="105,315 160,186 460,315 105,315"
+        fill="none" stroke="white" strokeWidth="22"
+        strokeLinejoin="miter" strokeMiterlimit={10} strokeLinecap="round"
       />
-      <rect x="189" y="175" width="134" height="40" rx="11"
-        fill="none" stroke="white" strokeWidth="12"/>
-      <ellipse cx="256" cy="195" rx="21" ry="9" fill="#F97316"/>
+      <rect x="105" y="152" width="110" height="34" rx="9"
+        fill="none" stroke="white" strokeWidth="13"/>
+      <ellipse cx="160" cy="169" rx="16" ry="8" fill="#F97316"/>
     </svg>
   );
 }

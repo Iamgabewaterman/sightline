@@ -7,24 +7,24 @@ export default async function Nav() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <nav className="bg-[#141414] border-b border-[#2a2a2a] px-4 py-3 flex items-center justify-between">
-      <Link href={user ? "/jobs" : "/"} className="flex items-center gap-2">
-        <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
-        <span className="text-white font-black text-2xl tracking-tight leading-none">
+    <nav className="bg-[#141414] border-b border-[#2a2a2a] px-3 py-2.5 flex items-center justify-between">
+      <Link href={user ? "/jobs" : "/"} className="flex items-center gap-2 shrink-0">
+        <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+        <span className="text-white font-black text-xl tracking-tight leading-none">
           Sightline
         </span>
       </Link>
       {user && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Link
             href="/jobs"
-            className="text-white font-semibold text-base bg-[#1A1A1A] border border-[#2a2a2a] px-5 py-3 rounded-xl active:scale-95 transition-transform"
+            className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-2 rounded-xl active:scale-95 transition-transform whitespace-nowrap"
           >
             Dashboard
           </Link>
           <Link
             href="/receipts"
-            className="text-white font-semibold text-base bg-[#1A1A1A] border border-[#2a2a2a] px-5 py-3 rounded-xl active:scale-95 transition-transform"
+            className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-2 rounded-xl active:scale-95 transition-transform whitespace-nowrap"
           >
             Receipts
           </Link>

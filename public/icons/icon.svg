@@ -1,29 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Black circle background -->
-  <circle cx="256" cy="256" r="252" fill="#0F0F0F"/>
+  <!-- Full black background — no circles -->
+  <rect width="512" height="512" fill="#0F0F0F"/>
 
   <!--
-    Speed square: right-isoceles triangle resting on its hypotenuse.
-    Right-angle apex at (256,215). Hypotenuse: (71,400)→(441,400).
-    Vectors AB=(-185,185) AC=(185,185) — dot product = 0, true right angle.
+    Speed square: right triangle, right angle at TOP-LEFT corner.
+    Resting on hypotenuse (BC is horizontal at bottom).
+
+    A = (160, 186) — right-angle corner, upper-left
+    B = (105, 315) — bottom-left  (short leg: A→B, going down-left)
+    C = (460, 315) — bottom-right (long leg:  A→C, going down-right)
+
+    AB = (-55, 129),  AC = (300, 129)
+    AB · AC = (-55×300) + (129×129) = -16500 + 16641 ≈ 0  (true right angle)
   -->
   <polyline
-    points="71,400 256,215 441,400 71,400"
+    points="105,315 160,186 460,315 105,315"
     fill="none"
     stroke="white"
-    stroke-width="18"
+    stroke-width="22"
     stroke-linejoin="miter"
-    stroke-miterlimit="12"
-    stroke-linecap="square"
+    stroke-miterlimit="10"
+    stroke-linecap="round"
   />
 
   <!--
-    Bubble level resting on the apex.
-    Rect 134×40, bottom at y=215, rounded ends like a real vial housing.
+    Bubble level balanced on the right-angle corner A=(160,186).
+    Horizontal rectangle (levels are always horizontal).
+    110×34px, bottom flush with the corner.
   -->
-  <rect x="189" y="175" width="134" height="40" rx="11"
-    fill="none" stroke="white" stroke-width="12"/>
+  <rect x="105" y="152" width="110" height="34" rx="9"
+    fill="none" stroke="white" stroke-width="13"/>
 
-  <!-- Orange bubble — the vial indicator, centered in the level -->
-  <ellipse cx="256" cy="195" rx="21" ry="9" fill="#F97316"/>
+  <!-- Orange vial bubble, centered inside the level -->
+  <ellipse cx="160" cy="169" rx="16" ry="8" fill="#F97316"/>
 </svg>

@@ -19,6 +19,7 @@
     "stripe": "^20.4.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
