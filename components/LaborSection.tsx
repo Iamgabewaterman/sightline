@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor";
-import { LaborLog } from "@/types";
+import { LaborLog, Contact, CrewWithMembers } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
+import { createClient } from "@/lib/supabase/client";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -32,21 +33,82 @@ export default function LaborSection({
   const [formError, setFormError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editError, setEditError] = useState("");
-  const formRef = useRef<HTMLFormElement>(null);
+
+  // Controlled form fields for pre-fill support
+  const [formName, setFormName] = useState("");
+  const [formHours, setFormHours] = useState("");
+  const [formRate, setFormRate] = useState("");
+  const [formKey, setFormKey] = useState(0);
+
+  // Saved contacts picker
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerContacts, setPickerContacts] = useState<Contact[]>([]);
+  const [pickerCrews, setPickerCrews] = useState<CrewWithMembers[]>([]);
+
+  async function openPicker() {
+    setShowPicker(true);
+    setPickerLoading(true);
+    const supabase = createClient();
+    const [{ data: contacts }, { data: crews }] = await Promise.all([
+      supabase
+        .from("contacts")
+        .select("*")
+        .order("name")
+        .returns<Contact[]>(),
+      supabase
+        .from("crews")
+        .select("*, crew_members(contact_id)")
+        .order("name")
+        .returns<CrewWithMembers[]>(),
+    ]);
+    setPickerContacts(contacts ?? []);
+    setPickerCrews(crews ?? []);
+    setPickerLoading(false);
+  }
+
+  function selectContact(contact: Contact) {
+    setFormName(contact.name);
+    setFormRate(contact.hourly_rate !== null ? String(contact.hourly_rate) : "");
+    setShowPicker(false);
+    setShowForm(true);
+  }
+
+  function selectCrew(crew: CrewWithMembers, contacts: Contact[]) {
+    const contactById = new Map(contacts.map((c) => [c.id, c]));
+    const members = crew.crew_members
+      .map((m) => contactById.get(m.contact_id))
+      .filter(Boolean) as Contact[];
+    const combinedRate = members.reduce(
+      (s, m) => s + (m.hourly_rate ? Number(m.hourly_rate) : 0),
+      0
+    );
+    setFormName(crew.name);
+    setFormRate(combinedRate > 0 ? String(combinedRate) : "");
+    setShowPicker(false);
+    setShowForm(true);
+  }
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setFormError("");
 
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData();
+    fd.set("crew_name", formName);
+    fd.set("hours", formHours);
+    fd.set("rate", formRate);
+
     const result = await addLaborLog(jobId, fd);
 
     if (result.error) {
       setFormError(result.error);
     } else if (result.log) {
       setLogs((prev) => [result.log!, ...prev]);
-      formRef.current?.reset();
+      setFormName("");
+      setFormHours("");
+      setFormRate("");
+      setFormKey((k) => k + 1);
       setShowForm(false);
     }
     setSaving(false);
@@ -88,14 +150,26 @@ export default function LaborSection({
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-xl">Labor</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {logs.length > 0 && (
             <span className="text-orange-500 font-bold text-base">
               ${Math.round(totalCost).toLocaleString()}
             </span>
           )}
           <button
-            onClick={() => { setShowForm((s) => !s); setFormError(""); }}
+            onClick={openPicker}
+            className="text-gray-400 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Saved
+          </button>
+          <button
+            onClick={() => {
+              setFormName("");
+              setFormHours("");
+              setFormRate("");
+              setShowForm((s) => !s);
+              setFormError("");
+            }}
             className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             {showForm ? "Cancel" : "+ Log"}
@@ -106,7 +180,7 @@ export default function LaborSection({
       {/* Add form */}
       {showForm && (
         <form
-          ref={formRef}
+          key={formKey}
           onSubmit={handleAdd}
           className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 mb-4 flex flex-col gap-3"
         >
@@ -114,36 +188,39 @@ export default function LaborSection({
             Log Labor
           </p>
           <input
-            name="crew_name"
             type="text"
             required
             placeholder="Crew name (e.g. Mike, Sub crew, You)"
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
             className={inputClass}
           />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 flex flex-col gap-1">
               <label className="text-gray-400 text-xs uppercase tracking-wider">Hours</label>
               <input
-                name="hours"
                 type="number"
                 inputMode="decimal"
                 min="0"
                 step="0.5"
                 required
                 placeholder="8"
+                value={formHours}
+                onChange={(e) => setFormHours(e.target.value)}
                 className={inputClass}
               />
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <label className="text-gray-400 text-xs uppercase tracking-wider">Rate $/hr</label>
               <input
-                name="rate"
                 type="number"
                 inputMode="decimal"
                 min="0"
                 step="any"
                 required
                 placeholder="35"
+                value={formRate}
+                onChange={(e) => setFormRate(e.target.value)}
                 className={inputClass}
               />
             </div>
@@ -302,6 +379,119 @@ export default function LaborSection({
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── SAVED CONTACTS PICKER OVERLAY ── */}
+      {showPicker && (
+        <div className="fixed inset-0 z-50 bg-[#0A0A0A] flex flex-col overflow-y-auto">
+          <div className="flex items-center justify-between px-5 pt-6 pb-4 shrink-0 border-b border-[#2a2a2a]">
+            <div>
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">
+                Add from Saved
+              </p>
+              <h2 className="text-white font-bold text-xl">Select Contact or Crew</h2>
+            </div>
+            <button
+              onClick={() => setShowPicker(false)}
+              className="text-gray-400 text-3xl leading-none w-11 h-11 flex items-center justify-center active:scale-95"
+            >
+              ×
+            </button>
+          </div>
+
+          {pickerLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-gray-500 animate-pulse">Loading...</p>
+            </div>
+          ) : (
+            <div className="flex-1 px-5 py-5">
+              {/* Contacts */}
+              {pickerContacts.length > 0 && (
+                <>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                    Contacts
+                  </p>
+                  <div className="flex flex-col gap-2 mb-6">
+                    {pickerContacts.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => selectContact(c)}
+                        className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform text-left"
+                      >
+                        <div>
+                          <p className="text-white font-semibold text-base">{c.name}</p>
+                          <div className="flex gap-2 mt-0.5">
+                            {c.trade && (
+                              <span className="text-orange-500 text-xs">{c.trade}</span>
+                            )}
+                            {c.hourly_rate !== null && (
+                              <span className="text-gray-400 text-xs">
+                                ${Number(c.hourly_rate)}/hr
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-gray-600 text-xl">→</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Crews */}
+              {pickerCrews.length > 0 && (
+                <>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                    Crews
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {pickerCrews.map((cr) => {
+                      const contactById = new Map(pickerContacts.map((c) => [c.id, c]));
+                      const members = cr.crew_members
+                        .map((m) => contactById.get(m.contact_id))
+                        .filter(Boolean) as Contact[];
+                      const combinedRate = members.reduce(
+                        (s, m) => s + (m.hourly_rate ? Number(m.hourly_rate) : 0),
+                        0
+                      );
+                      return (
+                        <button
+                          key={cr.id}
+                          onClick={() => selectCrew(cr, pickerContacts)}
+                          className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform text-left"
+                        >
+                          <div>
+                            <p className="text-white font-semibold text-base">{cr.name}</p>
+                            <div className="flex gap-2 mt-0.5">
+                              <span className="text-gray-400 text-xs">
+                                {members.length} member{members.length !== 1 ? "s" : ""}
+                              </span>
+                              {combinedRate > 0 && (
+                                <span className="text-orange-500 text-xs">
+                                  ${combinedRate.toLocaleString()}/hr
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-gray-600 text-xl">→</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {pickerContacts.length === 0 && pickerCrews.length === 0 && (
+                <div className="py-16 text-center">
+                  <p className="text-gray-500 text-base">No saved contacts yet</p>
+                  <p className="text-gray-600 text-sm mt-2">
+                    Go to People to add workers and crews
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

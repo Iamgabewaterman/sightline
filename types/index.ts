@@ -99,6 +99,28 @@ export interface QuoteAddon {
   amount: number;
 }
 
+export interface Contact {
+  id: string;
+  user_id: string;
+  name: string;
+  phone: string | null;
+  trade: string | null;
+  hourly_rate: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Crew {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface CrewWithMembers extends Crew {
+  crew_members: { contact_id: string }[];
+}
+
 export interface Estimate {
   id: string;
   job_id: string;

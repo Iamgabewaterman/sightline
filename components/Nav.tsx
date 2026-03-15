@@ -28,6 +28,12 @@ export default async function Nav() {
           >
             Receipts
           </Link>
+          <Link
+            href="/people"
+            className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-2 rounded-xl active:scale-95 transition-transform whitespace-nowrap"
+          >
+            People
+          </Link>
           <AccountDropdown email={user.email ?? ""} />
         </div>
       )}
