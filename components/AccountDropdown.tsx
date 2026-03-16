@@ -50,9 +50,6 @@ export default function AccountDropdown({ email }: Props) {
           {/* Menu items */}
           <div className="flex flex-col">
             <Link href="/subscribe" onClick={() => setOpen(false)} className={linkClass}>
-              Subscription
-            </Link>
-            <Link href="/subscribe" onClick={() => setOpen(false)} className={linkClass}>
               Billing
             </Link>
             <Link href="/settings" onClick={() => setOpen(false)} className={linkClass}>

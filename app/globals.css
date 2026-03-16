@@ -15,7 +15,7 @@ html {
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: #0F0F0F;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   overflow-x: hidden;
   /* Safe area padding for iPhone home indicator */
