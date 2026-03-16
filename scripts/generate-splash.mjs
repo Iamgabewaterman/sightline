@@ -1,15 +1,50 @@
 import sharp from "sharp";
-import { writeFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { mkdirSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const outDir = path.join(__dirname, "../public/splash");
+const splashDir = path.join(__dirname, "../public/splash");
+const iconsDir  = path.join(__dirname, "../public/icons");
+
+mkdirSync(splashDir, { recursive: true });
 
 const BG = "#0F0F0F";
-const ORANGE = "#F97316";
 
-// Common iPhone splash sizes (physical pixels)
+// ── Logo SVG (speed square + bubble level) ─────────────────────────────────
+// Extracted from public/icons/icon.svg — original viewBox: 0 0 512 512.
+// Background rect omitted so it composites cleanly over any solid fill.
+const LOGO_SVG_CONTENT = `
+  <polygon
+    points="106,418 406,418 256,118"
+    fill="none" stroke="white" stroke-width="44"
+    stroke-linejoin="miter" stroke-miterlimit="4"
+  />
+  <line x1="286" y1="178" x2="304" y2="169" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <line x1="316" y1="238" x2="334" y2="229" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <line x1="346" y1="298" x2="364" y2="289" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <line x1="376" y1="358" x2="394" y2="349" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <rect x="106" y="48" width="300" height="70" rx="10"
+    fill="${BG}" stroke="white" stroke-width="12"/>
+  <path d="M 160 108 Q 256 62 352 108"
+    fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="256" cy="83" rx="28" ry="15" fill="#F97316"/>
+`;
+
+// ── Apple touch icon: 180×180 PNG ──────────────────────────────────────────
+async function makeAppleTouchIcon() {
+  const size = 180;
+  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <rect width="512" height="512" fill="${BG}"/>
+    ${LOGO_SVG_CONTENT}
+  </svg>`;
+
+  const outPath = path.join(iconsDir, "apple-touch-icon.png");
+  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
+  console.log("✓ apple-touch-icon.png (180x180)");
+}
+
+// ── Splash screens ─────────────────────────────────────────────────────────
 const sizes = [
   { w: 750,  h: 1334, name: "750x1334"  }, // iPhone SE 3, 8
   { w: 828,  h: 1792, name: "828x1792"  }, // iPhone XR, 11
@@ -24,18 +59,24 @@ const sizes = [
 async function makeSplash({ w, h, name }) {
   const cx = Math.round(w / 2);
   const cy = Math.round(h / 2);
-  const r = Math.round(Math.min(w, h) * 0.055); // ~5.5% — roughly matches icon dot
+  // Icon occupies ~22% of the shorter dimension, centred on screen
+  const iconSize = Math.round(Math.min(w, h) * 0.22);
+  const ix = cx - Math.round(iconSize / 2);
+  const iy = cy - Math.round(iconSize / 2);
 
   const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
     <rect width="${w}" height="${h}" fill="${BG}"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${ORANGE}"/>
+    <svg x="${ix}" y="${iy}" width="${iconSize}" height="${iconSize}" viewBox="0 0 512 512">
+      ${LOGO_SVG_CONTENT}
+    </svg>
   </svg>`;
 
-  const outPath = path.join(outDir, `splash-${name}.png`);
+  const outPath = path.join(splashDir, `splash-${name}.png`);
   await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
-  console.log(`✓ ${name}.png`);
+  console.log(`✓ splash-${name}.png`);
 }
 
+await makeAppleTouchIcon();
 for (const size of sizes) {
   await makeSplash(size);
 }
