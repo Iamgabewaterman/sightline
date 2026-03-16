@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'sightline-static-v2';
-const PAGES_CACHE  = 'sightline-pages-v2';
+const STATIC_CACHE = 'sightline-static-v3';
+const PAGES_CACHE  = 'sightline-pages-v3';
 
 // Pre-cache the manifest and icons on install
 self.addEventListener('install', (event) => {
@@ -29,6 +29,13 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+// Allow the page to trigger skipWaiting via postMessage
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -80,9 +87,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   // ── Network-first: page navigations ──
-  // Always try to get the freshest HTML (auth state, data, etc.)
-  // Fall back to cached version if offline
-  if (request.headers.get('accept')?.includes('text/html')) {
+  // Use request.mode === 'navigate' as primary check — more reliable on iOS PWA
+  // than the accept header, which WebKit doesn't always include.
+  const isNavigation =
+    request.mode === 'navigate' ||
+    request.headers.get('accept')?.includes('text/html');
+
+  if (isNavigation) {
     event.respondWith(
       fetch(request)
         .then((res) => {

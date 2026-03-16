@@ -7,16 +7,28 @@ import { useState, useEffect } from "react";
 function useServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // When the SW controller changes (new SW took over), reload so the page
+    // gets fresh HTML and JS bundles instead of whatever the old SW cached.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!reloading) {
+        reloading = true;
+        window.location.reload();
+      }
+    });
+
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then((reg) => {
-        // Force the waiting SW to activate immediately if there's an update
+        // If a new SW is already waiting, tell it to activate now
         if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
         reg.addEventListener("updatefound", () => {
           const newSw = reg.installing;
           if (newSw) {
             newSw.addEventListener("statechange", () => {
               if (newSw.state === "installed" && navigator.serviceWorker.controller) {
+                // New SW installed alongside an active one — skip waiting immediately
                 newSw.postMessage({ type: "SKIP_WAITING" });
               }
             });
