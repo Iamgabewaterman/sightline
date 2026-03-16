@@ -22,6 +22,14 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Nav safe-area: outer container padding pushes content below notch/Dynamic Island.
+   The background fills behind it automatically since the element starts at y=0. */
+.nav-safe-top {
+  /* fallback for older iOS that used constant() */
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Prevent 300ms tap delay on mobile */
 button, a, input, textarea, select {
   touch-action: manipulation;

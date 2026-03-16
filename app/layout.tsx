@@ -43,6 +43,8 @@ export default function RootLayout({
   return (
     <html lang="en" style={{ backgroundColor: "#0F0F0F" }}>
       <head>
+        {/* Explicit viewport meta — ensures viewport-fit=cover is set even if Next.js strips it */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Apple splash screens — one per common iPhone physical resolution */}
         <link rel="apple-touch-startup-image" href="/splash/splash-750x1334.png"
           media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
