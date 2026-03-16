@@ -27,7 +27,8 @@ export default function ReceiptsSection({
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<ReceiptExtractionResult | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   function getPublicUrl(path: string) {
@@ -53,7 +54,8 @@ export default function ReceiptsSection({
     const result = await extractReceiptItems(jobId, fd);
 
     setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (libraryRef.current) libraryRef.current.value = "";
 
     if (result.error) {
       setError(result.error);
@@ -119,21 +121,40 @@ export default function ReceiptsSection({
         )}
       </div>
 
-      {/* Upload button */}
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-        className="w-full flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mb-5"
-      >
-        <span className="text-xl">🧾</span>
-        {uploading ? "Reading receipt..." : "Add Receipt"}
-      </button>
+      {/* Upload buttons */}
+      <div className="flex gap-3 mb-5">
+        <button
+          onClick={() => cameraRef.current?.click()}
+          disabled={uploading}
+          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <span className="text-xl">📷</span>
+          {uploading ? "Scanning..." : "Take Photo"}
+        </button>
+        <button
+          onClick={() => libraryRef.current?.click()}
+          disabled={uploading}
+          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <span className="text-xl">🖼️</span>
+          {uploading ? "Scanning..." : "Library"}
+        </button>
+      </div>
 
+      {/* Camera input — opens camera directly */}
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={handleFile}
+      />
+      {/* Library input — opens photo picker, no capture attribute */}
+      <input
+        ref={libraryRef}
+        type="file"
+        accept="image/*"
         className="hidden"
         onChange={handleFile}
       />
