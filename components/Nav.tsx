@@ -7,7 +7,13 @@ export default async function Nav() {
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <nav className="bg-[#141414] border-b border-[#2a2a2a] px-3 py-2.5 flex items-center justify-between">
+    <nav
+      className="bg-[#141414] border-b border-[#2a2a2a] px-3 flex items-center justify-between"
+      style={{
+        paddingTop: "calc(env(safe-area-inset-top) + 10px)",
+        paddingBottom: "10px",
+      }}
+    >
       <Link href={user ? "/jobs" : "/"} className="flex items-center gap-2 shrink-0">
         <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
         <span className="text-white font-black text-xl tracking-tight leading-none">

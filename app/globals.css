@@ -7,10 +7,17 @@
   --foreground: #ffffff;
 }
 
+html {
+  overflow-x: hidden;
+  /* Dark background before any CSS loads — prevents white flash in iOS PWA */
+  background-color: #0F0F0F;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
   /* Safe area padding for iPhone home indicator */
   padding-bottom: env(safe-area-inset-bottom);
 }
