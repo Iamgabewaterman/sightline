@@ -88,6 +88,7 @@ export default function EstimationSuggestions({
       unit_cost: null,
       length_ft: null,
       notes: `AI suggestion (${s.confidence} past job${s.confidence !== 1 ? "s" : ""})`,
+      category: "materials" as const,
       created_at: now,
     }));
     onMaterialsAdded(added);

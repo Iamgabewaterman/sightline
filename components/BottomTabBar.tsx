@@ -54,11 +54,13 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
-  { label: "Clients",    href: "/clients" },
-  { label: "Receipts",   href: "/receipts" },
-  { label: "Portfolio",  href: "/portfolio" },
-  { label: "People",     href: "/people" },
-  { label: "Calculator", href: "/calculator" },
+  { label: "Clients",     href: "/clients" },
+  { label: "Receipts",    href: "/receipts" },
+  { label: "Mileage",     href: "/mileage" },
+  { label: "Tax Report",  href: "/tax" },
+  { label: "Portfolio",   href: "/portfolio" },
+  { label: "People",      href: "/people" },
+  { label: "Calculator",  href: "/calculator" },
 ];
 
 export default function BottomTabBar() {

@@ -2,7 +2,9 @@
 
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { deleteReceipt } from "@/app/actions/receipts";
+import { deleteReceipt, updateReceiptCategory } from "@/app/actions/receipts";
+import { ExpenseCategory } from "@/types";
+import { CATEGORY_CONFIG, ALL_CATEGORIES, detectCategoryFromVendor } from "@/lib/expense-category";
 
 function TrashIcon() {
   return (
@@ -41,6 +43,7 @@ export default function ReceiptsSection({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [extraction, setExtraction] = useState<ReceiptExtractionResult | null>(null);
+  const [categoryPickerId, setCategoryPickerId] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -114,6 +117,12 @@ export default function ReceiptsSection({
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
     if (data) setReceipts(data as Receipt[]);
+  }
+
+  async function handleCategoryChange(receiptId: string, category: ExpenseCategory) {
+    await updateReceiptCategory(receiptId, category);
+    setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, category } : r));
+    setCategoryPickerId(null);
   }
 
   async function handleDeleteConfirmed() {
@@ -220,13 +229,21 @@ export default function ReceiptsSection({
                   <p className="text-white font-semibold text-base truncate">
                     {r.vendor ?? "Receipt"}
                   </p>
-                  <p className="text-gray-500 text-xs mt-0.5">
-                    {formatDate(r.created_at)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-gray-500 text-xs">{formatDate(r.created_at)}</p>
+                    {(() => {
+                      const cat = r.category ?? detectCategoryFromVendor(r.vendor);
+                      const cfg = CATEGORY_CONFIG[cat as ExpenseCategory] ?? CATEGORY_CONFIG.other;
+                      return (
+                        <button onClick={() => setCategoryPickerId(r.id)}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border active:scale-95 ${cfg.bg} ${cfg.color}`}>
+                          {cfg.label}
+                        </button>
+                      );
+                    })()}
+                  </div>
                   {r.amount === null && (
-                    <p className="text-gray-600 text-xs mt-0.5">
-                      Could not extract total
-                    </p>
+                    <p className="text-gray-600 text-xs mt-0.5">Could not extract total</p>
                   )}
                 </div>
 
@@ -257,6 +274,31 @@ export default function ReceiptsSection({
             </span>
           </div>
         </div>
+      )}
+
+      {/* Category picker */}
+      {categoryPickerId && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setCategoryPickerId(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <p className="text-white font-bold text-lg mb-4">Set Category</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_CATEGORIES.map((cat) => {
+                const cfg = CATEGORY_CONFIG[cat];
+                const receipt = receipts.find((r) => r.id === categoryPickerId);
+                const current = receipt?.category ?? detectCategoryFromVendor(receipt?.vendor ?? null);
+                return (
+                  <button key={cat} onClick={() => handleCategoryChange(categoryPickerId, cat)}
+                    className={`py-4 rounded-xl font-semibold text-sm border active:scale-95 transition-transform ${
+                      current === cat ? `${cfg.bg} ${cfg.color}` : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-400"
+                    }`}>
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Delete confirmation */}

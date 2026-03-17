@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { normalize } from "@/lib/receipt-normalizer";
 import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
+import { detectCategoryFromVendor } from "@/lib/expense-category";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -111,7 +112,7 @@ export async function extractReceiptItems(
     // Vision failed — save receipt anyway, return image_unclear
     const { data: receipt } = await supabase
       .from("receipts")
-      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null })
+      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null, category: "other" })
       .select()
       .single();
 
@@ -131,7 +132,7 @@ export async function extractReceiptItems(
   if (parsed.image_unclear) {
     const { data: receipt } = await supabase
       .from("receipts")
-      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null })
+      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null, category: "other" })
       .select()
       .single();
 
@@ -156,6 +157,7 @@ export async function extractReceiptItems(
       storage_path: path,
       amount: parsed.total,
       vendor: parsed.vendor,
+      category: detectCategoryFromVendor(parsed.vendor),
       ocr_raw: JSON.stringify(parsed),
     })
     .select()

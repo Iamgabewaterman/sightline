@@ -1,3 +1,13 @@
+export type ExpenseCategory =
+  | "materials"
+  | "labor"
+  | "equipment"
+  | "vehicle"
+  | "subcontractor"
+  | "permits"
+  | "insurance"
+  | "other";
+
 export type JobType =
   | "drywall"
   | "framing"
@@ -67,6 +77,7 @@ export interface Material {
   unit_cost: number | null;
   length_ft: number | null;
   notes: string | null;
+  category: ExpenseCategory;
   created_at: string;
 }
 
@@ -76,6 +87,7 @@ export interface LaborLog {
   crew_name: string;
   hours: number;
   rate: number;
+  category: ExpenseCategory;
   created_at: string;
 }
 
@@ -86,6 +98,7 @@ export interface Receipt {
   vendor: string | null;
   amount: number | null;
   ocr_raw: string | null;
+  category: ExpenseCategory | null;
   created_at: string;
 }
 
@@ -191,7 +204,31 @@ export interface ChangeOrder {
   user_id: string;
   description: string;
   amount: number;
+  category: ExpenseCategory;
   created_at: string;
+}
+
+export interface MileageLog {
+  id: string;
+  user_id: string;
+  job_id: string | null;
+  description: string;
+  miles: number;
+  rate: number;
+  deduction: number;
+  log_date: string;
+  created_at: string;
+  // joined
+  job_name?: string;
+}
+
+export interface TaxTransaction {
+  date: string;
+  description: string;
+  job_name: string;
+  category: ExpenseCategory;
+  amount: number;
+  source: "materials" | "labor" | "receipt" | "change_order" | "mileage";
 }
 
 export type InvoiceStatus = "unpaid" | "sent" | "paid";

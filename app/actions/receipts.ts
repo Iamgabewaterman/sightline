@@ -2,7 +2,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { Receipt } from "@/types";
+import { Receipt, ExpenseCategory } from "@/types";
+import { detectCategoryFromVendor } from "@/lib/expense-category";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -81,14 +82,29 @@ export async function uploadReceipt(
     // OCR failed — still save the receipt without extracted data
   }
 
+  const category = detectCategoryFromVendor(vendor);
+
   const { data: receipt, error: dbError } = await supabase
     .from("receipts")
-    .insert({ job_id: jobId, storage_path: path, amount, vendor, ocr_raw: ocrRaw })
+    .insert({ job_id: jobId, storage_path: path, amount, vendor, ocr_raw: ocrRaw, category })
     .select()
     .single<Receipt>();
 
   if (dbError) return { error: dbError.message };
   return { receipt: receipt! };
+}
+
+export async function updateReceiptCategory(
+  id: string,
+  category: ExpenseCategory
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("receipts")
+    .update({ category })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  return {};
 }
 
 export async function deleteReceipt(
