@@ -158,6 +158,19 @@ export interface ClockSession {
   job_name?: string;
 }
 
+export type InvoiceStatus = "unpaid" | "sent" | "paid";
+
+export interface Invoice {
+  id: string;
+  job_id: string;
+  user_id: string;
+  status: InvoiceStatus;
+  sent_at: string | null;
+  paid_at: string | null;
+  total_amount: number;
+  created_at: string;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;

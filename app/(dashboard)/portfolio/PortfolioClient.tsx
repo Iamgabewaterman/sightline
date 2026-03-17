@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Job, JobType, Estimate } from "@/types";
+import { Job, JobType, Estimate, Invoice, InvoiceStatus } from "@/types";
 
 const ALL_TYPES: JobType[] = [
   "drywall","framing","plumbing","paint","trim","roofing",
@@ -14,7 +14,13 @@ const TYPE_LABELS: Record<string, string> = {
   electrical:"Electrical",hvac:"HVAC",concrete:"Concrete",landscaping:"Landscaping",
 };
 
-type JobWithEstimate = Job & { estimate: Estimate | null };
+const INVOICE_STATUS: Record<InvoiceStatus, { label: string; classes: string }> = {
+  unpaid: { label: "Unpaid", classes: "bg-orange-500/20 text-orange-400" },
+  sent:   { label: "Sent",   classes: "bg-yellow-500/20 text-yellow-400" },
+  paid:   { label: "Paid",   classes: "bg-green-500/20 text-green-400"  },
+};
+
+type JobWithEstimate = Job & { estimate: Estimate | null; invoice: Invoice | null };
 
 function fmt(n: number) {
   if (n >= 1000) return "$" + (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
@@ -132,11 +138,18 @@ export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h2 className="text-white font-bold text-lg leading-tight flex-1">{job.name}</h2>
-                    {quoteTotal !== null && (
-                      <span className="text-orange-500 font-black text-xl leading-none shrink-0">
-                        {fmt(quoteTotal)}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {job.invoice && (
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${INVOICE_STATUS[job.invoice.status].classes}`}>
+                          {INVOICE_STATUS[job.invoice.status].label}
+                        </span>
+                      )}
+                      {quoteTotal !== null && (
+                        <span className="text-orange-500 font-black text-xl leading-none">
+                          {fmt(quoteTotal)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Address */}

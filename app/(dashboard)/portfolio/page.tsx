@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Job, Estimate } from "@/types";
+import { Job, Estimate, Invoice } from "@/types";
 import PortfolioClient from "./PortfolioClient";
 
 export default async function PortfolioPage() {
@@ -33,9 +33,23 @@ export default async function PortfolioPage() {
     }
   }
 
+  // Fetch invoices for all completed jobs
+  let invoiceMap: Record<string, Invoice> = {};
+  if (jobIds.length > 0) {
+    const { data: invoices } = await supabase
+      .from("invoices")
+      .select("*")
+      .in("job_id", jobIds)
+      .returns<Invoice[]>();
+    for (const inv of invoices ?? []) {
+      invoiceMap[inv.job_id] = inv;
+    }
+  }
+
   const jobsWithEstimates = (jobs ?? []).map((job) => ({
     ...job,
     estimate: estimateMap[job.id] ?? null,
+    invoice: invoiceMap[job.id] ?? null,
   }));
 
   return <PortfolioClient jobs={jobsWithEstimates} />;

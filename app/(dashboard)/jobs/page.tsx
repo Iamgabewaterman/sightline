@@ -31,6 +31,8 @@ export default async function DashboardPage() {
     { data: monthEstimates },
     { data: userJobIds },
     { data: recentJobs },
+    { data: unpaidInvoices },
+    { data: paidThisMonthInvoices },
   ] = await Promise.all([
     supabase
       .from("jobs")
@@ -49,6 +51,17 @@ export default async function DashboardPage() {
       .eq("user_id", user!.id)
       .order("updated_at", { ascending: false })
       .returns<Job[]>(),
+    supabase
+      .from("invoices")
+      .select("total_amount")
+      .eq("user_id", user!.id)
+      .in("status", ["unpaid", "sent"]),
+    supabase
+      .from("invoices")
+      .select("total_amount")
+      .eq("user_id", user!.id)
+      .eq("status", "paid")
+      .gte("paid_at", monthStart.toISOString()),
   ]);
 
   // Materials spend this month (via job IDs)
@@ -71,6 +84,9 @@ export default async function DashboardPage() {
       return sum + Number(m.quantity_used) * Number(m.unit_cost);
     return sum;
   }, 0);
+
+  const outstanding = (unpaidInvoices ?? []).reduce((s, i) => s + Number(i.total_amount), 0);
+  const paidThisMonth = (paidThisMonthInvoices ?? []).reduce((s, i) => s + Number(i.total_amount), 0);
 
   const allJobs = recentJobs ?? [];
   const recentThree = allJobs.slice(0, 3);
@@ -117,6 +133,23 @@ export default async function DashboardPage() {
             </p>
           </div>
         </div>
+
+        {/* Invoices */}
+        {(outstanding > 0 || paidThisMonth > 0) && (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-8">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoices</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Outstanding</p>
+                <p className="text-orange-400 font-black text-xl leading-none">{fmt$(outstanding)}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Paid This Month</p>
+                <p className="text-green-400 font-black text-xl leading-none">{fmt$(paidThisMonth)}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Recent Jobs */}
         <div className="flex items-center justify-between mb-4">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -15,6 +15,7 @@ import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
 import TimelineSection from "@/components/TimelineSection";
 import DailyLogsSection from "@/components/DailyLogsSection";
+import InvoiceSection from "@/components/InvoiceSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -43,6 +44,7 @@ export default async function JobDetailPage({
     { data: receipts },
     { data: laborLogs },
     { data: dailyLogs },
+    { data: invoice },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -86,6 +88,11 @@ export default async function JobDetailPage({
       .order("log_date", { ascending: false })
       .order("created_at", { ascending: false })
       .returns<DailyLog[]>(),
+    supabase
+      .from("invoices")
+      .select("*")
+      .eq("job_id", params.id)
+      .maybeSingle<Invoice>(),
   ]);
 
   if (!job) notFound();
@@ -183,6 +190,19 @@ export default async function JobDetailPage({
           <div className="mb-4">
             <QuoteProfitSection job={job} />
           </div>
+
+          {/* Invoice — only on completed jobs with a saved quote */}
+          {job.status === "completed" && estimate && (
+            <div className="mb-4">
+              <InvoiceSection
+                jobId={job.id}
+                jobName={job.name}
+                jobAddress={job.address}
+                estimate={estimate}
+                initialInvoice={invoice ?? null}
+              />
+            </div>
+          )}
 
           {/* Detail cards */}
           <div className="flex flex-col gap-4">
