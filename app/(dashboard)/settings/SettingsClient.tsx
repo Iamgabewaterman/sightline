@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { updateEmail, updatePassword } from "@/app/actions/auth";
 import { BusinessProfile } from "@/types";
 import BusinessProfileSection from "./BusinessProfileSection";
+import TeamSection from "./TeamSection";
+import { ProfileWithCompany } from "@/app/actions/team";
+import { FieldMember } from "@/types";
 
 interface SectionProps {
   title: string;
@@ -21,7 +24,17 @@ function Section({ title, children }: SectionProps) {
 const inputClass =
   "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500 w-full";
 
-export default function SettingsClient({ currentEmail, businessProfile }: { currentEmail: string; businessProfile: BusinessProfile | null }) {
+export default function SettingsClient({
+  currentEmail,
+  businessProfile,
+  profile,
+  members,
+}: {
+  currentEmail: string;
+  businessProfile: BusinessProfile | null;
+  profile: ProfileWithCompany | null;
+  members: FieldMember[];
+}) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   // Load theme from localStorage
@@ -81,6 +94,9 @@ export default function SettingsClient({ currentEmail, businessProfile }: { curr
 
         {/* Business Profile */}
         <BusinessProfileSection initial={businessProfile} />
+
+        {/* Team */}
+        {profile && <TeamSection profile={profile} members={members} />}
 
         {/* Email */}
         <Section title="Change Email">

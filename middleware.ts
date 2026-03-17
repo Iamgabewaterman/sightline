@@ -1,6 +1,25 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Routes field members cannot access
+const OWNER_ONLY_ROUTES = [
+  "/tax",
+  "/mileage",
+  "/clients",
+  "/import",
+  "/portfolio",
+  "/receipts",
+  "/settings",
+  "/people",
+];
+
+// Routes field members CAN access (whitelist within dashboard)
+const FIELD_MEMBER_ALLOWED = [
+  "/jobs",
+  "/account",
+  "/subscribe",
+];
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -46,16 +65,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/jobs", request.url));
   }
 
-  // Subscription enforcement (skip for auth/subscribe/api routes)
-  if (user && !isAuthPage && !isSubscribePage && !isApiRoute && !isAuthCallback) {
-    // Lifetime access bypasses all Stripe checks
+  if (user && !isAuthPage && !isApiRoute && !isAuthCallback) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_lifetime")
+      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.is_lifetime) {
+    // ── Field member restrictions ────────────────────────────────────────────
+    if (profile?.role === "field_member") {
+      const blocked = OWNER_ONLY_ROUTES.some((r) => pathname.startsWith(r));
+
+      // Check financials route exceptions
+      const wantsFinancials = pathname.startsWith("/tax") || pathname.startsWith("/mileage") || pathname.startsWith("/receipts");
+      if (wantsFinancials && profile.can_see_financials) {
+        // allowed
+      } else if (blocked) {
+        return NextResponse.redirect(new URL("/jobs", request.url));
+      }
+
+      // Field members skip Stripe subscription check — they're free
+      return supabaseResponse;
+    }
+
+    // ── Owner subscription enforcement ───────────────────────────────────────
+    if (!isSubscribePage && !profile?.is_lifetime) {
       const trialEndsAt = new Date(user.created_at);
       trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
       const onTrial = new Date() < trialEndsAt;
@@ -67,9 +101,7 @@ export async function middleware(request: NextRequest) {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        const isActive =
-          sub?.status === "active" || sub?.status === "trialing";
-
+        const isActive = sub?.status === "active" || sub?.status === "trialing";
         if (!isActive) {
           return NextResponse.redirect(new URL("/subscribe", request.url));
         }

@@ -241,6 +241,39 @@ export interface TaxTransaction {
   source: "materials" | "labor" | "receipt" | "change_order" | "mileage";
 }
 
+export type UserRole = "owner" | "field_member";
+
+export interface Company {
+  id: string;
+  owner_user_id: string;
+  name: string | null;
+  invite_code: string;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  is_lifetime: boolean;
+  role: UserRole;
+  company_id: string | null;
+  can_see_financials: boolean;
+  can_see_all_jobs: boolean;
+  can_see_client_info: boolean;
+  display_name: string | null;
+  created_at: string;
+}
+
+export interface FieldMember extends Profile {
+  email?: string;
+}
+
+export interface JobMember {
+  id: string;
+  job_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 export type InvoiceStatus = "unpaid" | "sent" | "paid";
 export type PaymentTerms = "due_on_receipt" | "net_15" | "net_30" | "net_45";
 

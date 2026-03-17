@@ -13,6 +13,36 @@ export async function signUp(formData: FormData) {
   return { success: true };
 }
 
+export async function signUpFieldMember(formData: FormData) {
+  const supabase = createClient();
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const inviteCode = (formData.get("invite_code") as string)?.trim().toUpperCase();
+
+  if (!inviteCode || inviteCode.length !== 6) {
+    return { error: "Enter the 6-character invite code from your employer." };
+  }
+
+  // Validate invite code exists before creating account
+  const { data: company } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("invite_code", inviteCode)
+    .maybeSingle();
+
+  if (!company) {
+    return { error: "Invalid invite code. Ask your employer to share their code from Settings → Team." };
+  }
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { invite_code: inviteCode, role: "field_member" } },
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function signIn(formData: FormData) {
   const supabase = createClient();
   const email = formData.get("email") as string;

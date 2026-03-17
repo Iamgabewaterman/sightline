@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Job } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import { getInvoiceDashboardStats } from "@/app/actions/invoices";
+import { ensureOwnerSetup } from "@/app/actions/team";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -21,6 +22,9 @@ export default async function DashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Auto-create company + profile for owners on first visit
+  await ensureOwnerSetup();
 
   const monthStart = new Date();
   monthStart.setDate(1);
