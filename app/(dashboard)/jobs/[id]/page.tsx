@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -13,6 +13,8 @@ import DeleteJobButton from "@/components/DeleteJobButton";
 import DimensionsSection from "@/components/DimensionsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
+import TimelineSection from "@/components/TimelineSection";
+import DailyLogsSection from "@/components/DailyLogsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -40,6 +42,7 @@ export default async function JobDetailPage({
     { data: estimate },
     { data: receipts },
     { data: laborLogs },
+    { data: dailyLogs },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -76,6 +79,13 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<LaborLog[]>(),
+    supabase
+      .from("daily_logs")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("log_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .returns<DailyLog[]>(),
   ]);
 
   if (!job) notFound();
@@ -101,6 +111,30 @@ export default async function JobDetailPage({
     .not("id", "eq", params.id)
     .not("calculated_sqft", "is", null)
     .overlaps("types", job.types);
+
+  // Timeline AI insight: completed jobs of same type with total_days recorded
+  let timelineInsight: { min: number; max: number; type: string } | null = null;
+  if (job.types.length > 0) {
+    const { data: completedTimelines } = await supabase
+      .from("jobs")
+      .select("total_days, types")
+      .eq("user_id", user!.id)
+      .eq("status", "completed")
+      .not("id", "eq", params.id)
+      .not("total_days", "is", null)
+      .overlaps("types", job.types);
+
+    if ((completedTimelines?.length ?? 0) >= 3) {
+      const days = completedTimelines!.map((j) => j.total_days as number);
+      const min = Math.min(...days);
+      const max = Math.max(...days);
+      // Find the shared type to name the insight
+      const sharedType = job.types.find((t) =>
+        completedTimelines!.some((j) => (j.types as string[]).includes(t))
+      ) ?? job.types[0];
+      timelineInsight = { min, max, type: sharedType };
+    }
+  }
 
   const initialQuoteData = estimate
     ? {
@@ -164,6 +198,11 @@ export default async function JobDetailPage({
             {job.lockbox_code && <LockboxCode code={job.lockbox_code} />}
           </div>
 
+          {/* Timeline */}
+          <div className="mt-4">
+            <TimelineSection job={job} timelineInsight={timelineInsight} />
+          </div>
+
           {/* Dimensions */}
           <DimensionsSection
             jobId={job.id}
@@ -186,6 +225,9 @@ export default async function JobDetailPage({
 
           {/* Labor */}
           <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
+
+          {/* Daily Logs */}
+          <DailyLogsSection jobId={job.id} initialLogs={dailyLogs ?? []} />
 
           {/* Receipts */}
           <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />

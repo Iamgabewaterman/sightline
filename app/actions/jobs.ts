@@ -112,15 +112,40 @@ export async function deleteJob(id: string) {
 
 export async function updateJobStatus(id: string, status: string) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Fetch current job to check existing timeline fields
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("start_date, status")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+
+  if (status === "active" && !job?.start_date) {
+    updates.start_date = today;
+  }
+
+  if (status === "completed") {
+    updates.completed_date = today;
+    if (job?.start_date) {
+      const start = new Date(job.start_date);
+      const end = new Date(today);
+      const diffMs = end.getTime() - start.getTime();
+      updates.total_days = Math.max(1, Math.round(diffMs / 86400000));
+    }
+  }
+
   const { error } = await supabase
     .from("jobs")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", id)
     .eq("user_id", user.id);
+
   if (error) return { error: error.message };
   revalidatePath("/jobs");
   return { success: true };

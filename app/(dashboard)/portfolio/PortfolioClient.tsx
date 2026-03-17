@@ -157,14 +157,23 @@ export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
 
                   {/* Stats */}
                   {est && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className={`grid gap-2 ${job.total_days ? "grid-cols-4" : "grid-cols-3"}`}>
                       <StatPill label="Materials" value={fmt(est.material_total)} />
                       <StatPill label="Labor" value={fmt(est.labor_total)} />
                       <StatPill label="Margin" value={`${est.profit_margin_pct}%`} />
+                      {job.total_days && (
+                        <StatPill label="Days" value={String(job.total_days)} />
+                      )}
                     </div>
                   )}
 
-                  {!est && (
+                  {!est && job.total_days && (
+                    <div className="grid grid-cols-1 gap-2">
+                      <StatPill label="Days" value={String(job.total_days)} />
+                    </div>
+                  )}
+
+                  {!est && !job.total_days && (
                     <p className="text-gray-600 text-xs">No quote saved</p>
                   )}
                 </Link>

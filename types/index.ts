@@ -29,8 +29,21 @@ export interface Job {
   dim_width: number | null;
   dim_height: number | null;
   calculated_sqft: number | null;
+  start_date: string | null;
+  completed_date: string | null;
+  total_days: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DailyLog {
+  id: string;
+  job_id: string;
+  user_id: string;
+  log_date: string;
+  notes: string | null;
+  crew_present: string | null;
+  created_at: string;
 }
 
 export interface Photo {
