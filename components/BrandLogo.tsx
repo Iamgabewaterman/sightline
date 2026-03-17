@@ -5,12 +5,12 @@ export default function BrandLogo() {
     <div className="flex flex-col items-center gap-3 mb-6">
       {/* Icon */}
       <Image
-        src="/new-logo.png.png"
+        src="/icons/icon-192.png"
         alt="Sightline"
-        width={240}
-        height={131}
+        width={96}
+        height={96}
         priority
-        className="w-56 h-auto"
+        className="w-24 h-24 rounded-2xl"
       />
 
       {/* Wordmark */}
