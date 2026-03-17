@@ -3,6 +3,18 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteReceipt } from "@/app/actions/receipts";
+
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+    </svg>
+  );
+}
 import { extractReceiptItems, confirmReceiptItems } from "@/app/actions/receipts-vision";
 import { Receipt, ReceiptExtractionResult } from "@/types";
 import { compressImage } from "@/lib/compress-image";
@@ -26,6 +38,8 @@ export default function ReceiptsSection({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [extraction, setExtraction] = useState<ReceiptExtractionResult | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -102,10 +116,13 @@ export default function ReceiptsSection({
     if (data) setReceipts(data as Receipt[]);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Remove this receipt?")) return;
-    await deleteReceipt(id);
-    setReceipts((prev) => prev.filter((r) => r.id !== id));
+  async function handleDeleteConfirmed() {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    await deleteReceipt(confirmDeleteId);
+    setReceipts((prev) => prev.filter((r) => r.id !== confirmDeleteId));
+    setConfirmDeleteId(null);
+    setDeleting(false);
   }
 
   const total = receipts.reduce((sum, r) => sum + (r.amount ?? 0), 0);
@@ -221,10 +238,11 @@ export default function ReceiptsSection({
                     </span>
                   )}
                   <button
-                    onClick={() => handleDelete(r.id)}
-                    className="text-red-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+                    onClick={() => setConfirmDeleteId(r.id)}
+                    aria-label="Delete receipt"
+                    className="text-red-400 w-10 h-10 flex items-center justify-center rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
                   >
-                    ✕
+                    <TrashIcon />
                   </button>
                 </div>
               </div>
@@ -239,6 +257,32 @@ export default function ReceiptsSection({
             </span>
           </div>
         </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDeleteId && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setConfirmDeleteId(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <p className="text-white font-bold text-lg mb-1">Delete receipt?</p>
+            <p className="text-gray-400 text-sm mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirmed}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Fullscreen overlay */}

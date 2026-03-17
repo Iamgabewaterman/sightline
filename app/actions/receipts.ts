@@ -95,6 +95,15 @@ export async function deleteReceipt(
   id: string
 ): Promise<{ success?: boolean; error?: string }> {
   const supabase = createClient();
+  // Get storage_path before deleting so we can remove from storage too
+  const { data: receipt } = await supabase
+    .from("receipts")
+    .select("storage_path")
+    .eq("id", id)
+    .single();
+  if (receipt?.storage_path) {
+    await supabase.storage.from("job-photos").remove([receipt.storage_path]);
+  }
   const { error } = await supabase.from("receipts").delete().eq("id", id);
   if (error) return { error: error.message };
   return { success: true };

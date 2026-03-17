@@ -4,6 +4,19 @@ import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
+import { deletePhoto } from "@/app/actions/photos";
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+    </svg>
+  );
+}
 
 const CATEGORIES: { value: PhotoCategory; label: string }[] = [
   { value: "before", label: "Before" },
@@ -23,6 +36,8 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +95,17 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
 
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!confirmDeleteId) return;
+    const photo = photos.find((p) => p.id === confirmDeleteId);
+    if (!photo) return;
+    setDeleting(true);
+    await deletePhoto(photo.id, photo.storage_path);
+    setPhotos((prev) => prev.filter((p) => p.id !== confirmDeleteId));
+    setConfirmDeleteId(null);
+    setDeleting(false);
   }
 
   const visiblePhotos = photos.filter((p) => p.category === activeCategory);
@@ -166,22 +192,56 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
           {visiblePhotos.map((photo) => {
             const url = getPublicUrl(photo.storage_path);
             return (
-              <button
-                key={photo.id}
-                onClick={() => setFullscreen(url)}
-                className="aspect-square rounded-xl overflow-hidden bg-[#1A1A1A] active:scale-95 transition-transform"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </button>
+              <div key={photo.id} className="relative aspect-square">
+                <button
+                  onClick={() => setFullscreen(url)}
+                  className="w-full h-full rounded-xl overflow-hidden bg-[#1A1A1A] active:scale-95 transition-transform"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(photo.id)}
+                  aria-label="Delete photo"
+                  className="absolute top-1 right-1 w-8 h-8 bg-black/70 rounded-lg flex items-center justify-center text-red-400 active:scale-95 transition-transform"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDeleteId && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setConfirmDeleteId(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <p className="text-white font-bold text-lg mb-1">Delete photo?</p>
+            <p className="text-gray-400 text-sm mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirmed}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Fullscreen overlay */}
