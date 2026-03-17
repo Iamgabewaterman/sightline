@@ -169,6 +169,7 @@ export interface BusinessProfile {
   phone: string | null;
   email: string | null;
   logo_path: string | null;
+  default_payment_terms: PaymentTerms;
   created_at: string;
 }
 
@@ -194,12 +195,17 @@ export interface ChangeOrder {
 }
 
 export type InvoiceStatus = "unpaid" | "sent" | "paid";
+export type PaymentTerms = "due_on_receipt" | "net_15" | "net_30" | "net_45";
 
 export interface Invoice {
   id: string;
   job_id: string;
   user_id: string;
+  client_id: string | null;
   status: InvoiceStatus;
+  payment_terms: PaymentTerms;
+  due_date: string | null;
+  notes: string | null;
   sent_at: string | null;
   paid_at: string | null;
   total_amount: number;

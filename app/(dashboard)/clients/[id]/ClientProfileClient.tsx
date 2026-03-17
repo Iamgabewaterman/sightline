@@ -19,10 +19,21 @@ function initials(name: string) {
 }
 
 const INVOICE_STATUS: Record<string, { label: string; classes: string }> = {
-  unpaid: { label: "Unpaid", classes: "bg-orange-500/20 text-orange-400" },
+  unpaid: { label: "Unpaid", classes: "bg-red-500/20 text-red-400"       },
   sent:   { label: "Sent",   classes: "bg-yellow-500/20 text-yellow-400" },
-  paid:   { label: "Paid",   classes: "bg-green-500/20 text-green-400"  },
+  paid:   { label: "Paid",   classes: "bg-green-500/20 text-green-400"   },
 };
+
+function invoiceIsOverdue(inv: Invoice): boolean {
+  if (inv.status === "paid") return false;
+  if (!inv.due_date) return false;
+  return inv.due_date < new Date().toISOString().split("T")[0];
+}
+
+function daysPastDue(inv: Invoice): number {
+  if (!inv.due_date) return 0;
+  return Math.ceil((new Date().getTime() - new Date(inv.due_date + "T00:00:00").getTime()) / 86400000);
+}
 
 const inputCls = "w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-orange-500";
 
@@ -160,7 +171,14 @@ export default function ClientProfileClient({
                   <Link key={inv.id} href={`/jobs/${inv.job_id}`} className="flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-[0.99]">
                     <div>
                       <p className="text-white font-semibold text-sm">{job?.name ?? "Job"}</p>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${cfg.classes}`}>{cfg.label}</span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${cfg.classes}`}>{cfg.label}</span>
+                        {invoiceIsOverdue(inv) && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40">
+                            Overdue {daysPastDue(inv)}d
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className="text-orange-400 font-bold text-base">{fmt$(Number(inv.total_amount))}</span>
                   </Link>

@@ -108,7 +108,7 @@ export default async function JobDetailPage({
 
   // Fetch client if linked
   const { data: jobClient } = job.client_id
-    ? await supabase.from("clients").select("id, name").eq("id", job.client_id).maybeSingle()
+    ? await supabase.from("clients").select("id, name, company, phone, email, address").eq("id", job.client_id).maybeSingle()
     : { data: null };
 
   // Initial actual costs (used to seed the live context)
@@ -226,6 +226,7 @@ export default async function JobDetailPage({
                 jobAddress={job.address}
                 estimate={estimate}
                 initialInvoice={invoice ?? null}
+                jobClient={jobClient ?? null}
               />
             </div>
           )}

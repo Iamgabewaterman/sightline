@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { BusinessProfile } from "@/types";
+import { BusinessProfile, PaymentTerms } from "@/types";
 import { upsertBusinessProfile, uploadBusinessLogo } from "@/app/actions/business-profile";
 
 const inputCls =
@@ -19,6 +19,7 @@ export default function BusinessProfileSection({
   const [address, setAddress] = useState(initial?.address ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
+  const [defaultPaymentTerms, setDefaultPaymentTerms] = useState<PaymentTerms>(initial?.default_payment_terms ?? "net_30");
   const [logoPath, setLogoPath] = useState(initial?.logo_path ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,7 @@ export default function BusinessProfileSection({
       phone: phone || null,
       email: email || null,
       logo_path: logoPath || null,
+      default_payment_terms: defaultPaymentTerms,
     });
     setSaving(false);
     setMsg(res.error ? { text: res.error, ok: false } : { text: "Business profile saved.", ok: true });
@@ -102,6 +104,24 @@ export default function BusinessProfileSection({
       </div>
 
       <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business Name" className={inputCls} />
+      <div>
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Default Payment Terms</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(["due_on_receipt", "net_15", "net_30", "net_45"] as PaymentTerms[]).map((t) => {
+            const label = { due_on_receipt: "Due on Receipt", net_15: "Net 15", net_30: "Net 30", net_45: "Net 45" }[t];
+            return (
+              <button key={t} type="button" onClick={() => setDefaultPaymentTerms(t)}
+                className={`py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 ${
+                  defaultPaymentTerms === t
+                    ? "bg-orange-500/20 border-orange-500/40 text-orange-400"
+                    : "bg-[#242424] border-[#333333] text-gray-400"
+                }`}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Owner / Contractor Name" className={inputCls} />
       <input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License Number (optional)" className={inputCls} />
       <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Business Address" className={inputCls} />
