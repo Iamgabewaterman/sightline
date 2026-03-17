@@ -20,7 +20,7 @@ function today() {
 }
 
 export default function QuoteProfitSection({ job }: { job: Job }) {
-  const { actualMaterialCost, actualLaborCost, quoteData, setQuoteData } = useJobCost();
+  const { actualMaterialCost, actualLaborCost, quoteData, setQuoteData, changeOrders } = useJobCost();
 
   // Overlay
   const [open, setOpen] = useState(false);
@@ -226,7 +226,8 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
   // ── Profitability bar calculations ────────────────────
   const qd = quoteData;
   const qAddonsTotal = qd ? qd.addons.reduce((s, a) => s + a.amount, 0) : 0;
-  const totalQuote = qd ? qd.finalQuote + qAddonsTotal : 0;
+  const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
+  const totalQuote = qd ? qd.finalQuote + qAddonsTotal + changeOrdersTotal : 0;
   const totalActual = actualMaterialCost + actualLaborCost;
   const profitBudget = qd ? totalQuote - qd.materialBudget - qd.laborBudget : 0;
   const profitRemaining = totalQuote - totalActual;
@@ -366,7 +367,21 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Total quote</span>
+              <span className="text-gray-400">Base quote</span>
+              <span className="text-white font-semibold">
+                ${Math.round(qd!.finalQuote + qAddonsTotal).toLocaleString()}
+              </span>
+            </div>
+            {changeOrders.length > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Change orders ({changeOrders.length})</span>
+                <span className={`font-semibold ${changeOrdersTotal >= 0 ? "text-orange-400" : "text-red-400"}`}>
+                  {changeOrdersTotal >= 0 ? "+" : "−"}${Math.abs(Math.round(changeOrdersTotal)).toLocaleString()}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">{changeOrders.length > 0 ? "Adjusted total" : "Total quote"}</span>
               <span className="text-white font-semibold">
                 ${Math.round(totalQuote).toLocaleString()}
               </span>

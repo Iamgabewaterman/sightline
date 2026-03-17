@@ -5,6 +5,7 @@ import { Invoice, InvoiceStatus, Estimate, QuoteAddon } from "@/types";
 import { createInvoice, updateInvoiceStatus } from "@/app/actions/invoices";
 import { generateAndDownloadInvoicePDF } from "@/lib/generateInvoicePDF";
 import { createClient } from "@/lib/supabase/client";
+import { useJobCost } from "./JobCostContext";
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
   unpaid: { label: "Unpaid",  color: "text-orange-400", bg: "bg-orange-500/20 border-orange-500/40" },
@@ -38,12 +39,14 @@ export default function InvoiceSection({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [pdfLoading, setPdfLoading] = useState(false);
+  const { changeOrders } = useJobCost();
 
   if (!estimate) return null;
 
   const addons = (estimate.addons as QuoteAddon[]) ?? [];
   const addonsTotal = addons.reduce((s, a) => s + Number(a.amount), 0);
-  const grandTotal = estimate.final_quote + addonsTotal;
+  const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
+  const grandTotal = estimate.final_quote + addonsTotal + changeOrdersTotal;
   const invoiceNumber = `INV-${jobId.slice(0, 8).toUpperCase()}`;
 
   async function handleGenerate() {
@@ -69,6 +72,13 @@ export default function InvoiceSection({
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!estimate) return;
+      const baseAddons = addons
+        .filter((a) => a.name && Number(a.amount) > 0)
+        .map((a) => ({ name: a.name, amount: Number(a.amount) }));
+      const coLineItems = changeOrders.map((o) => ({
+        name: `CO: ${o.description}`,
+        amount: Number(o.amount),
+      }));
       await generateAndDownloadInvoicePDF({
         contractorEmail: user?.email ?? "",
         jobName,
@@ -77,7 +87,7 @@ export default function InvoiceSection({
         invoiceNumber,
         materialsTotal: estimate.material_total,
         laborTotal: estimate.labor_total,
-        addons: addons.filter((a) => a.name && Number(a.amount) > 0).map((a) => ({ name: a.name, amount: Number(a.amount) })),
+        addons: [...baseAddons, ...coLineItems],
         grandTotal,
       });
     } finally {

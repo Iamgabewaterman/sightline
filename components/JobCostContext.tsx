@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { QuoteAddon } from "@/types";
+import { QuoteAddon, ChangeOrder } from "@/types";
 
 export interface QuoteState {
   materialBudget: number;
@@ -18,6 +18,8 @@ interface JobCostContextType {
   setActualLaborCost: (cost: number) => void;
   quoteData: QuoteState | null;
   setQuoteData: (data: QuoteState | null) => void;
+  changeOrders: ChangeOrder[];
+  setChangeOrders: (orders: ChangeOrder[]) => void;
 }
 
 const JobCostContext = createContext<JobCostContextType>({
@@ -27,6 +29,8 @@ const JobCostContext = createContext<JobCostContextType>({
   setActualLaborCost: () => {},
   quoteData: null,
   setQuoteData: () => {},
+  changeOrders: [],
+  setChangeOrders: () => {},
 });
 
 export function JobCostProvider({
@@ -34,15 +38,18 @@ export function JobCostProvider({
   initialMaterialCost,
   initialLaborCost,
   initialQuoteData,
+  initialChangeOrders,
 }: {
   children: React.ReactNode;
   initialMaterialCost: number;
   initialLaborCost: number;
   initialQuoteData?: QuoteState | null;
+  initialChangeOrders?: ChangeOrder[];
 }) {
   const [actualMaterialCost, setActualMaterialCost] = useState(initialMaterialCost);
   const [actualLaborCost, setActualLaborCost] = useState(initialLaborCost);
   const [quoteData, setQuoteData] = useState<QuoteState | null>(initialQuoteData ?? null);
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>(initialChangeOrders ?? []);
 
   return (
     <JobCostContext.Provider
@@ -53,6 +60,8 @@ export function JobCostProvider({
         setActualLaborCost,
         quoteData,
         setQuoteData,
+        changeOrders,
+        setChangeOrders,
       }}
     >
       {children}

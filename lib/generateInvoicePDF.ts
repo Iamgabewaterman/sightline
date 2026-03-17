@@ -105,7 +105,7 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData) {
   drawRow("Materials", fmt(data.materialsTotal));
   drawRow("Labor", fmt(data.laborTotal));
 
-  const validAddons = data.addons.filter((a) => a.name && a.amount > 0);
+  const validAddons = data.addons.filter((a) => a.name && a.amount !== 0);
   if (validAddons.length > 0) {
     y -= 6;
     page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.5, color: LGRAY });
@@ -113,7 +113,9 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData) {
     page.drawText("ADD-ONS", { x: MARGIN, y, font: bold, size: 8, color: GRAY });
     y -= 16;
     for (const addon of validAddons) {
-      drawRow(addon.name, fmt(addon.amount), 10, 10);
+      const sign = addon.amount < 0 ? "−$" : "$";
+      const val = sign + Math.abs(Math.round(addon.amount)).toLocaleString("en-US");
+      drawRow(addon.name, val, 10, 10, reg, bold, BLACK, addon.amount < 0 ? GRAY : BLACK);
     }
   }
 

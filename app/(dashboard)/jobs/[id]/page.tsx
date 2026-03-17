@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice, ChangeOrder } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -16,6 +16,7 @@ import { JobCostProvider } from "@/components/JobCostContext";
 import TimelineSection from "@/components/TimelineSection";
 import DailyLogsSection from "@/components/DailyLogsSection";
 import InvoiceSection from "@/components/InvoiceSection";
+import ChangeOrdersSection from "@/components/ChangeOrdersSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -45,6 +46,7 @@ export default async function JobDetailPage({
     { data: laborLogs },
     { data: dailyLogs },
     { data: invoice },
+    { data: changeOrders },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -93,6 +95,12 @@ export default async function JobDetailPage({
       .select("*")
       .eq("job_id", params.id)
       .maybeSingle<Invoice>(),
+    supabase
+      .from("change_orders")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<ChangeOrder[]>(),
   ]);
 
   if (!job) notFound();
@@ -180,6 +188,7 @@ export default async function JobDetailPage({
           initialMaterialCost={initialMaterialCost}
           initialLaborCost={initialLaborCost}
           initialQuoteData={initialQuoteData}
+          initialChangeOrders={changeOrders ?? []}
         >
           {/* Job Status */}
           <div className="mb-4">
@@ -245,6 +254,11 @@ export default async function JobDetailPage({
 
           {/* Labor */}
           <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
+
+          {/* Change Orders — only when a quote exists */}
+          {initialQuoteData && (
+            <ChangeOrdersSection jobId={job.id} />
+          )}
 
           {/* Daily Logs */}
           <DailyLogsSection jobId={job.id} initialLogs={dailyLogs ?? []} />
