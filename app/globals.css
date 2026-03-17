@@ -9,7 +9,6 @@
 
 html {
   overflow-x: hidden;
-  /* Dark background before any CSS loads — prevents white flash in iOS PWA */
   background-color: #0F0F0F;
 }
 
@@ -18,19 +17,14 @@ body {
   background-color: #0F0F0F;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   overflow-x: hidden;
-  /* Safe area padding for iPhone home indicator */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Nav safe-area: outer container padding pushes content below notch/Dynamic Island.
-   The background fills behind it automatically since the element starts at y=0. */
 .nav-safe-top {
-  /* fallback for older iOS that used constant() */
   padding-top: constant(safe-area-inset-top);
   padding-top: env(safe-area-inset-top);
 }
 
-/* Prevent 300ms tap delay on mobile */
 button, a, input, textarea, select {
   touch-action: manipulation;
 }
@@ -69,4 +63,120 @@ button, a, input, textarea, select {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* ============================================================
+   LIGHT MODE
+   Applied via html.light class — set by ThemeProvider /
+   inline script on load from localStorage.
+   ============================================================ */
+
+html.light {
+  background-color: #F5F5F5;
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #F5F5F5;
+  color: #111111;
+}
+
+/* ── Background overrides ──────────────────────────────────── */
+
+html.light .bg-\[\#0F0F0F\],
+html.light .bg-\[\#0A0A0A\] {
+  background-color: #F5F5F5;
+}
+
+html.light .bg-\[\#111111\],
+html.light .bg-\[\#141414\],
+html.light .bg-\[\#1A1A1A\],
+html.light .bg-\[\#1a1a1a\] {
+  background-color: #FFFFFF;
+}
+
+html.light .bg-\[\#242424\] {
+  background-color: #F0F0F0;
+}
+
+html.light .bg-\[\#2a2a2a\] {
+  background-color: #E5E7EB;
+}
+
+html.light .bg-\[\#292929\] {
+  background-color: #E8E8E8;
+}
+
+html.light .bg-\[\#3a3a3a\] {
+  background-color: #D1D5DB;
+}
+
+/* ── Border overrides ──────────────────────────────────────── */
+
+html.light .border-\[\#1e1e1e\],
+html.light .border-\[\#232323\],
+html.light .border-\[\#242424\],
+html.light .border-\[\#2a2a2a\] {
+  border-color: #E5E7EB;
+}
+
+html.light .border-\[\#333333\],
+html.light .border-\[\#333\],
+html.light .border-\[\#444\] {
+  border-color: #D1D5DB;
+}
+
+/* ── Text overrides ────────────────────────────────────────── */
+
+html.light .text-white {
+  color: #111111;
+}
+
+/* gray-300 is used for slightly dimmer text on dark bg */
+html.light .text-gray-300 {
+  color: #374151;
+}
+
+/* ── Exceptions: keep white text on colored/dark surfaces ──── */
+
+/* Orange buttons / active tabs — keep text white */
+html.light .bg-orange-500 {
+  color: #ffffff !important;
+}
+/* Red buttons */
+html.light .bg-red-600 {
+  color: #ffffff !important;
+}
+/* Green state indicators */
+html.light .bg-green-900\/30 {
+  background-color: #d1fae5;
+}
+
+/* Fullscreen black overlay (photo/receipt viewer) — keep white controls */
+html.light .bg-black .text-white,
+html.light .fixed.bg-black .text-white {
+  color: #ffffff;
+}
+
+/* Orange dot / wordmark in nav header stays its own color — no override needed */
+
+/* ── Slider ────────────────────────────────────────────────── */
+
+html.light .range-slider {
+  background: #E5E7EB;
+}
+
+/* ── Profitability bar: profit zone ───────────────────────── */
+/* The absolute div that marks the profit zone within the bar */
+html.light .bg-\[\#2a2a2a\].absolute {
+  background-color: #E5F3E5;
+}
+
+/* ── Scrollbar (webkit) ────────────────────────────────────── */
+
+html.light ::-webkit-scrollbar-track {
+  background: #F0F0F0;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
 }

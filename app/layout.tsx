@@ -44,8 +44,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ backgroundColor: "#0F0F0F" }}>
+    <html lang="en">
       <head>
+        {/* Apply saved theme before first paint — prevents flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var t = localStorage.getItem('theme');
+            if (t === 'light') {
+              document.documentElement.classList.add('light');
+              document.documentElement.style.backgroundColor = '#F5F5F5';
+            } else {
+              document.documentElement.style.backgroundColor = '#0F0F0F';
+            }
+          } catch(e) {
+            document.documentElement.style.backgroundColor = '#0F0F0F';
+          }
+        `}} />
         {/* Explicit viewport meta — ensures viewport-fit=cover is set even if Next.js strips it */}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Apple splash screens — one per common iPhone physical resolution */}
@@ -66,7 +80,7 @@ export default function RootLayout({
         <link rel="apple-touch-startup-image" href="/splash/splash-1290x2796.png"
           media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
       </head>
-      <body className={`${geistSans.variable} antialiased bg-[#0F0F0F] text-white`}>
+      <body className={`${geistSans.variable} antialiased`}>
         <Nav />
         {children}
         <PwaSetup />

@@ -171,7 +171,7 @@ export default function SettingsClient({ currentEmail }: { currentEmail: string 
                     : "bg-[#242424] text-gray-400 border-[#2a2a2a]"
                 }`}
               >
-                {t === "dark" ? "Dark" : "Light"}{t === "light" ? " (coming soon)" : ""}
+                {t === "dark" ? "Dark" : "Light"}
               </button>
             ))}
           </div>
