@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createJob } from "@/app/actions/jobs";
+import ClientSelector from "@/components/ClientSelector";
 
 const JOB_TYPES = [
   { value: "drywall", label: "Drywall" },
@@ -25,6 +26,7 @@ export default function NewJobForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [photoNames, setPhotoNames] = useState<string[]>([]);
+  const [clientId, setClientId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function toggleType(value: string) {
@@ -46,6 +48,7 @@ export default function NewJobForm() {
     const formData = new FormData(e.currentTarget);
     formData.delete("types");
     selectedTypes.forEach((t) => formData.append("types", t));
+    if (clientId) formData.set("client_id", clientId);
 
     const result = await createJob(formData);
 
@@ -72,6 +75,12 @@ export default function NewJobForm() {
         </div>
 
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Client */}
+          <ClientSelector
+            selectedClientId={clientId}
+            onChange={(id) => setClientId(id)}
+          />
+
           {/* Job Name */}
           <div className="flex flex-col gap-2">
             <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">

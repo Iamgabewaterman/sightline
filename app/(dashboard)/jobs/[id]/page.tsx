@@ -39,6 +39,7 @@ export default async function JobDetailPage({
 
   const [
     { data: job },
+    // client fetched separately below after job loads
     { data: photos },
     { data: materials },
     { data: estimate },
@@ -104,6 +105,11 @@ export default async function JobDetailPage({
   ]);
 
   if (!job) notFound();
+
+  // Fetch client if linked
+  const { data: jobClient } = job.client_id
+    ? await supabase.from("clients").select("id, name").eq("id", job.client_id).maybeSingle()
+    : { data: null };
 
   // Initial actual costs (used to seed the live context)
   const initialMaterialCost = (materials ?? []).reduce((sum, m) => {
@@ -183,6 +189,17 @@ export default async function JobDetailPage({
             Edit
           </Link>
         </div>
+        {jobClient && (
+          <Link
+            href={`/clients/${jobClient.id}`}
+            className="flex items-center gap-2 mb-4 text-orange-400 active:opacity-70"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            <span className="text-sm font-semibold">{jobClient.name}</span>
+          </Link>
+        )}
 
         <JobCostProvider
           initialMaterialCost={initialMaterialCost}

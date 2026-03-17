@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { updateEmail, updatePassword } from "@/app/actions/auth";
+import { BusinessProfile } from "@/types";
+import BusinessProfileSection from "./BusinessProfileSection";
 
 interface SectionProps {
   title: string;
@@ -19,7 +21,7 @@ function Section({ title, children }: SectionProps) {
 const inputClass =
   "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500 w-full";
 
-export default function SettingsClient({ currentEmail }: { currentEmail: string }) {
+export default function SettingsClient({ currentEmail, businessProfile }: { currentEmail: string; businessProfile: BusinessProfile | null }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   // Load theme from localStorage
@@ -76,6 +78,9 @@ export default function SettingsClient({ currentEmail }: { currentEmail: string 
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto flex flex-col gap-6">
         <h1 className="text-3xl font-bold text-white">Settings</h1>
+
+        {/* Business Profile */}
+        <BusinessProfileSection initial={businessProfile} />
 
         {/* Email */}
         <Section title="Change Email">

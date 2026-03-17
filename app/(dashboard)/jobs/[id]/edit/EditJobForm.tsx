@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateJob } from "@/app/actions/jobs";
 import { Job } from "@/types";
+import ClientSelector from "@/components/ClientSelector";
 
 const JOB_TYPES = [
   { value: "drywall", label: "Drywall" },
@@ -25,6 +26,7 @@ export default function EditJobForm({ job }: { job: Job }) {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>(job.types ?? []);
+  const [clientId, setClientId] = useState<string | null>(job.client_id ?? null);
 
   function toggleType(value: string) {
     setSelectedTypes((prev) =>
@@ -45,6 +47,7 @@ export default function EditJobForm({ job }: { job: Job }) {
     const formData = new FormData(e.currentTarget);
     formData.delete("types");
     selectedTypes.forEach((t) => formData.append("types", t));
+    formData.set("client_id", clientId ?? "");
 
     const result = await updateJob(job.id, formData);
 
@@ -67,6 +70,12 @@ export default function EditJobForm({ job }: { job: Job }) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Client */}
+          <ClientSelector
+            selectedClientId={clientId}
+            onChange={(id) => setClientId(id)}
+          />
+
           {/* Job Name */}
           <div className="flex flex-col gap-2">
             <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">

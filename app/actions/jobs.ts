@@ -18,9 +18,11 @@ export async function createJob(formData: FormData) {
     return { error: "Select at least one job type." };
   }
 
+  const client_id = formData.get("client_id") as string | null;
+
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ name, types, address, notes: notes || null, user_id: user.id })
+    .insert({ name, types, address, notes: notes || null, user_id: user.id, client_id: client_id || null })
     .select("id")
     .single();
 
@@ -65,9 +67,11 @@ export async function updateJob(id: string, formData: FormData) {
     return { error: "Select at least one job type." };
   }
 
+  const client_id = formData.get("client_id") as string | null;
+
   const { error } = await supabase
     .from("jobs")
-    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, updated_at: new Date().toISOString() })
+    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, client_id: client_id || null, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {

@@ -54,6 +54,7 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
+  { label: "Clients",    href: "/clients" },
   { label: "Receipts",   href: "/receipts" },
   { label: "Portfolio",  href: "/portfolio" },
   { label: "People",     href: "/people" },

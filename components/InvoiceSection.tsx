@@ -72,6 +72,7 @@ export default function InvoiceSection({
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!estimate) return;
+      const { data: bp } = await supabase.from("business_profiles").select("business_name,owner_name,license_number,phone,email").maybeSingle();
       const baseAddons = addons
         .filter((a) => a.name && Number(a.amount) > 0)
         .map((a) => ({ name: a.name, amount: Number(a.amount) }));
@@ -89,6 +90,7 @@ export default function InvoiceSection({
         laborTotal: estimate.labor_total,
         addons: [...baseAddons, ...coLineItems],
         grandTotal,
+        businessProfile: bp,
       });
     } finally {
       setPdfLoading(false);

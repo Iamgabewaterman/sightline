@@ -176,7 +176,10 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
     setPdfGenerating(true);
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const [{ data: { user } }, { data: bp }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from("business_profiles").select("business_name,owner_name,license_number,phone,email").maybeSingle(),
+      ]);
       const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
@@ -189,6 +192,7 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
         profitMarginPct: margin,
         profitAmount,
         grandTotal,
+        businessProfile: bp,
       });
     } finally {
       setPdfGenerating(false);

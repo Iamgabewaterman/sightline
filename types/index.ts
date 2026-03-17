@@ -29,6 +29,7 @@ export interface Job {
   dim_width: number | null;
   dim_height: number | null;
   calculated_sqft: number | null;
+  client_id: string | null;
   start_date: string | null;
   completed_date: string | null;
   total_days: number | null;
@@ -156,6 +157,31 @@ export interface ClockSession {
   created_at: string;
   // joined
   job_name?: string;
+}
+
+export interface BusinessProfile {
+  id: string;
+  user_id: string;
+  business_name: string | null;
+  owner_name: string | null;
+  license_number: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  logo_path: string | null;
+  created_at: string;
+}
+
+export interface Client {
+  id: string;
+  user_id: string;
+  name: string;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface ChangeOrder {
