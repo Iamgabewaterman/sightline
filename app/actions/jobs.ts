@@ -115,28 +115,50 @@ export async function updateJobStatus(id: string, status: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Fetch current job to check existing timeline fields
   const { data: job } = await supabase
     .from("jobs")
-    .select("start_date, status")
+    .select("start_date, status, paused_at, total_paused_days")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
-  const today = new Date().toISOString().slice(0, 10);
-  const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const updates: Record<string, unknown> = { status, updated_at: now.toISOString() };
 
+  const accumulatedPausedDays = Number(job?.total_paused_days ?? 0);
+
+  // First time going Active → record start_date
   if (status === "active" && !job?.start_date) {
     updates.start_date = today;
   }
 
+  // Resuming from On Hold → close out current pause period
+  if (status === "active" && job?.paused_at) {
+    const pauseMs = now.getTime() - new Date(job.paused_at).getTime();
+    const pauseDays = pauseMs / 86400000;
+    updates.total_paused_days = accumulatedPausedDays + pauseDays;
+    updates.paused_at = null;
+  }
+
+  // Going On Hold → record when the pause started
+  if (status === "on_hold") {
+    updates.paused_at = now.toISOString();
+  }
+
+  // Completing → close any open pause, then calculate net working days
   if (status === "completed") {
     updates.completed_date = today;
+    let finalPausedDays = accumulatedPausedDays;
+    if (job?.paused_at) {
+      const pauseMs = now.getTime() - new Date(job.paused_at).getTime();
+      finalPausedDays += pauseMs / 86400000;
+      updates.paused_at = null;
+      updates.total_paused_days = finalPausedDays;
+    }
     if (job?.start_date) {
-      const start = new Date(job.start_date);
-      const end = new Date(today);
-      const diffMs = end.getTime() - start.getTime();
-      updates.total_days = Math.max(1, Math.round(diffMs / 86400000));
+      const calendarDays = (now.getTime() - new Date(job.start_date).getTime()) / 86400000;
+      updates.total_days = Math.max(1, Math.round(calendarDays - finalPausedDays));
     }
   }
 

@@ -32,6 +32,8 @@ export interface Job {
   start_date: string | null;
   completed_date: string | null;
   total_days: number | null;
+  paused_at: string | null;
+  total_paused_days: number;
   created_at: string;
   updated_at: string;
 }
