@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signUp, signUpFieldMember } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
@@ -35,11 +36,17 @@ const BULLETS = [
 type SignupMode = "owner" | "field_member";
 
 export default function SignupForm() {
-  const [mode, setMode] = useState<SignupMode>("owner");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<SignupMode>(searchParams.get("join") ? "field_member" : "owner");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Sync mode when URL param changes (e.g. back/forward navigation)
+  useEffect(() => {
+    if (searchParams.get("join")) setMode("field_member");
+  }, [searchParams]);
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);

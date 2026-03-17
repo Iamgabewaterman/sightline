@@ -5,8 +5,7 @@ import { updateEmail, updatePassword } from "@/app/actions/auth";
 import { BusinessProfile } from "@/types";
 import BusinessProfileSection from "./BusinessProfileSection";
 import TeamSection from "./TeamSection";
-import { ProfileWithCompany } from "@/app/actions/team";
-import { FieldMember } from "@/types";
+import { ProfileWithCompany, CompanyMember } from "@/app/actions/team";
 
 interface SectionProps {
   title: string;
@@ -33,7 +32,7 @@ export default function SettingsClient({
   currentEmail: string;
   businessProfile: BusinessProfile | null;
   profile: ProfileWithCompany | null;
-  members: FieldMember[];
+  members: CompanyMember[];
 }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 

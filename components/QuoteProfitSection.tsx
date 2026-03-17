@@ -6,6 +6,7 @@ import { saveJobQuote, saveLineItem } from "@/app/actions/quotes";
 import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
+import { useRole } from "@/hooks/useRole";
 
 function fmt(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -20,7 +21,11 @@ function today() {
 }
 
 export default function QuoteProfitSection({ job }: { job: Job }) {
+  const { role, can_see_financials } = useRole();
   const { actualMaterialCost, actualLaborCost, quoteData, setQuoteData, changeOrders } = useJobCost();
+
+  // Field members without financial permission see nothing here
+  if (role === "field_member" && !can_see_financials) return null;
 
   // Overlay
   const [open, setOpen] = useState(false);

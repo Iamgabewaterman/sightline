@@ -5,6 +5,7 @@ import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor
 import { LaborLog, Contact, CrewWithMembers } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
+import { useRole } from "@/hooks/useRole";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -20,6 +21,7 @@ export default function LaborSection({
   jobId: string;
   initialLogs: LaborLog[];
 }) {
+  const { role, can_see_financials } = useRole();
   const [logs, setLogs] = useState<LaborLog[]>(initialLogs);
   const { setActualLaborCost } = useJobCost();
 
@@ -151,7 +153,7 @@ export default function LaborSection({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-xl">Labor</h2>
         <div className="flex items-center gap-2">
-          {logs.length > 0 && (
+          {logs.length > 0 && (role === "owner" || can_see_financials) && (
             <span className="text-orange-500 font-bold text-base">
               ${Math.round(totalCost).toLocaleString()}
             </span>
@@ -346,21 +348,25 @@ export default function LaborSection({
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className={`grid gap-2 text-center ${(role === "owner" || can_see_financials) ? "grid-cols-3" : "grid-cols-1"}`}>
                   <div className="bg-[#242424] rounded-lg py-2">
                     <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Hours</p>
                     <p className="text-white font-semibold">{Number(log.hours)}</p>
                   </div>
-                  <div className="bg-[#242424] rounded-lg py-2">
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Rate</p>
-                    <p className="text-white font-semibold">${Number(log.rate)}/hr</p>
-                  </div>
-                  <div className="bg-[#242424] rounded-lg py-2">
-                    <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total</p>
-                    <p className="text-orange-500 font-bold">
-                      ${Math.round(lineTotal).toLocaleString()}
-                    </p>
-                  </div>
+                  {(role === "owner" || can_see_financials) && (
+                    <>
+                      <div className="bg-[#242424] rounded-lg py-2">
+                        <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Rate</p>
+                        <p className="text-white font-semibold">${Number(log.rate)}/hr</p>
+                      </div>
+                      <div className="bg-[#242424] rounded-lg py-2">
+                        <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total</p>
+                        <p className="text-orange-500 font-bold">
+                          ${Math.round(lineTotal).toLocaleString()}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -372,12 +378,14 @@ export default function LaborSection({
               <span className="text-gray-400">Total hours</span>
               <span className="text-white font-semibold">{totalHours.toFixed(1)} hrs</span>
             </div>
-            <div className="flex justify-between text-sm border-t border-[#2a2a2a] pt-2">
-              <span className="text-gray-400">Total labor cost</span>
-              <span className="text-white font-bold text-base">
-                ${Math.round(totalCost).toLocaleString()}
-              </span>
-            </div>
+            {(role === "owner" || can_see_financials) && (
+              <div className="flex justify-between text-sm border-t border-[#2a2a2a] pt-2">
+                <span className="text-gray-400">Total labor cost</span>
+                <span className="text-white font-bold text-base">
+                  ${Math.round(totalCost).toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

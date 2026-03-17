@@ -100,15 +100,21 @@ export default function LoginForm() {
       <div className="flex-1 bg-[#111111] border-t border-[#1e1e1e] px-6 pt-8 pb-10 flex flex-col items-center">
         <div className="w-full max-w-sm">
           {/* Tabs */}
-          <div className="flex bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl p-1 mb-6">
-            <span className="flex-1 text-center text-white font-bold text-base py-2.5 rounded-lg bg-orange-500">
+          <div className="flex bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl p-1 mb-6 gap-1">
+            <span className="flex-1 text-center text-white font-bold text-sm py-2.5 rounded-lg bg-orange-500">
               Sign In
             </span>
             <Link
               href="/signup"
-              className="flex-1 text-center text-gray-400 font-semibold text-base py-2.5 rounded-lg active:scale-95 transition-transform"
+              className="flex-1 text-center text-gray-400 font-semibold text-sm py-2.5 rounded-lg active:scale-95 transition-transform"
             >
-              Create Account
+              Create
+            </Link>
+            <Link
+              href="/signup?join=1"
+              className="flex-1 text-center text-gray-400 font-semibold text-sm py-2.5 rounded-lg active:scale-95 transition-transform"
+            >
+              Join Team
             </Link>
           </div>
 

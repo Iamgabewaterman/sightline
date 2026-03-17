@@ -7,6 +7,7 @@ import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions
 import { generateAndDownloadInvoicePDF } from "@/lib/generateInvoicePDF";
 import { createClient } from "@/lib/supabase/client";
 import { useJobCost } from "./JobCostContext";
+import { useRole } from "@/hooks/useRole";
 
 const TERMS_OPTIONS: { value: PaymentTerms; label: string; days: number }[] = [
   { value: "due_on_receipt", label: "Due on Receipt", days: 0 },
@@ -76,11 +77,15 @@ export default function InvoiceSection({
   initialInvoice: Invoice | null;
   jobClient: Pick<Client, "id" | "name" | "company" | "phone" | "email" | "address"> | null;
 }) {
+  const { role, can_see_financials } = useRole();
   const [invoice, setInvoice] = useState<Invoice | null>(initialInvoice);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Field members without financial access can't see invoices
+  if (role === "field_member" && !can_see_financials) return null;
 
   // Pre-invoice creation state
   const [terms, setTerms] = useState<PaymentTerms>("net_30");
