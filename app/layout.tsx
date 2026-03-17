@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     title: "Sightline",
   },
   icons: {
-    icon: "/icons/icon.svg",
+    icon: "/favicon.png",
     apple: "/apple-touch-icon.png",
   },
 };
