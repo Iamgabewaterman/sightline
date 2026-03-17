@@ -3,14 +3,14 @@ import Image from "next/image";
 export default function BrandLogo() {
   return (
     <div className="flex flex-col items-center gap-3 mb-6">
-      {/* Icon */}
+      {/* Logo */}
       <Image
-        src="/icons/icon-192.png"
+        src="/icons/brand-logo.png"
         alt="Sightline"
-        width={96}
-        height={96}
+        width={240}
+        height={130}
         priority
-        className="w-24 h-24 rounded-2xl"
+        className="w-56 h-auto"
       />
 
       {/* Wordmark */}

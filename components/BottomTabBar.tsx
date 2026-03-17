@@ -57,7 +57,6 @@ const MORE_ITEMS = [
   { label: "Portfolio",  href: "/portfolio" },
   { label: "People",     href: "/people" },
   { label: "Calculator", href: "/calculator" },
-  { label: "Settings",   href: "/settings" },
 ];
 
 export default function BottomTabBar() {
