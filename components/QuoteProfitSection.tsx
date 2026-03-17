@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { saveJobQuote, saveLineItem } from "@/app/actions/quotes";
 import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
+import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 
 function fmt(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -30,6 +31,7 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // Fetched data
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -167,6 +169,29 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
       }
     } catch {
       // dismissed
+    }
+  }
+
+  async function handleDownloadPDF() {
+    setPdfGenerating(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
+      await generateAndDownloadQuotePDF({
+        contractorEmail: user?.email ?? "",
+        jobName: job.name,
+        jobAddress: job.address ?? "",
+        date: today(),
+        materialsTotal,
+        laborTotal,
+        addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
+        profitMarginPct: margin,
+        profitAmount,
+        grandTotal,
+      });
+    } finally {
+      setPdfGenerating(false);
     }
   }
 
@@ -627,21 +652,29 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
 
               {/* ── Action buttons ── */}
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleCopy}
-                  className="w-full flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform"
-                >
-                  {copied ? (
-                    <>
-                      <span className="text-green-400">✓</span>
-                      <span className="text-green-400">Copied to clipboard</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>📤</span> Share / Copy Quote
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCopy}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+                  >
+                    {copied ? (
+                      <span className="text-green-400">✓ Copied</span>
+                    ) : (
+                      <><span>📤</span> Share</>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={pdfGenerating}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+                  >
+                    {pdfGenerating ? (
+                      <span className="text-gray-400">Building...</span>
+                    ) : (
+                      <><span>📄</span> Download PDF</>
+                    )}
+                  </button>
+                </div>
 
                 {saved ? (
                   <div className="w-full flex items-center justify-center gap-2 bg-green-900/30 border border-green-800 text-green-400 font-bold text-lg py-4 rounded-xl">
