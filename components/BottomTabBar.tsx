@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useClockContext } from "./ClockContext";
 
 function HomeIcon({ active }: { active: boolean }) {
   return (
@@ -64,6 +65,7 @@ export default function BottomTabBar() {
   const router = useRouter();
   const [quickOpen, setQuickOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const { openClockIn, activeSession } = useClockContext();
 
   const isHome    = pathname === "/jobs" || (pathname.startsWith("/jobs") && !pathname.startsWith("/jobs/all") && !pathname.startsWith("/jobs/new"));
   const isJobs    = pathname.startsWith("/jobs/all");
@@ -164,7 +166,7 @@ export default function BottomTabBar() {
               </Link>
 
               <button
-                onClick={() => setQuickOpen(false)}
+                onClick={() => { setQuickOpen(false); openClockIn(); }}
                 className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform w-full text-left"
               >
                 <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
@@ -174,8 +176,8 @@ export default function BottomTabBar() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-base">Clock In</p>
-                  <p className="text-gray-500 text-sm">Log time to a job</p>
+                  <p className="text-white font-semibold text-base">{activeSession ? "Change Job" : "Clock In"}</p>
+                  <p className="text-gray-500 text-sm">{activeSession ? "Switch active session" : "Log time to a job"}</p>
                 </div>
               </button>
             </div>

@@ -129,6 +129,20 @@ export interface CrewWithMembers extends Crew {
   crew_members: { contact_id: string }[];
 }
 
+export interface ClockSession {
+  id: string;
+  user_id: string;
+  job_id: string;
+  clocked_in_at: string;
+  clocked_out_at: string | null;
+  hours: number | null;
+  rate: number | null;
+  total: number | null;
+  created_at: string;
+  // joined
+  job_name?: string;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;
