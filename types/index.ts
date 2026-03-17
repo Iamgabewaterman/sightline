@@ -208,6 +208,16 @@ export interface ChangeOrder {
   created_at: string;
 }
 
+export interface PunchListItem {
+  id: string;
+  job_id: string;
+  user_id: string;
+  description: string;
+  completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface MileageLog {
   id: string;
   user_id: string;

@@ -20,7 +20,11 @@ const INVOICE_STATUS: Record<InvoiceStatus, { label: string; classes: string }> 
   paid:   { label: "Paid",   classes: "bg-green-500/20 text-green-400"  },
 };
 
-type JobWithEstimate = Job & { estimate: Estimate | null; invoice: Invoice | null };
+type JobWithEstimate = Job & {
+  estimate: Estimate | null;
+  invoice: Invoice | null;
+  punchList: { total: number; completed: number } | null;
+};
 
 function fmt(n: number) {
   if (n >= 1000) return "$" + (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
@@ -138,7 +142,12 @@ export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h2 className="text-white font-bold text-lg leading-tight flex-1">{job.name}</h2>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                      {job.punchList && job.punchList.total > 0 && job.punchList.completed === job.punchList.total && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">
+                          ✓ Punch List
+                        </span>
+                      )}
                       {job.invoice && (
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${INVOICE_STATUS[job.invoice.status].classes}`}>
                           {INVOICE_STATUS[job.invoice.status].label}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice, ChangeOrder } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice, ChangeOrder, PunchListItem } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -17,6 +17,7 @@ import TimelineSection from "@/components/TimelineSection";
 import DailyLogsSection from "@/components/DailyLogsSection";
 import InvoiceSection from "@/components/InvoiceSection";
 import ChangeOrdersSection from "@/components/ChangeOrdersSection";
+import PunchListSection from "@/components/PunchListSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -48,6 +49,7 @@ export default async function JobDetailPage({
     { data: dailyLogs },
     { data: invoice },
     { data: changeOrders },
+    { data: punchListItems },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -102,6 +104,13 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<ChangeOrder[]>(),
+    supabase
+      .from("punch_list_items")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("completed", { ascending: true })
+      .order("created_at", { ascending: true })
+      .returns<PunchListItem[]>(),
   ]);
 
   if (!job) notFound();
@@ -209,7 +218,11 @@ export default async function JobDetailPage({
         >
           {/* Job Status */}
           <div className="mb-4">
-            <JobStatus jobId={job.id} initialStatus={job.status ?? "active"} />
+            <JobStatus
+              jobId={job.id}
+              initialStatus={job.status ?? "active"}
+              openPunchItems={(punchListItems ?? []).filter((i) => !i.completed).length}
+            />
           </div>
 
           {/* Quote + Profitability (merged) */}
@@ -277,6 +290,9 @@ export default async function JobDetailPage({
           {initialQuoteData && (
             <ChangeOrdersSection jobId={job.id} />
           )}
+
+          {/* Punch List */}
+          <PunchListSection jobId={job.id} initialItems={punchListItems ?? []} />
 
           {/* Daily Logs */}
           <DailyLogsSection jobId={job.id} initialLogs={dailyLogs ?? []} />

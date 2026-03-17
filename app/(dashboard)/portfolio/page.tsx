@@ -35,14 +35,21 @@ export default async function PortfolioPage() {
 
   // Fetch invoices for all completed jobs
   let invoiceMap: Record<string, Invoice> = {};
+  // Punch list completion per job: { jobId -> { total, completed } }
+  let punchListMap: Record<string, { total: number; completed: number }> = {};
+
   if (jobIds.length > 0) {
-    const { data: invoices } = await supabase
-      .from("invoices")
-      .select("*")
-      .in("job_id", jobIds)
-      .returns<Invoice[]>();
+    const [{ data: invoices }, { data: punchItems }] = await Promise.all([
+      supabase.from("invoices").select("*").in("job_id", jobIds).returns<Invoice[]>(),
+      supabase.from("punch_list_items").select("job_id, completed").in("job_id", jobIds),
+    ]);
     for (const inv of invoices ?? []) {
       invoiceMap[inv.job_id] = inv;
+    }
+    for (const item of punchItems ?? []) {
+      if (!punchListMap[item.job_id]) punchListMap[item.job_id] = { total: 0, completed: 0 };
+      punchListMap[item.job_id].total++;
+      if (item.completed) punchListMap[item.job_id].completed++;
     }
   }
 
@@ -50,6 +57,7 @@ export default async function PortfolioPage() {
     ...job,
     estimate: estimateMap[job.id] ?? null,
     invoice: invoiceMap[job.id] ?? null,
+    punchList: punchListMap[job.id] ?? null,
   }));
 
   return <PortfolioClient jobs={jobsWithEstimates} />;
