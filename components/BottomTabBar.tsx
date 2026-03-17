@@ -61,6 +61,7 @@ const MORE_ITEMS = [
   { label: "Portfolio",   href: "/portfolio" },
   { label: "People",      href: "/people" },
   { label: "Calculator",  href: "/calculator" },
+  { label: "Data Import", href: "/import" },
 ];
 
 export default function BottomTabBar() {

@@ -1,0 +1,5 @@
+name,types,address,status,notes,client_name
+Kitchen Remodel,tile,"123 Main St, Austin TX",active,"Full gut and replace",John Smith
+Roof Replacement,"roofing,framing","456 Oak Ave, Dallas TX",completed,,Jane Doe
+Bathroom Tile,tile,"789 Elm St, Austin TX",active,,
+Drywall Repair,drywall,"321 Pine Rd, Austin TX",on_hold,Water damage repair,ABC Property Group
