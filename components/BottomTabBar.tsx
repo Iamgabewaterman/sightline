@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useClockContext } from "./ClockContext";
+import { createClient } from "@/lib/supabase/client";
+import Avatar from "./Avatar";
 
 function HomeIcon({ active }: { active: boolean }) {
   return (
@@ -71,6 +73,28 @@ export default function BottomTabBar() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { openClockIn, activeSession } = useClockContext();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("Me");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("profiles")
+        .select("display_name, avatar_path")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.display_name) setDisplayName(data.display_name);
+          if (data?.avatar_path) {
+            setAvatarUrl(
+              supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl
+            );
+          }
+        });
+    });
+  }, []);
 
   const isHome    = pathname === "/jobs" || (pathname.startsWith("/jobs") && !pathname.startsWith("/jobs/all") && !pathname.startsWith("/jobs/new"));
   const isJobs    = pathname.startsWith("/jobs/all");
@@ -135,7 +159,13 @@ export default function BottomTabBar() {
 
           {/* Account */}
           <Link href="/account" className={tabClass} onClick={closeAll}>
-            <PersonIcon active={isAccount} />
+            {avatarUrl || displayName !== "Me" ? (
+              <div className={`rounded-full overflow-hidden ${isAccount ? "ring-2 ring-orange-500" : ""}`}>
+                <Avatar name={displayName} avatarUrl={avatarUrl} size={24} />
+              </div>
+            ) : (
+              <PersonIcon active={isAccount} />
+            )}
             <span className={labelClass(isAccount)}>Account</span>
           </Link>
 

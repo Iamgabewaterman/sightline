@@ -188,7 +188,7 @@ export async function getActiveJobsForAssignment(): Promise<{ id: string; name: 
 
 // ── Get field members for owner ───────────────────────────────────────────
 
-export async function getFieldMembersForAssignment(): Promise<{ user_id: string; display_name: string | null }[]> {
+export async function getFieldMembersForAssignment(): Promise<{ user_id: string; display_name: string | null; avatar_path: string | null }[]> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -203,9 +203,13 @@ export async function getFieldMembersForAssignment(): Promise<{ user_id: string;
 
   const { data } = await supabase
     .from("company_members")
-    .select("user_id, profiles(display_name)")
+    .select("user_id, profiles(display_name, avatar_path)")
     .eq("company_id", profile.company_id);
 
-  return ((data ?? []) as unknown as { user_id: string; profiles: { display_name: string | null } | null }[])
-    .map((m) => ({ user_id: m.user_id, display_name: m.profiles?.display_name ?? null }));
+  return ((data ?? []) as unknown as { user_id: string; profiles: { display_name: string | null; avatar_path: string | null } | null }[])
+    .map((m) => ({
+      user_id: m.user_id,
+      display_name: m.profiles?.display_name ?? null,
+      avatar_path: m.profiles?.avatar_path ?? null,
+    }));
 }

@@ -18,7 +18,10 @@
       "Bash(npm i:*)",
       "Bash(cd:*)",
       "Bash(cat:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)/jobs\" -type f)",
+      "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)\" -name \"*.tsx\")",
+      "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)/calculator\" -type f)"
     ]
   }
 }

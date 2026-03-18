@@ -45,6 +45,8 @@ export interface Job {
   total_days: number | null;
   paused_at: string | null;
   total_paused_days: number;
+  portal_token: string | null;
+  portal_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -148,6 +150,7 @@ export interface Contact {
   trade: string | null;
   hourly_rate: number | null;
   notes: string | null;
+  avatar_path: string | null;
   created_at: string;
 }
 
@@ -264,6 +267,7 @@ export interface Profile {
   can_see_all_jobs: boolean;
   can_see_client_info: boolean;
   display_name: string | null;
+  avatar_path: string | null;
   created_at: string;
 }
 

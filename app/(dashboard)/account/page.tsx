@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
+import AccountAvatarSection from "./AccountAvatarSection";
 
 export default async function AccountPage() {
   const supabase = createClient();
@@ -22,11 +23,8 @@ export default async function AccountPage() {
       <div className="max-w-lg mx-auto flex flex-col gap-5">
         <h1 className="text-2xl font-bold text-white">Account</h1>
 
-        {/* Email */}
-        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
-          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Signed in as</p>
-          <p className="text-white text-base font-medium truncate">{user.email}</p>
-        </div>
+        {/* Avatar + name */}
+        <AccountAvatarSection />
 
         {/* Links */}
         <div className="flex flex-col gap-3">

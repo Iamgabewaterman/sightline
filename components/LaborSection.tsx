@@ -6,6 +6,7 @@ import { LaborLog, Contact, CrewWithMembers } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRole } from "@/hooks/useRole";
+import Avatar from "@/components/Avatar";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -329,9 +330,12 @@ export default function LaborSection({
                 className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="text-white font-semibold text-base">{log.crew_name}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">{formatDate(log.created_at)}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar name={log.crew_name} size={36} />
+                    <div>
+                      <p className="text-white font-semibold text-base">{log.crew_name}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">{formatDate(log.created_at)}</p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button

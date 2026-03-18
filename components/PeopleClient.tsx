@@ -12,6 +12,10 @@ import {
   removeCrewMember,
 } from "@/app/actions/people";
 import { Contact, CrewWithMembers } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import Avatar from "./Avatar";
+import AvatarUpload from "./AvatarUpload";
+import { updateContactAvatar } from "@/app/actions/avatar";
 
 const TRADES = [
   "General",
@@ -245,6 +249,24 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
                 {editingContact ? "Edit Contact" : "New Contact"}
               </p>
+              {/* Avatar upload — only shown when editing an existing contact */}
+              {editingContact && (
+                <div className="flex items-center gap-3">
+                  <AvatarUpload
+                    name={editingContact.name}
+                    currentAvatarPath={editingContact.avatar_path}
+                    storagePath={`contacts/${editingContact.id}`}
+                    onSaved={async (path) => {
+                      await updateContactAvatar(editingContact.id, path);
+                      setContacts((prev) =>
+                        prev.map((c) => c.id === editingContact.id ? { ...c, avatar_path: path } : c)
+                      );
+                    }}
+                    size={60}
+                  />
+                  <p className="text-gray-500 text-xs">Tap to change photo</p>
+                </div>
+              )}
               <input
                 name="name"
                 type="text"
@@ -325,50 +347,59 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {contacts.map((c) => (
-                <div
-                  key={c.id}
-                  className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-base">{c.name}</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {c.trade && (
-                          <span className="text-orange-500 text-xs font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
-                            {c.trade}
-                          </span>
-                        )}
-                        {c.hourly_rate !== null && (
-                          <span className="text-gray-400 text-xs">
-                            ${Number(c.hourly_rate).toLocaleString()}/hr
-                          </span>
-                        )}
-                        {c.phone && (
-                          <span className="text-gray-500 text-xs">{c.phone}</span>
-                        )}
+              {contacts.map((c) => {
+                const supabase = createClient();
+                const avatarUrl = c.avatar_path
+                  ? supabase.storage.from("avatars").getPublicUrl(c.avatar_path).data.publicUrl
+                  : null;
+                return (
+                  <div
+                    key={c.id}
+                    className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Avatar name={c.name} avatarUrl={avatarUrl} size={44} className="mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold text-base">{c.name}</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {c.trade && (
+                              <span className="text-orange-500 text-xs font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
+                                {c.trade}
+                              </span>
+                            )}
+                            {c.hourly_rate !== null && (
+                              <span className="text-gray-400 text-xs">
+                                ${Number(c.hourly_rate).toLocaleString()}/hr
+                              </span>
+                            )}
+                            {c.phone && (
+                              <span className="text-gray-500 text-xs">{c.phone}</span>
+                            )}
+                          </div>
+                          {c.notes && (
+                            <p className="text-gray-600 text-xs mt-1 line-clamp-1">{c.notes}</p>
+                          )}
+                        </div>
                       </div>
-                      {c.notes && (
-                        <p className="text-gray-600 text-xs mt-1 line-clamp-1">{c.notes}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-2 ml-3 shrink-0">
-                      <button
-                        onClick={() => openEditContact(c)}
-                        className="text-gray-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteContact(c.id)}
-                        className="text-red-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
-                      >
-                        ✕
-                      </button>
+                      <div className="flex gap-2 ml-3 shrink-0">
+                        <button
+                          onClick={() => openEditContact(c)}
+                          className="text-gray-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteContact(c.id)}
+                          className="text-red-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

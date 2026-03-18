@@ -9,6 +9,8 @@ import {
   updateAssignmentNotes,
 } from "@/app/actions/assignments";
 import { addDailyLog } from "@/app/actions/daily-logs";
+import Avatar from "@/components/Avatar";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -46,7 +48,7 @@ interface Props {
   initialWeekStart: string;
   initialAssignments: Assignment[];
   jobs: { id: string; name: string; address: string }[];
-  members: { user_id: string; display_name: string | null }[];
+  members: { user_id: string; display_name: string | null; avatar_path: string | null }[];
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
@@ -333,16 +335,24 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
                 <div className="flex flex-col gap-1.5 mb-4">
                   {members.map((m) => {
                     const checked = selMembers.includes(m.user_id);
+                    const name = m.display_name ?? `Member ${m.user_id.slice(0, 6)}`;
+                    const supabase = createClient();
+                    const avatarUrl = m.avatar_path
+                      ? supabase.storage.from("avatars").getPublicUrl(m.avatar_path).data.publicUrl
+                      : null;
                     return (
                       <button
                         key={m.user_id}
                         onClick={() => toggleMember(m.user_id)}
                         className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors active:scale-95 ${checked ? "bg-orange-500/15 border-orange-500/50" : "bg-[#1A1A1A] border-[#2a2a2a]"}`}
                       >
-                        <span className={`font-semibold text-sm ${checked ? "text-white" : "text-gray-300"}`}>
-                          {m.display_name ?? `Member ${m.user_id.slice(0, 6)}`}
-                        </span>
-                        <div className={`w-5 h-5 rounded border flex items-center justify-center ${checked ? "bg-orange-500 border-orange-500" : "border-[#444]"}`}>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={name} avatarUrl={avatarUrl} size={32} />
+                          <span className={`font-semibold text-sm ${checked ? "text-white" : "text-gray-300"}`}>
+                            {name}
+                          </span>
+                        </div>
+                        <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-orange-500 border-orange-500" : "border-[#444]"}`}>
                           {checked && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
                       </button>

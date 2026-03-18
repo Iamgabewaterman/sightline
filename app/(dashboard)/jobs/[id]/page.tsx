@@ -16,6 +16,7 @@ import { JobCostProvider } from "@/components/JobCostContext";
 import TimelineSection from "@/components/TimelineSection";
 import InvoiceSection from "@/components/InvoiceSection";
 import PunchListWidget from "@/components/PunchListWidget";
+import PortalToggle from "@/components/PortalToggle";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -223,6 +224,15 @@ export default async function JobDetailPage({
           {/* Punch List widget */}
           <div className="mb-4">
             <PunchListWidget jobId={job.id} initialItems={punchListItems ?? []} />
+          </div>
+
+          {/* Client Portal toggle */}
+          <div className="mb-4">
+            <PortalToggle
+              jobId={job.id}
+              initialEnabled={job.portal_enabled ?? false}
+              initialToken={job.portal_token ?? null}
+            />
           </div>
 
           {/* Invoice — only on completed jobs with a saved quote */}
