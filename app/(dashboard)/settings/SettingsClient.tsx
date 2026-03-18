@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { updateEmail, updatePassword } from "@/app/actions/auth";
-import { BusinessProfile } from "@/types";
-import BusinessProfileSection from "./BusinessProfileSection";
 import TeamSection from "./TeamSection";
 import { ProfileWithCompany, CompanyMember } from "@/app/actions/team";
 
@@ -25,12 +23,10 @@ const inputClass =
 
 export default function SettingsClient({
   currentEmail,
-  businessProfile,
   profile,
   members,
 }: {
   currentEmail: string;
-  businessProfile: BusinessProfile | null;
   profile: ProfileWithCompany | null;
   members: CompanyMember[];
 }) {
@@ -90,9 +86,6 @@ export default function SettingsClient({
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto flex flex-col gap-6">
         <h1 className="text-3xl font-bold text-white">Settings</h1>
-
-        {/* Business Profile */}
-        <BusinessProfileSection initial={businessProfile} />
 
         {/* Team */}
         {profile && <TeamSection profile={profile} members={members} />}
