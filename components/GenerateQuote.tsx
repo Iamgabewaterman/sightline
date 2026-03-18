@@ -156,18 +156,71 @@ export default function GenerateQuote({ job }: Props) {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Fetch business profile + logo
+      const { data: bp } = await supabase
+        .from("business_profiles")
+        .select("business_name,owner_name,license_number,address,phone,email,logo_path")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      let logoUrl: string | null = null;
+      if (bp?.logo_path) {
+        const { data: signed } = await supabase.storage
+          .from("business-logos")
+          .createSignedUrl(bp.logo_path, 300);
+        logoUrl = signed?.signedUrl ?? null;
+      }
+
+      // Fetch client if linked
+      let client = null;
+      if (job.client_id) {
+        const { data: cl } = await supabase
+          .from("clients")
+          .select("name,company,address,phone,email")
+          .eq("id", job.client_id)
+          .maybeSingle();
+        client = cl;
+      }
+
       const validAddons = addons.filter((a) => a.name.trim() && a.amount > 0);
+      const quoteNumber = `QUO-${job.id.slice(0, 8).toUpperCase()}`;
+
+      const lineItems = materials
+        .filter((m) => m.unit_cost !== null)
+        .map((m) => ({
+          description: m.name,
+          qty: m.quantity_ordered,
+          unit: m.unit || "ea",
+          unitCost: Number(m.unit_cost),
+          total: m.quantity_ordered * Number(m.unit_cost),
+        }));
+
+      const laborItems = laborLogs.map((l) => ({
+        description: l.crew_name || "Labor",
+        hours: Number(l.hours),
+        rate: Number(l.rate),
+        total: Number(l.hours) * Number(l.rate),
+      }));
+
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
         jobName: job.name,
         jobAddress: job.address ?? "",
+        jobTypes: job.types,
         date: today(),
+        quoteNumber,
         materialsTotal,
         laborTotal,
         addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
         profitMarginPct: margin,
         profitAmount,
         grandTotal,
+        businessProfile: bp ?? null,
+        logoUrl,
+        client,
+        lineItems,
+        laborItems,
       });
     } finally {
       setPdfGenerating(false);

@@ -177,12 +177,17 @@ export default function InvoiceSection({
         ? new Date(inv.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
         : null;
 
+      const paidDate = inv.paid_at
+        ? new Date(inv.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+        : null;
+
       await generateAndDownloadInvoicePDF({
         contractorEmail: user?.email ?? "",
         jobName,
         jobAddress,
         date: todayStr(),
         invoiceNumber,
+        invoiceId: inv.id,
         materialsTotal: estimate.material_total,
         laborTotal: estimate.labor_total,
         addons: [...baseAddons, ...coLineItems],
@@ -195,6 +200,8 @@ export default function InvoiceSection({
         paymentTermsLabel: termsLabel(inv.payment_terms),
         dueDate,
         notes: inv.notes,
+        status: inv.status,
+        paidDate,
       });
     } finally {
       setPdfLoading(false);
