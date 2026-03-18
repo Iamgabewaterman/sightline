@@ -285,7 +285,13 @@ export default async function JobDetailPage({
           <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
 
           {/* Photos */}
-          <PhotoSection jobId={job.id} initialPhotos={photos ?? []} />
+          <PhotoSection
+            jobId={job.id}
+            jobName={job.name}
+            jobAddress={job.address}
+            clientName={jobClient?.name ?? null}
+            initialPhotos={photos ?? []}
+          />
         </JobCostProvider>
 
         {/* Danger zone */}

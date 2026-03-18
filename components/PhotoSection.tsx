@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import { deletePhoto } from "@/app/actions/photos";
+import { generatePhotoReportPDF } from "@/lib/generatePhotoReportPDF";
 
 function TrashIcon() {
   return (
@@ -47,17 +48,24 @@ function fmtFull(iso: string) {
 
 interface Props {
   jobId: string;
+  jobName?: string;
+  jobAddress?: string;
+  clientName?: string | null;
   initialPhotos: Photo[];
 }
 
-export default function PhotoSection({ jobId, initialPhotos }: Props) {
-  const [activeCategory, setActiveCategory] = useState<PhotoCategory>("before");
-  const [photos,         setPhotos]         = useState<Photo[]>(initialPhotos);
-  const [uploading,      setUploading]      = useState(false);
-  const [error,          setError]          = useState("");
-  const [detail,         setDetail]         = useState<Photo | null>(null);
-  const [confirmDeleteId,setConfirmDeleteId]= useState<string | null>(null);
-  const [deleting,       setDeleting]       = useState(false);
+export default function PhotoSection({ jobId, jobName = "", jobAddress = "", clientName, initialPhotos }: Props) {
+  const [activeCategory,   setActiveCategory]   = useState<PhotoCategory>("before");
+  const [photos,           setPhotos]           = useState<Photo[]>(initialPhotos);
+  const [uploading,        setUploading]        = useState(false);
+  const [error,            setError]            = useState("");
+  const [detail,           setDetail]           = useState<Photo | null>(null);
+  const [confirmDeleteId,  setConfirmDeleteId]  = useState<string | null>(null);
+  const [deleting,         setDeleting]         = useState(false);
+  const [showExport,       setShowExport]       = useState(false);
+  const [exportCats,       setExportCats]       = useState<Set<PhotoCategory>>(new Set<PhotoCategory>(["before","during","after","damages"]));
+  const [generating,       setGenerating]       = useState(false);
+  const [exportError,      setExportError]      = useState("");
 
   const cameraInputRef  = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -130,11 +138,60 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
     setDeleting(false);
   }
 
+  async function handleGenerateReport() {
+    if (exportCats.size === 0) return;
+    setGenerating(true);
+    setExportError("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: bp } = user
+        ? await supabase.from("business_profiles").select("*").eq("user_id", user.id).maybeSingle()
+        : { data: null };
+
+      let logoUrl: string | null = null;
+      if (bp?.logo_path) {
+        logoUrl = supabase.storage.from("business-logos").getPublicUrl(bp.logo_path).data.publicUrl;
+      }
+
+      await generatePhotoReportPDF({
+        jobName,
+        jobAddress,
+        clientName,
+        selectedCategories: Array.from(exportCats) as PhotoCategory[],
+        photos,
+        businessProfile: bp,
+        logoUrl,
+        getPublicUrl,
+      });
+      setShowExport(false);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Failed to generate report");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function toggleExportCat(cat: PhotoCategory) {
+    setExportCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  }
+
   const visiblePhotos = photos.filter((p) => p.category === activeCategory);
 
   return (
     <div className="mt-8">
-      <h2 className="text-white font-bold text-xl mb-4">Photos</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white font-bold text-xl">Photos</h2>
+        <button
+          onClick={() => setShowExport(true)}
+          className="text-sm font-semibold text-orange-400 px-3 py-2 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+        >
+          Export Report
+        </button>
+      </div>
 
       {/* Category tabs */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
@@ -225,6 +282,69 @@ export default function PhotoSection({ jobId, initialPhotos }: Props) {
               <button onClick={() => setConfirmDeleteId(null)} className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95">Cancel</button>
               <button onClick={handleDeleteConfirmed} disabled={deleting} className="flex-1 bg-red-600 text-white font-bold text-base py-4 rounded-xl active:scale-95 disabled:opacity-50">
                 {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Export Report sheet */}
+      {showExport && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setShowExport(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <p className="text-white font-bold text-lg mb-1">Export Photo Report</p>
+            <p className="text-gray-400 text-sm mb-5">Select categories to include</p>
+
+            <div className="flex flex-col gap-3 mb-6">
+              {CATEGORIES.map(({ value, label }) => {
+                const count = photos.filter((p) => p.category === value).length;
+                const checked = exportCats.has(value);
+                return (
+                  <button
+                    key={value}
+                    onClick={() => toggleExportCat(value)}
+                    className={`flex items-center justify-between px-4 py-4 rounded-xl border transition-colors active:scale-95 ${
+                      checked
+                        ? "bg-orange-500/10 border-orange-500 text-white"
+                        : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                        checked ? "bg-orange-500 border-orange-500" : "border-gray-600"
+                      }`}>
+                        {checked && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="font-semibold text-base">{label}</span>
+                    </div>
+                    <span className="text-sm text-gray-500">{count} photo{count !== 1 ? "s" : ""}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {exportError && (
+              <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3 mb-4">{exportError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExport(false)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateReport}
+                disabled={generating || exportCats.size === 0}
+                className="flex-1 bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 disabled:opacity-50"
+              >
+                {generating ? "Generating..." : "Generate PDF"}
               </button>
             </div>
           </div>
