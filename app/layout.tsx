@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import Nav from "@/components/Nav";
 import PwaSetup from "@/components/PwaSetup";
 import OfflineBanner from "@/components/OfflineBanner";
 import NotificationPrompt from "@/components/NotificationPrompt";
@@ -84,7 +83,6 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased`}>
         <OfflineBanner />
-        <Nav />
         {children}
         <PwaSetup />
         <NotificationPrompt />

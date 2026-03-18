@@ -57,14 +57,15 @@ export async function middleware(request: NextRequest) {
   const isPayRoute       = pathname.startsWith("/pay");
   const isPortalRoute    = pathname.startsWith("/portal");
   const isOnboardingRoute = pathname.startsWith("/onboarding");
+  const isLandingPage    = pathname === "/";
 
-  // Not logged in → send to login
-  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute) {
+  // Not logged in → send to login (landing page is public)
+  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute && !isLandingPage) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Logged in and hitting auth pages → send to dashboard
-  if (user && isAuthPage) {
+  // Logged-in users visiting landing page or auth pages → send to dashboard
+  if (user && (isAuthPage || isLandingPage)) {
     return NextResponse.redirect(new URL("/jobs", request.url));
   }
 
