@@ -56,10 +56,11 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
-  { label: "Calendar",    href: "/calendar" },
-  { label: "Clients",     href: "/clients" },
-  { label: "Templates",   href: "/templates" },
-  { label: "Receipts",    href: "/receipts" },
+  { label: "Calendar",       href: "/calendar" },
+  { label: "Clients",        href: "/clients" },
+  { label: "Templates",      href: "/templates" },
+  { label: "Profitability",  href: "/profit" },
+  { label: "Receipts",       href: "/receipts" },
   { label: "Mileage",     href: "/mileage" },
   { label: "Tax Report",  href: "/tax" },
   { label: "Portfolio",   href: "/portfolio" },

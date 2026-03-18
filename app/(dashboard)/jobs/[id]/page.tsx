@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -18,6 +18,7 @@ import InvoiceSection from "@/components/InvoiceSection";
 import PunchListWidget from "@/components/PunchListWidget";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
+import CostReport from "@/components/CostReport";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -49,6 +50,7 @@ export default async function JobDetailPage({
     { data: invoice },
     { data: changeOrders },
     { data: punchListItems },
+    { data: clockSessions },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -103,9 +105,20 @@ export default async function JobDetailPage({
       .order("completed", { ascending: true })
       .order("created_at", { ascending: true })
       .returns<PunchListItem[]>(),
+    supabase
+      .from("clock_sessions")
+      .select("hours, rate, total")
+      .eq("job_id", params.id)
+      .not("clocked_out_at", "is", null)
+      .not("hours", "is", null)
+      .returns<Pick<ClockSession, "hours" | "rate" | "total">[]>(),
   ]);
 
   if (!job) notFound();
+
+  const clockSessionsLaborTotal = (clockSessions ?? []).reduce((s, cs) => {
+    return s + (cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0));
+  }, 0);
 
   // Fetch client if linked
   const { data: jobClient } = job.client_id
@@ -225,6 +238,17 @@ export default async function JobDetailPage({
               quoteStatus={estimate?.quote_status ?? "draft"}
               signedAt={estimate?.signed_at ?? null}
               signedByName={estimate?.signed_by_name ?? null}
+            />
+          </div>
+
+          {/* Cost Report */}
+          <div className="mb-4">
+            <CostReport
+              estimate={estimate ?? null}
+              materials={materials ?? []}
+              laborLogs={laborLogs ?? []}
+              clockSessionsLaborTotal={clockSessionsLaborTotal}
+              changeOrdersTotal={(changeOrders ?? []).reduce((s, o) => s + Number(o.amount), 0)}
             />
           </div>
 
