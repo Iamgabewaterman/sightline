@@ -54,8 +54,9 @@ export async function middleware(request: NextRequest) {
   const isSubscribePage = pathname.startsWith("/subscribe");
   const isApiRoute = pathname.startsWith("/api");
   const isAuthCallback = pathname.startsWith("/auth");
-  const isPayRoute    = pathname.startsWith("/pay");
-  const isPortalRoute = pathname.startsWith("/portal");
+  const isPayRoute       = pathname.startsWith("/pay");
+  const isPortalRoute    = pathname.startsWith("/portal");
+  const isOnboardingRoute = pathname.startsWith("/onboarding");
 
   // Not logged in → send to login
   if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute) {
@@ -70,9 +71,19 @@ export async function middleware(request: NextRequest) {
   if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute && !isPortalRoute) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info")
+      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete")
       .eq("id", user.id)
       .maybeSingle();
+
+    // ── Onboarding redirect (owners only, once) ───────────────────────────────
+    if (
+      profile &&
+      !profile.onboarding_complete &&
+      profile.role !== "field_member" &&
+      !isOnboardingRoute
+    ) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
 
     // ── Field member restrictions ────────────────────────────────────────────
     if (profile?.role === "field_member") {
