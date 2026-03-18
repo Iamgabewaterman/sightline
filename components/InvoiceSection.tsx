@@ -82,7 +82,8 @@ export default function InvoiceSection({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoading,    setPdfLoading]    = useState(false);
+  const [copied,        setCopied]        = useState(false);
 
   // Field members without financial access can't see invoices
   if (role === "field_member" && !can_see_financials) return null;
@@ -130,6 +131,17 @@ export default function InvoiceSection({
     if (!invoice) return;
     const res = await updateInvoice(invoice.id, { notes: notesDraft.trim() || null });
     if (res.invoice) { setInvoice(res.invoice); setEditingNotes(false); }
+  }
+
+  async function handleShareLink() {
+    const url = `${window.location.origin}/pay/${invoice!.id}`;
+    if (navigator.share) {
+      await navigator.share({ title: invoiceNumber, text: `Pay invoice ${invoiceNumber}`, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   }
 
   async function handleDownloadPDF() {
@@ -359,11 +371,23 @@ export default function InvoiceSection({
         )}
       </div>
 
+      {/* Share Payment Link */}
+      <button
+        onClick={handleShareLink}
+        className="w-full mt-4 flex items-center justify-center gap-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        {copied ? "Link Copied!" : "Share Payment Link"}
+      </button>
+
       {/* Download PDF */}
       <button
         onClick={handleDownloadPDF}
         disabled={pdfLoading}
-        className="w-full mt-4 flex items-center justify-center gap-2 bg-[#242424] border border-[#2a2a2a] text-white font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+        className="w-full mt-2 flex items-center justify-center gap-2 bg-[#242424] border border-[#2a2a2a] text-white font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>

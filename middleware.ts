@@ -54,9 +54,10 @@ export async function middleware(request: NextRequest) {
   const isSubscribePage = pathname.startsWith("/subscribe");
   const isApiRoute = pathname.startsWith("/api");
   const isAuthCallback = pathname.startsWith("/auth");
+  const isPayRoute = pathname.startsWith("/pay");
 
   // Not logged in → send to login
-  if (!user && !isAuthPage && !isAuthCallback) {
+  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -65,7 +66,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/jobs", request.url));
   }
 
-  if (user && !isAuthPage && !isApiRoute && !isAuthCallback) {
+  if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info")

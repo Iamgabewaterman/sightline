@@ -75,6 +75,17 @@ export async function POST(request: NextRequest) {
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // ── Invoice payment ──────────────────────────────────────────────────
+      if (session.metadata?.invoice_id) {
+        await supabase
+          .from("invoices")
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("id", session.metadata.invoice_id);
+        break;
+      }
+
+      // ── Subscription checkout ────────────────────────────────────────────
       const userId = session.client_reference_id;
       const customerId = session.customer as string;
       const subscriptionId = session.subscription as string;
