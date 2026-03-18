@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { sendPushToUser } from "@/lib/push";
 
 export async function createJob(formData: FormData) {
   const supabase = createClient();
@@ -166,6 +167,12 @@ export async function updateJobStatus(id: string, status: string) {
     }
   }
 
+  const { data: currentJob } = await supabase
+    .from("jobs")
+    .select("user_id, name, status")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("jobs")
     .update(updates)
@@ -173,6 +180,22 @@ export async function updateJobStatus(id: string, status: string) {
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
+
+  // Notify owner if a field member put the job on hold
+  if (status === "on_hold" && currentJob && currentJob.user_id !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const name = profile?.display_name ?? "A crew member";
+    sendPushToUser(currentJob.user_id, {
+      title: "Job On Hold",
+      body: `${currentJob.name} was put on hold by ${name}`,
+      url: `/jobs/${id}`,
+    });
+  }
+
   revalidatePath("/jobs");
   return { success: true };
 }

@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { LaborLog } from "@/types";
+import { sendPushToUser } from "@/lib/push";
+import { shouldSend } from "@/lib/notif-dedup";
 
 export async function addLaborLog(
   jobId: string,
@@ -28,7 +30,62 @@ export async function addLaborLog(
     .single<LaborLog>();
 
   if (error) return { error: error.message };
+
+  // Check if labor spend is at 90% of budget (fire once)
+  checkLaborBudget(jobId);
+
   return { log: log! };
+}
+
+async function checkLaborBudget(jobId: string) {
+  try {
+    const supabase = createClient();
+    const { data: estimate } = await supabase
+      .from("estimates")
+      .select("labor_total")
+      .eq("job_id", jobId)
+      .eq("type", "job_quote")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!estimate?.labor_total || Number(estimate.labor_total) <= 0) return;
+
+    const { data: logs } = await supabase
+      .from("labor_logs")
+      .select("hours, rate")
+      .eq("job_id", jobId);
+
+    const spent = (logs ?? []).reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
+    const budget = Number(estimate.labor_total);
+
+    if (spent < budget * 0.9) return;
+    if (spent >= budget) return; // materials_over_budget handles over-budget separately
+
+    const dedupKey = `labor_90pct:${jobId}`;
+    const ok = await shouldSend(dedupKey);
+    if (!ok) return;
+
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("user_id, name")
+      .eq("id", jobId)
+      .single();
+    if (!job) return;
+
+    // Estimate remaining hours (at average rate)
+    const avgRate = (logs ?? []).reduce((s, l) => s + Number(l.rate), 0) / Math.max((logs ?? []).length, 1);
+    const remainingCost = budget - spent;
+    const remainingHours = avgRate > 0 ? Math.round(remainingCost / avgRate) : 0;
+
+    await sendPushToUser(job.user_id, {
+      title: "Labor Budget Alert",
+      body: `You're within 10% of your labor budget on ${job.name} — ~${remainingHours} hrs remaining`,
+      url: `/jobs/${jobId}`,
+    });
+  } catch {
+    // Never surface
+  }
 }
 
 export async function updateLaborLog(

@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { parseAddress } from "@/lib/address-parser";
+import { sendPushToUser } from "@/lib/push";
+import { shouldSend } from "@/lib/notif-dedup";
 
 export async function addMaterial(jobId: string, formData: FormData) {
   const supabase = createClient();
@@ -55,7 +57,62 @@ export async function addMaterial(jobId: string, formData: FormData) {
       });
   }
 
+  // Check if materials spend has exceeded the estimate budget (fire once)
+  if (unit_cost !== null && user) {
+    checkMaterialsBudget(jobId, user.id);
+  }
+
   return { material: data };
+}
+
+async function checkMaterialsBudget(jobId: string, userId: string) {
+  try {
+    const supabase = createClient();
+    // Get the estimate budget
+    const { data: estimate } = await supabase
+      .from("estimates")
+      .select("material_total")
+      .eq("job_id", jobId)
+      .eq("type", "job_quote")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!estimate?.material_total) return;
+
+    // Sum all material costs for this job
+    const { data: materials } = await supabase
+      .from("materials")
+      .select("quantity_ordered, quantity_used, unit_cost")
+      .eq("job_id", jobId);
+
+    const spent = (materials ?? []).reduce((sum, m) => {
+      if (m.unit_cost === null) return sum;
+      const qty = m.quantity_used ?? m.quantity_ordered;
+      return sum + Number(qty) * Number(m.unit_cost);
+    }, 0);
+
+    if (spent <= Number(estimate.material_total)) return;
+
+    const dedupKey = `materials_over_budget:${jobId}`;
+    const ok = await shouldSend(dedupKey);
+    if (!ok) return;
+
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("user_id, name")
+      .eq("id", jobId)
+      .single();
+    if (job) {
+      await sendPushToUser(job.user_id, {
+        title: "Materials Over Budget",
+        body: `Materials spending on ${job.name} has exceeded your quoted amount`,
+        url: `/jobs/${jobId}`,
+      });
+    }
+  } catch {
+    // Never let budget check errors surface
+  }
 }
 
 export async function updateMaterial(

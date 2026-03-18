@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { PunchListItem } from "@/types";
+import { sendPushToUser } from "@/lib/push";
+import { shouldSend } from "@/lib/notif-dedup";
 
 export async function getPunchListItems(jobId: string): Promise<PunchListItem[]> {
   const supabase = createClient();
@@ -53,6 +55,35 @@ export async function togglePunchListItem(
     .single<PunchListItem>();
 
   if (error) return { error: error.message };
+
+  // If marking complete, check if all items on the job are now done
+  if (completed && data) {
+    const { count: openCount } = await supabase
+      .from("punch_list_items")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", data.job_id)
+      .eq("completed", false);
+
+    if (openCount === 0) {
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("user_id, name")
+        .eq("id", data.job_id)
+        .single();
+      if (job) {
+        const dedupKey = `punch_all_done:${data.job_id}`;
+        shouldSend(dedupKey).then((ok) => {
+          if (!ok) return;
+          sendPushToUser(job.user_id, {
+            title: "Punch List Complete",
+            body: `All punch list items complete on ${job.name} — ready to close out`,
+            url: `/jobs/${data.job_id}`,
+          });
+        });
+      }
+    }
+  }
+
   return { item: data };
 }
 

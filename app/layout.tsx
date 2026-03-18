@@ -4,6 +4,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import PwaSetup from "@/components/PwaSetup";
 import OfflineBanner from "@/components/OfflineBanner";
+import NotificationPrompt from "@/components/NotificationPrompt";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = localFont({
@@ -86,6 +87,7 @@ export default function RootLayout({
         <Nav />
         {children}
         <PwaSetup />
+        <NotificationPrompt />
         <SpeedInsights />
       </body>
     </html>

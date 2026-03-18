@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import PayButton from "./PayClient";
+import { sendPushToUser } from "@/lib/push";
+import { shouldSend } from "@/lib/notif-dedup";
 
 function adminClient() {
   return createClient(
@@ -57,6 +59,20 @@ export default async function PayPage({
   const invoiceNumber = `INV-${invoice.job_id.slice(0, 8).toUpperCase()}`;
   const overdue = isOverdue(invoice.due_date, invoice.status);
   const paid = invoice.status === "paid";
+
+  // Fire "invoice viewed" push — once per invoice, only when unpaid
+  if (!paid && invoice.user_id) {
+    const dedupKey = `invoice_viewed:${invoice.id}`;
+    shouldSend(dedupKey).then((ok) => {
+      if (!ok) return;
+      const clientName = client?.name ?? "Your client";
+      sendPushToUser(invoice.user_id, {
+        title: "Invoice Opened",
+        body: `${clientName} opened ${invoiceNumber} — payment pending`,
+        url: `/jobs`,
+      });
+    });
+  }
   const statusSuccess = searchParams.status === "success";
   const statusCancel = searchParams.status === "cancel";
 

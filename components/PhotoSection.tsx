@@ -6,6 +6,7 @@ import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import { deletePhoto } from "@/app/actions/photos";
 import { generatePhotoReportPDF } from "@/lib/generatePhotoReportPDF";
+import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
 
 function TrashIcon() {
   return (
@@ -124,6 +125,9 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
     setUploading(false);
     if (cameraInputRef.current)  cameraInputRef.current.value  = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
+
+    const uploaded = Array.from(files).length - errors.length;
+    if (uploaded > 0) notifyOwnerPhotosUploaded(jobId, uploaded);
   }
 
   async function handleDeleteConfirmed() {

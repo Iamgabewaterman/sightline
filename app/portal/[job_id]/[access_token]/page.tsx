@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { sendPushToUser } from "@/lib/push";
+import { shouldSendWithTTL } from "@/lib/notif-dedup";
 
 function adminClient() {
   return createClient(
@@ -100,6 +102,19 @@ export default async function PortalPage({
   }
 
   const statusInfo = STATUS_INFO[job.status] ?? STATUS_INFO.active;
+
+  // Fire "portal viewed" push — once per day per job
+  const today = new Date().toISOString().slice(0, 10);
+  const portalDedupKey = `portal_viewed:${job.id}:${today}`;
+  shouldSendWithTTL(portalDedupKey, 24).then((ok) => {
+    if (!ok) return;
+    const clientName = client?.name ?? "Your client";
+    sendPushToUser(job.user_id, {
+      title: "Portal Viewed",
+      body: `${clientName} viewed the ${job.name} portal`,
+      url: `/jobs/${job.id}`,
+    });
+  });
 
   // Deduplicate crew members by user_id
   type RawMember = { user_id: string; profiles: { display_name: string | null; avatar_path: string | null } | null };

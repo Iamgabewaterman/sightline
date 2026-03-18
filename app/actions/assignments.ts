@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push";
 
 export interface Assignment {
   id: string;
@@ -135,6 +136,29 @@ export async function createAssignments(params: {
   const { error } = await supabase
     .from("job_assignments")
     .upsert(rows, { onConflict: "job_id,user_id,assigned_date", ignoreDuplicates: true });
+
+  if (!error) {
+    // Notify each assigned field member
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("name, address")
+      .eq("id", params.jobId)
+      .single();
+    if (job) {
+      for (const uid of params.userIds) {
+        for (const date of params.dates) {
+          const d = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+            weekday: "short", month: "short", day: "numeric",
+          });
+          sendPushToUser(uid, {
+            title: "New Assignment",
+            body: `You've been assigned to ${job.name} on ${d} at ${job.address}`,
+            url: "/calendar",
+          });
+        }
+      }
+    }
+  }
 
   return error ? { error: error.message } : {};
 }

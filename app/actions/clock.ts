@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { ClockSession, Job } from "@/types";
+import { sendPushToUser } from "@/lib/push";
 
 export async function getActiveSession(): Promise<ClockSession | null> {
   const supabase = createClient();
@@ -82,12 +83,32 @@ export async function clockIn(
 
   if (error) return { error: error.message };
 
-  return {
-    session: {
-      ...data,
-      job_name: (data.jobs as { name: string } | null)?.name ?? undefined,
-    } as ClockSession,
-  };
+  const session: ClockSession = {
+    ...data,
+    job_name: (data.jobs as { name: string } | null)?.name ?? undefined,
+  } as ClockSession;
+
+  // Notify job owner if clocking in is done by a field member
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("user_id, name")
+    .eq("id", jobId)
+    .single();
+  if (job && job.user_id !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const name = profile?.display_name ?? crewName;
+    sendPushToUser(job.user_id, {
+      title: "Crew Clocked In",
+      body: `${name} clocked in at ${job.name}`,
+      url: `/jobs/${jobId}`,
+    });
+  }
+
+  return { session };
 }
 
 export async function clockOut(
@@ -126,6 +147,27 @@ export async function clockOut(
     .insert({ job_id: session.job_id, crew_name: crewName, hours, rate });
 
   if (laborError) return { error: laborError.message };
+
+  // Notify job owner if clock-out is done by a field member
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("user_id, name")
+    .eq("id", session.job_id)
+    .single();
+  if (job && job.user_id !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const name = profile?.display_name ?? crewName;
+    const hoursDisplay = hours % 1 === 0 ? `${hours}` : hours.toFixed(1);
+    sendPushToUser(job.user_id, {
+      title: "Crew Clocked Out",
+      body: `${name} clocked out of ${job.name} after ${hoursDisplay} hrs`,
+      url: `/jobs/${session.job_id}`,
+    });
+  }
 
   return { hours, total };
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "@/lib/push";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-02-25.clover",
@@ -82,6 +83,34 @@ export async function POST(request: NextRequest) {
           .from("invoices")
           .update({ status: "paid", paid_at: new Date().toISOString() })
           .eq("id", session.metadata.invoice_id);
+
+        // Notify job owner
+        const { data: inv } = await supabase
+          .from("invoices")
+          .select("job_id, total_amount, jobs(user_id, name, client_id)")
+          .eq("id", session.metadata.invoice_id)
+          .single();
+        if (inv) {
+          const job = inv.jobs as unknown as { user_id: string; name: string; client_id: string | null } | null;
+          if (job?.user_id) {
+            let clientName = "Client";
+            if (job.client_id) {
+              const { data: cl } = await supabase
+                .from("clients")
+                .select("name")
+                .eq("id", job.client_id)
+                .single();
+              if (cl?.name) clientName = cl.name;
+            }
+            const invNum = `INV-${session.metadata.invoice_id.slice(0, 8).toUpperCase()}`;
+            const amount = Number(inv.total_amount).toLocaleString("en-US", { minimumFractionDigits: 2 });
+            await sendPushToUser(job.user_id, {
+              title: "Invoice Paid",
+              body: `${clientName} paid ${invNum} — $${amount}`,
+              url: `/jobs`,
+            });
+          }
+        }
         break;
       }
 
@@ -122,6 +151,20 @@ export async function POST(request: NextRequest) {
           .from("subscriptions")
           .update({ status: "past_due" })
           .eq("stripe_subscription_id", invoice.subscription as string);
+
+        // Notify the account owner
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("user_id")
+          .eq("stripe_subscription_id", invoice.subscription as string)
+          .single();
+        if (sub?.user_id) {
+          await sendPushToUser(sub.user_id, {
+            title: "Payment Failed",
+            body: "Your Sightline subscription payment failed — update billing to keep access",
+            url: "/subscribe",
+          });
+        }
       }
       break;
     }

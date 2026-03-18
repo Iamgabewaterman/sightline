@@ -1,0 +1,28 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/invoice-overdue",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/no-activity",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/falling-behind",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/no-crew-today",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/assignment-reminder",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/not-clocked-in",
+      "schedule": "30 17 * * *"
+    }
+  ]
+}
