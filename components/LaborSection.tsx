@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor";
 import { LaborLog, Contact, CrewWithMembers } from "@/types";
+import { enqueue } from "@/hooks/useOfflineQueue";
 import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRole } from "@/hooks/useRole";
@@ -96,6 +97,31 @@ export default function LaborSection({
     e.preventDefault();
     setSaving(true);
     setFormError("");
+
+    if (!navigator.onLine) {
+      enqueue({
+        type: "add_labor",
+        payload: { jobId, crew_name: formName, hours: formHours, rate: formRate },
+      });
+      // Optimistic local entry so the user sees it immediately
+      const optimistic: LaborLog = {
+        id: `offline-${Date.now()}`,
+        job_id: jobId,
+        crew_name: formName,
+        hours: formHours as unknown as number,
+        rate: formRate as unknown as number,
+        category: "labor",
+        created_at: new Date().toISOString(),
+      };
+      setLogs((prev) => [optimistic, ...prev]);
+      setFormName("");
+      setFormHours("");
+      setFormRate("");
+      setFormKey((k) => k + 1);
+      setShowForm(false);
+      setSaving(false);
+      return;
+    }
 
     const fd = new FormData();
     fd.set("crew_name", formName);

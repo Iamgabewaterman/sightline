@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/assignments";
 import { addDailyLog } from "@/app/actions/daily-logs";
 import Avatar from "@/components/Avatar";
+import { enqueue } from "@/hooks/useOfflineQueue";
 import { createClient } from "@/lib/supabase/client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -133,6 +134,16 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
 
   async function handleLogSave() {
     if (!logJob) { setLogError("Select a job."); return; }
+
+    if (!navigator.onLine) {
+      enqueue({
+        type: "add_daily_log",
+        payload: { jobId: logJob, date: sheetDate!, notes: logNotes, crew: logCrew },
+      });
+      setSheet("closed");
+      return;
+    }
+
     setLogSaving(true);
     setLogError("");
     const res = await addDailyLog(logJob, sheetDate!, logNotes, logCrew);

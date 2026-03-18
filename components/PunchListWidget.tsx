@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { PunchListItem } from "@/types";
 import { addPunchListItem, togglePunchListItem, deletePunchListItem } from "@/app/actions/punch-list";
+import { enqueue } from "@/hooks/useOfflineQueue";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -46,11 +47,20 @@ export default function PunchListWidget({
   }
 
   async function handleToggle(item: PunchListItem) {
+    const newCompleted = !item.completed;
     setTogglingId(item.id);
+    // Optimistic update
     setItems((prev) => prev.map((i) =>
-      i.id === item.id ? { ...i, completed: !i.completed, completed_at: !i.completed ? new Date().toISOString() : null } : i
+      i.id === item.id ? { ...i, completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null } : i
     ));
-    const res = await togglePunchListItem(item.id, !item.completed);
+
+    if (!navigator.onLine) {
+      enqueue({ type: "toggle_punch", payload: { itemId: item.id, completed: newCompleted } });
+      setTogglingId(null);
+      return;
+    }
+
+    const res = await togglePunchListItem(item.id, newCompleted);
     setTogglingId(null);
     if (res.item) {
       setItems((prev) => prev.map((i) => i.id === res.item!.id ? res.item! : i));

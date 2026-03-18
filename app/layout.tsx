@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import PwaSetup from "@/components/PwaSetup";
+import OfflineBanner from "@/components/OfflineBanner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = localFont({
@@ -81,6 +82,7 @@ export default function RootLayout({
           media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
       </head>
       <body className={`${geistSans.variable} antialiased`}>
+        <OfflineBanner />
         <Nav />
         {children}
         <PwaSetup />

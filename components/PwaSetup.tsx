@@ -7,9 +7,8 @@ import { useState, useEffect } from "react";
 function useServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    // Unregister all service workers so stale caches are fully cleared
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((r) => r.unregister());
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW registration failed — not critical, app still works
     });
   }, []);
 }
