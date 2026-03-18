@@ -17,6 +17,7 @@ import TimelineSection from "@/components/TimelineSection";
 import InvoiceSection from "@/components/InvoiceSection";
 import PunchListWidget from "@/components/PunchListWidget";
 import PortalToggle from "@/components/PortalToggle";
+import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -304,8 +305,15 @@ export default async function JobDetailPage({
           />
         </JobCostProvider>
 
+        {/* Save as Template — completed jobs only */}
+        {job.status === "completed" && (
+          <div className="mt-6 flex justify-center">
+            <SaveAsTemplateButton jobId={job.id} defaultName={job.name} />
+          </div>
+        )}
+
         {/* Danger zone */}
-        <div className="mt-10 pt-6 border-t border-[#2a2a2a]">
+        <div className="mt-6 pt-6 border-t border-[#2a2a2a]">
           <DeleteJobButton jobId={job.id} jobName={job.name} />
         </div>
       </div>
