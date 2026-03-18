@@ -8,6 +8,7 @@ import {
   deleteAssignment,
   updateAssignmentNotes,
 } from "@/app/actions/assignments";
+import { addDailyLog } from "@/app/actions/daily-logs";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
   const [isPending, startTransition] = useTransition();
 
   // Assignment sheet state
-  const [sheet, setSheet] = useState<"closed" | "assign" | "detail">("closed");
+  const [sheet, setSheet] = useState<"closed" | "assign" | "detail" | "log">("closed");
   const [sheetDate, setSheetDate] = useState<string | null>(null);
   const [detailAssignment, setDetailAssignment] = useState<Assignment | null>(null);
 
@@ -68,6 +69,13 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
   const [assignNotes, setAssignNotes] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
+
+  // Log form
+  const [logJob, setLogJob] = useState("");
+  const [logCrew, setLogCrew] = useState("");
+  const [logNotes, setLogNotes] = useState("");
+  const [logSaving, setLogSaving] = useState(false);
+  const [logError, setLogError] = useState("");
 
   // Detail edit
   const [editingNotes, setEditingNotes] = useState("");
@@ -110,6 +118,25 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
     setDetailAssignment(a);
     setEditingNotes(a.notes ?? "");
     setSheet("detail");
+  }
+
+  function openLogSheet(date: string) {
+    setSheetDate(date);
+    setLogJob(jobs[0]?.id ?? "");
+    setLogCrew("");
+    setLogNotes("");
+    setLogError("");
+    setSheet("log");
+  }
+
+  async function handleLogSave() {
+    if (!logJob) { setLogError("Select a job."); return; }
+    setLogSaving(true);
+    setLogError("");
+    const res = await addDailyLog(logJob, sheetDate!, logNotes, logCrew);
+    setLogSaving(false);
+    if (res.error) { setLogError(res.error); return; }
+    setSheet("closed");
   }
 
   function toggleMember(uid: string) {
@@ -216,14 +243,24 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
                   <span className={`text-sm ${today ? "text-orange-400 font-semibold" : "text-gray-500"}`}>{fmtDate(date)}</span>
                   {today && <span className="text-[10px] font-bold text-orange-500 bg-orange-500/15 px-1.5 py-0.5 rounded-full">TODAY</span>}
                 </div>
-                {role === "owner" && (
-                  <button
-                    onClick={() => openAssignSheet(date)}
-                    className="text-orange-500 text-xs font-bold bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
-                  >
-                    + Assign
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {role === "owner" && (
+                    <button
+                      onClick={() => openAssignSheet(date)}
+                      className="text-orange-500 text-xs font-bold bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+                    >
+                      + Assign
+                    </button>
+                  )}
+                  {jobs.length > 0 && (
+                    <button
+                      onClick={() => openLogSheet(date)}
+                      className="text-gray-400 text-xs font-bold bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+                    >
+                      + Log
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Assignments for this day */}
@@ -358,6 +395,72 @@ export default function CalendarClient({ role, initialWeekStart, initialAssignme
                 className="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mb-3"
               >
                 {assigning ? "Saving..." : "Assign"}
+              </button>
+              <button onClick={() => setSheet("closed")} className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-lg py-4 rounded-xl active:scale-95 transition-transform">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── LOG SHEET ── */}
+      {sheet === "log" && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setSheet("closed")} />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl overflow-y-auto"
+            style={{ maxHeight: "85vh", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}
+          >
+            <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mt-3 mb-4" />
+            <div className="px-5">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Daily Log</p>
+              <p className="text-white font-bold text-lg mb-4">
+                {sheetDate ? DAY_FULL[new Date(sheetDate + "T00:00:00").getDay() === 0 ? 6 : new Date(sheetDate + "T00:00:00").getDay() - 1] + ", " + fmtDate(sheetDate) : ""}
+              </p>
+
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Job</p>
+              <div className="flex flex-col gap-1.5 mb-4">
+                {jobs.map((j) => (
+                  <button
+                    key={j.id}
+                    onClick={() => setLogJob(j.id)}
+                    className={`text-left px-4 py-3 rounded-xl border transition-colors active:scale-95 ${logJob === j.id ? "bg-orange-500/15 border-orange-500/50 text-white" : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-300"}`}
+                  >
+                    <p className="font-semibold text-sm">{j.name}</p>
+                    {j.address && <p className="text-gray-500 text-xs">{j.address}</p>}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Crew Present</p>
+              <input
+                type="text"
+                value={logCrew}
+                onChange={(e) => setLogCrew(e.target.value)}
+                placeholder="e.g. Gabe, Mike"
+                className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm placeholder:text-gray-600 focus:outline-none focus:border-orange-500 mb-4"
+              />
+
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Notes</p>
+              <textarea
+                value={logNotes}
+                onChange={(e) => setLogNotes(e.target.value)}
+                placeholder="What was done today..."
+                rows={4}
+                className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm placeholder:text-gray-600 focus:outline-none focus:border-orange-500 resize-none mb-4"
+              />
+
+              {logError && (
+                <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3 mb-4">{logError}</p>
+              )}
+
+              <button
+                onClick={handleLogSave}
+                disabled={logSaving}
+                className="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 mb-3"
+              >
+                {logSaving ? "Saving..." : "Save Log"}
               </button>
               <button onClick={() => setSheet("closed")} className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-lg py-4 rounded-xl active:scale-95 transition-transform">
                 Cancel

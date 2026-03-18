@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, DailyLog, Invoice, ChangeOrder, PunchListItem } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -14,10 +14,8 @@ import DimensionsSection from "@/components/DimensionsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
 import TimelineSection from "@/components/TimelineSection";
-import DailyLogsSection from "@/components/DailyLogsSection";
 import InvoiceSection from "@/components/InvoiceSection";
-import ChangeOrdersSection from "@/components/ChangeOrdersSection";
-import PunchListSection from "@/components/PunchListSection";
+import PunchListWidget from "@/components/PunchListWidget";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -46,7 +44,6 @@ export default async function JobDetailPage({
     { data: estimate },
     { data: receipts },
     { data: laborLogs },
-    { data: dailyLogs },
     { data: invoice },
     { data: changeOrders },
     { data: punchListItems },
@@ -86,13 +83,6 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<LaborLog[]>(),
-    supabase
-      .from("daily_logs")
-      .select("*")
-      .eq("job_id", params.id)
-      .order("log_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .returns<DailyLog[]>(),
     supabase
       .from("invoices")
       .select("*")
@@ -230,6 +220,11 @@ export default async function JobDetailPage({
             <QuoteProfitSection job={job} />
           </div>
 
+          {/* Punch List widget */}
+          <div className="mb-4">
+            <PunchListWidget jobId={job.id} initialItems={punchListItems ?? []} />
+          </div>
+
           {/* Invoice — only on completed jobs with a saved quote */}
           {job.status === "completed" && estimate && (
             <div className="mb-4">
@@ -285,17 +280,6 @@ export default async function JobDetailPage({
 
           {/* Labor */}
           <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
-
-          {/* Change Orders — only when a quote exists */}
-          {initialQuoteData && (
-            <ChangeOrdersSection jobId={job.id} />
-          )}
-
-          {/* Punch List */}
-          <PunchListSection jobId={job.id} initialItems={punchListItems ?? []} />
-
-          {/* Daily Logs */}
-          <DailyLogsSection jobId={job.id} initialLogs={dailyLogs ?? []} />
 
           {/* Receipts */}
           <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />

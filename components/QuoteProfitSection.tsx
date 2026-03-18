@@ -7,6 +7,7 @@ import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 import { useRole } from "@/hooks/useRole";
+import ChangeOrdersSection from "./ChangeOrdersSection";
 
 function fmt(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -673,6 +674,9 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
                   </div>
                 )}
               </div>
+
+              {/* ── Change Orders ── */}
+              <ChangeOrdersSection jobId={job.id} />
 
               {/* ── Action buttons ── */}
               <div className="flex flex-col gap-3">
