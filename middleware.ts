@@ -56,11 +56,12 @@ export async function middleware(request: NextRequest) {
   const isAuthCallback = pathname.startsWith("/auth");
   const isPayRoute       = pathname.startsWith("/pay");
   const isPortalRoute    = pathname.startsWith("/portal");
+  const isSignRoute      = pathname.startsWith("/sign");
   const isOnboardingRoute = pathname.startsWith("/onboarding");
   const isLandingPage    = pathname === "/";
 
   // Not logged in → send to login (landing page is public)
-  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute && !isLandingPage) {
+  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute && !isSignRoute && !isLandingPage) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -69,7 +70,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/jobs", request.url));
   }
 
-  if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute && !isPortalRoute) {
+  if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute && !isPortalRoute && !isSignRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete")

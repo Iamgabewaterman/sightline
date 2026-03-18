@@ -50,6 +50,10 @@ export interface QuotePDFData {
   } | null;
   lineItems?: QuoteLineItem[];
   laborItems?: QuoteLaborItem[];
+  // Signature fields (for signed/accepted quotes)
+  signatureData?: string | null;
+  signedByName?: string | null;
+  signedAt?: string | null;
 }
 
 // ─── Colors ─────────────────────────────────────────────────────────────────
@@ -334,10 +338,35 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   hLine(y);
   y -= 18;
 
-  page.drawText("Accepted by:", { x: M, y, font: reg, size: 9, color: GRAY });
-  page.drawLine({ start: { x: M + 72, y: y - 2 }, end: { x: M + 280, y: y - 2 }, thickness: 0.5, color: LGRAY });
-  page.drawText("Date:", { x: M + 300, y, font: reg, size: 9, color: GRAY });
-  page.drawLine({ start: { x: M + 328, y: y - 2 }, end: { x: RX, y: y - 2 }, thickness: 0.5, color: LGRAY });
+  if (data.signatureData && data.signedByName) {
+    // Embed the actual signature image
+    try {
+      const b64 = data.signatureData.replace(/^data:image\/png;base64,/, "");
+      const sigBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const sigImg = await pdfDoc.embedPng(sigBytes);
+      const sigDims = sigImg.scaleToFit(220, 70);
+      page.drawImage(sigImg, { x: M, y: y - sigDims.height, width: sigDims.width, height: sigDims.height });
+      y -= sigDims.height + 6;
+    } catch { /* fall through */ }
+
+    page.drawText(`Signed by: ${data.signedByName}`, { x: M, y, font: bold, size: 9, color: BLACK });
+    if (data.signedAt) {
+      tr(`Date: ${data.signedAt}`, RX - 2, y, reg, 9, GRAY);
+    }
+    y -= 14;
+    // Green "ACCEPTED" stamp
+    const GREEN = rgb(0.086, 0.643, 0.318);
+    const stampText = "ACCEPTED";
+    const stampW = bold.widthOfTextAtSize(stampText, 11) + 16;
+    page.drawRectangle({ x: M, y: y - 4, width: stampW, height: 18, color: rgb(0.9, 0.98, 0.93) });
+    page.drawText(stampText, { x: M + 8, y, font: bold, size: 11, color: GREEN });
+  } else {
+    // Blank signature lines
+    page.drawText("Accepted by:", { x: M, y, font: reg, size: 9, color: GRAY });
+    page.drawLine({ start: { x: M + 72, y: y - 2 }, end: { x: M + 280, y: y - 2 }, thickness: 0.5, color: LGRAY });
+    page.drawText("Date:", { x: M + 300, y, font: reg, size: 9, color: GRAY });
+    page.drawLine({ start: { x: M + 328, y: y - 2 }, end: { x: RX, y: y - 2 }, thickness: 0.5, color: LGRAY });
+  }
 
   // ── Footer ────────────────────────────────────────────────────────────────
   const FY = 30;

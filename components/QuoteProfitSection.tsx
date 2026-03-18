@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { saveJobQuote, saveLineItem } from "@/app/actions/quotes";
+import { saveJobQuote, saveLineItem, sendForSignature } from "@/app/actions/quotes";
 import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
@@ -21,12 +21,85 @@ function today() {
   });
 }
 
-export default function QuoteProfitSection({ job }: { job: Job }) {
+export default function QuoteProfitSection({
+  job,
+  estimateId: initialEstimateId,
+  quoteStatus: initialQuoteStatus,
+  signedAt: initialSignedAt,
+  signedByName: initialSignedByName,
+}: {
+  job: Job;
+  estimateId: string | null;
+  quoteStatus: string;
+  signedAt: string | null;
+  signedByName: string | null;
+}) {
   const { role, can_see_financials } = useRole();
   const { actualMaterialCost, actualLaborCost, quoteData, setQuoteData, changeOrders } = useJobCost();
 
   // Field members without financial permission see nothing here
   if (role === "field_member" && !can_see_financials) return null;
+
+  // Local signature state (updates after send/duplicate)
+  const [localEstimateId, setLocalEstimateId] = useState<string | null>(initialEstimateId);
+  const [localQuoteStatus, setLocalQuoteStatus] = useState(initialQuoteStatus);
+  const [localSignedAt, setLocalSignedAt] = useState<string | null>(initialSignedAt);
+  const [localSignedByName, setLocalSignedByName] = useState<string | null>(initialSignedByName);
+
+  const isSigned = localQuoteStatus === "accepted";
+
+  // Send for signature state
+  const [sigSheetOpen, setSigSheetOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const [copied, setCopiedSig] = useState(false);
+  const [sigError, setSigError] = useState("");
+  const [duplicating, setDuplicating] = useState(false);
+
+  async function handleSendForSignature() {
+    if (!localEstimateId) return;
+    setSending(true);
+    setSigError("");
+    const result = await sendForSignature(localEstimateId);
+    setSending(false);
+    if (result.error) { setSigError(result.error); return; }
+    setSigUrl(result.url ?? null);
+    setLocalQuoteStatus("sent");
+    setSigSheetOpen(true);
+  }
+
+  async function handleCopySigUrl() {
+    if (!sigUrl) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Quote — ${job.name}`, url: sigUrl });
+      } else {
+        await navigator.clipboard.writeText(sigUrl);
+        setCopiedSig(true);
+        setTimeout(() => setCopiedSig(false), 2500);
+      }
+    } catch { /* dismissed */ }
+  }
+
+  async function handleDuplicate() {
+    if (!quoteData) return;
+    setDuplicating(true);
+    const result = await saveJobQuote({
+      jobId: job.id,
+      materialTotal: quoteData.materialBudget,
+      laborTotal: quoteData.laborBudget,
+      profitMarginPct: quoteData.profitMarginPct,
+      finalQuote: quoteData.finalQuote,
+      addons: quoteData.addons,
+    });
+    if (result.estimateId) {
+      setLocalEstimateId(result.estimateId);
+      setLocalQuoteStatus("draft");
+      setLocalSignedAt(null);
+      setLocalSignedByName(null);
+    }
+    setDuplicating(false);
+  }
 
   // Overlay
   const [open, setOpen] = useState(false);
@@ -36,7 +109,7 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // Fetched data
@@ -170,8 +243,8 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
         await navigator.share({ title: `Quote — ${job.name}`, text: buildShareText() });
       } else {
         await navigator.clipboard.writeText(buildShareText());
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
+        setCopiedShare(true);
+        setTimeout(() => setCopiedShare(false), 2500);
       }
     } catch {
       // dismissed
@@ -184,14 +257,36 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
       const supabase = createClient();
       const [{ data: { user } }, { data: bp }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("business_profiles").select("business_name,owner_name,license_number,phone,email").maybeSingle(),
+        supabase.from("business_profiles").select("business_name,owner_name,license_number,address,phone,email,logo_path").maybeSingle(),
       ]);
+
+      let logoUrl: string | null = null;
+      if (bp?.logo_path) {
+        const { data: signed } = await supabase.storage
+          .from("business-logos")
+          .createSignedUrl(bp.logo_path, 300);
+        logoUrl = signed?.signedUrl ?? null;
+      }
+
+      // Fetch signature data if signed
+      let signatureData: string | null = null;
+      if (isSigned && localEstimateId) {
+        const { data: est } = await supabase
+          .from("estimates")
+          .select("signature_data")
+          .eq("id", localEstimateId)
+          .single();
+        signatureData = est?.signature_data ?? null;
+      }
+
       const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
         jobName: job.name,
         jobAddress: job.address ?? "",
+        jobTypes: job.types,
         date: today(),
+        quoteNumber: `QUO-${job.id.slice(0, 8).toUpperCase()}`,
         materialsTotal,
         laborTotal,
         addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
@@ -199,6 +294,12 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
         profitAmount,
         grandTotal,
         businessProfile: bp,
+        logoUrl,
+        signatureData,
+        signedByName: localSignedByName,
+        signedAt: localSignedAt
+          ? new Date(localSignedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+          : null,
       });
     } finally {
       setPdfGenerating(false);
@@ -221,6 +322,10 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
       setSaveError(result.error);
     } else {
       setSaved(true);
+      if (result.estimateId) {
+        setLocalEstimateId(result.estimateId);
+        setLocalQuoteStatus("draft");
+      }
       setAddons(validAddons);
       setQuoteData({
         materialBudget: Math.round(materialsTotal),
@@ -278,13 +383,30 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
               Profitability
             </p>
             <div className="flex items-center gap-3">
-              <span className={`text-xs font-bold ${statusColor}`}>{barStatus}</span>
-              <button
-                onClick={handleOpen}
-                className="text-gray-500 text-xs font-semibold border border-[#333] px-3 py-1.5 rounded-lg active:scale-95 transition-transform min-h-[36px]"
-              >
-                Edit Quote
-              </button>
+              {isSigned ? (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-green-400 bg-green-900/30 border border-green-800 px-2.5 py-1 rounded-lg">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                  Signed
+                </span>
+              ) : (
+                <span className={`text-xs font-bold ${statusColor}`}>{barStatus}</span>
+              )}
+              {isSigned ? (
+                <button
+                  disabled
+                  className="text-gray-600 text-xs font-semibold border border-[#2a2a2a] px-3 py-1.5 rounded-lg min-h-[36px] flex items-center gap-1.5 opacity-50 cursor-not-allowed"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  Locked
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpen}
+                  className="text-gray-500 text-xs font-semibold border border-[#333] px-3 py-1.5 rounded-lg active:scale-95 transition-transform min-h-[36px]"
+                >
+                  Edit Quote
+                </button>
+              )}
             </div>
           </div>
 
@@ -417,6 +539,48 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
               </div>
             )}
           </div>
+
+          {/* Signed info */}
+          {isSigned && localSignedByName && (
+            <div className="mt-3 pt-3 border-t border-[#2a2a2a] flex items-center justify-between">
+              <div>
+                <p className="text-green-400 text-xs font-semibold">
+                  Signed by {localSignedByName}
+                </p>
+                {localSignedAt && (
+                  <p className="text-gray-600 text-xs">
+                    {new Date(localSignedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleDuplicate}
+                disabled={duplicating}
+                className="text-gray-500 text-xs font-semibold border border-[#2a2a2a] px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[36px] disabled:opacity-50"
+              >
+                {duplicating ? "…" : "Duplicate Quote"}
+              </button>
+            </div>
+          )}
+
+          {/* Send for Signature button */}
+          {!isSigned && quoteData && localEstimateId && (
+            <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+              {sigError && (
+                <p className="text-red-400 text-xs mb-2">{sigError}</p>
+              )}
+              <button
+                onClick={handleSendForSignature}
+                disabled={sending}
+                className="w-full flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform disabled:opacity-50 min-h-[48px]"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 19l7-7-7-7"/><path d="M5 12h14"/>
+                </svg>
+                {sending ? "Generating link…" : localQuoteStatus === "sent" ? "Resend Signature Link" : "Send for Signature"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -685,7 +849,7 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
                     onClick={handleCopy}
                     className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
                   >
-                    {copied ? (
+                    {copiedShare ? (
                       <span className="text-green-400">✓ Copied</span>
                     ) : (
                       <><span>📤</span> Share</>
@@ -703,6 +867,20 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
                     )}
                   </button>
                 </div>
+
+                {/* Send for Signature (in overlay) */}
+                {localEstimateId && saved && (
+                  <button
+                    onClick={() => { setOpen(false); handleSendForSignature(); }}
+                    disabled={sending}
+                    className="w-full flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 19l7-7-7-7"/><path d="M5 12h14"/>
+                    </svg>
+                    Send for Signature
+                  </button>
+                )}
 
                 {saved ? (
                   <div className="w-full flex items-center justify-center gap-2 bg-green-900/30 border border-green-800 text-green-400 font-bold text-lg py-4 rounded-xl">
@@ -731,6 +909,35 @@ export default function QuoteProfitSection({ job }: { job: Job }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Signature link sheet ─────────────────────────── */}
+      {sigSheetOpen && sigUrl && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60"
+            onClick={() => setSigSheetOpen(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-5"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}
+          >
+            <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
+            <h2 className="text-white font-bold text-xl mb-1">Signature Link Ready</h2>
+            <p className="text-gray-500 text-sm mb-5">
+              Share this link with your client to collect their digital signature.
+            </p>
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-3 mb-4">
+              <p className="text-gray-300 text-sm font-mono break-all">{sigUrl}</p>
+            </div>
+            <button
+              onClick={handleCopySigUrl}
+              className="w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+            >
+              {copied ? "✓ Copied!" : "Share / Copy Link"}
+            </button>
+          </div>
+        </>
       )}
     </>
   );

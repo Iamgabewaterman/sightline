@@ -65,13 +65,13 @@ export default async function JobDetailPage({
       .returns<Material[]>(),
     supabase
       .from("estimates")
-      .select("material_total, labor_total, profit_margin_pct, final_quote, addons")
+      .select("id, material_total, labor_total, profit_margin_pct, final_quote, addons, quote_status, signed_at, signed_by_name")
       .eq("job_id", params.id)
       .eq("type", "job_quote")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<
-        Pick<Estimate, "material_total" | "labor_total" | "profit_margin_pct" | "final_quote" | "addons">
+        Pick<Estimate, "id" | "material_total" | "labor_total" | "profit_margin_pct" | "final_quote" | "addons" | "quote_status" | "signed_at" | "signed_by_name">
       >(),
     supabase
       .from("receipts")
@@ -219,7 +219,13 @@ export default async function JobDetailPage({
 
           {/* Quote + Profitability (merged) */}
           <div className="mb-4">
-            <QuoteProfitSection job={job} />
+            <QuoteProfitSection
+              job={job}
+              estimateId={estimate?.id ?? null}
+              quoteStatus={estimate?.quote_status ?? "draft"}
+              signedAt={estimate?.signed_at ?? null}
+              signedByName={estimate?.signed_by_name ?? null}
+            />
           </div>
 
           {/* Punch List widget */}

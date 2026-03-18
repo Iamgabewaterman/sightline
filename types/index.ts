@@ -310,5 +310,11 @@ export interface Estimate {
   profit_margin_pct: number;
   final_quote: number;
   addons: QuoteAddon[];
+  quote_status: string;
+  signature_token: string | null;
+  signed_at: string | null;
+  signed_by_name: string | null;
+  signed_by_ip: string | null;
+  signature_data: string | null;
   created_at: string;
 }
