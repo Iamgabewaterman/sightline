@@ -65,6 +65,10 @@ export interface Photo {
   category: PhotoCategory;
   storage_path: string;
   created_at: string;
+  lat: number | null;
+  lng: number | null;
+  taken_at: string | null;
+  accuracy: number | null;
 }
 
 export interface Material {
