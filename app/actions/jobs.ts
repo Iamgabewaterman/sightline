@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { sendPushToUser } from "@/lib/push";
+import { geocodeAddress } from "@/lib/geocode";
 
 export async function createJob(formData: FormData) {
   const supabase = createClient();
@@ -29,6 +30,14 @@ export async function createJob(formData: FormData) {
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Geocode address silently
+  if (address?.trim()) {
+    const coords = await geocodeAddress(address);
+    if (coords) {
+      await supabase.from("jobs").update({ job_lat: coords.lat, job_lng: coords.lng }).eq("id", job.id);
+    }
   }
 
   // Upload photos if provided
@@ -70,9 +79,16 @@ export async function updateJob(id: string, formData: FormData) {
 
   const client_id = formData.get("client_id") as string | null;
 
+  // Geocode address silently
+  let coordUpdates: { job_lat?: number; job_lng?: number } = {};
+  if (address?.trim()) {
+    const coords = await geocodeAddress(address);
+    if (coords) coordUpdates = { job_lat: coords.lat, job_lng: coords.lng };
+  }
+
   const { error } = await supabase
     .from("jobs")
-    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, client_id: client_id || null, updated_at: new Date().toISOString() })
+    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, client_id: client_id || null, updated_at: new Date().toISOString(), ...coordUpdates })
     .eq("id", id);
 
   if (error) {

@@ -47,6 +47,8 @@ export interface Job {
   total_paused_days: number;
   portal_token: string | null;
   portal_enabled: boolean;
+  job_lat: number | null;
+  job_lng: number | null;
   created_at: string;
   updated_at: string;
 }
