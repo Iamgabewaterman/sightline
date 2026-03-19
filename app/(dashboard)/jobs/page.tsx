@@ -5,6 +5,8 @@ import TypeTags from "@/components/TypeTags";
 import { getInvoiceDashboardStats } from "@/app/actions/invoices";
 import { ensureOwnerSetup } from "@/app/actions/team";
 import { getTodayAssignments } from "@/app/actions/assignments";
+import { computeInsights } from "@/lib/insights";
+import InsightsSection from "@/components/InsightsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -147,12 +149,14 @@ export default async function DashboardPage() {
     { data: userJobIds },
     { data: recentJobs },
     invoiceStats,
+    insightsData,
   ] = await Promise.all([
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("user_id", user!.id).eq("status", "active"),
     supabase.from("estimates").select("final_quote").eq("user_id", user!.id).gte("created_at", monthStart.toISOString()),
     supabase.from("jobs").select("id").eq("user_id", user!.id),
     supabase.from("jobs").select("id, name, status, types, address, updated_at").eq("user_id", user!.id).order("updated_at", { ascending: false }).returns<Job[]>(),
     getInvoiceDashboardStats(user!.id),
+    computeInsights(user!.id),
   ]);
 
   const jobIds = userJobIds?.map((j) => j.id) ?? [];
@@ -227,6 +231,12 @@ export default async function DashboardPage() {
             )}
           </div>
         )}
+
+        {/* AI Insights */}
+        <InsightsSection
+          cards={insightsData.cards}
+          completedJobCount={insightsData.completedJobCount}
+        />
 
         {/* Recent Jobs */}
         <div className="flex items-center justify-between mb-4">

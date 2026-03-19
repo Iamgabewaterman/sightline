@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { saveJobQuote, saveLineItem, sendForSignature } from "@/app/actions/quotes";
+import { fetchHistoricalCostRange } from "@/app/actions/insights";
 import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
+import { HistoricalCostRange } from "@/lib/insights";
 import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 import { useRole } from "@/hooks/useRole";
@@ -122,6 +124,9 @@ export default function QuoteProfitSection({
   const [savingItemIdx, setSavingItemIdx] = useState<number | null>(null);
   const [savedIdxSet, setSavedIdxSet] = useState<Set<number>>(new Set());
 
+  // Historical cost range banner
+  const [historicalRange, setHistoricalRange] = useState<HistoricalCostRange | null>(null);
+
   async function handleOpen() {
     setOpen(true);
     setSaved(false);
@@ -138,17 +143,19 @@ export default function QuoteProfitSection({
     }
 
     const supabase = createClient();
-    const [{ data: mats }, { data: labor }, { data: saved }, { data: subs }] = await Promise.all([
+    const [{ data: mats }, { data: labor }, { data: saved }, { data: subs }, range] = await Promise.all([
       supabase.from("materials").select("*").eq("job_id", job.id).returns<Material[]>(),
       supabase.from("labor_logs").select("*").eq("job_id", job.id).returns<LaborLog[]>(),
       supabase.from("saved_line_items").select("*").order("name").returns<SavedLineItem[]>(),
       supabase.from("subcontractor_logs").select("quoted_amount").eq("job_id", job.id),
+      fetchHistoricalCostRange(job.types, job.calculated_sqft ?? null),
     ]);
 
     setMaterials(mats ?? []);
     setLaborLogs(labor ?? []);
     setSavedItems(saved ?? []);
     setSubTotal((subs ?? []).reduce((s, r) => s + Number(r.quoted_amount ?? 0), 0));
+    setHistoricalRange(range);
     setLoading(false);
   }
 
@@ -714,6 +721,33 @@ export default function QuoteProfitSection({
                   </p>
                 </div>
               </div>
+
+              {/* Historical cost range banner */}
+              {historicalRange && (
+                <div className="mb-6 bg-[#1a1a1a] border border-orange-500/20 rounded-xl px-4 py-3">
+                  <p className="text-orange-400 text-xs font-semibold uppercase tracking-wider mb-1.5">
+                    📊 Based on your last {historicalRange.jobCount} similar {historicalRange.jobType} job{historicalRange.jobCount !== 1 ? "s" : ""}
+                  </p>
+                  <div className="flex gap-4">
+                    {historicalRange.materialMax > 0 && (
+                      <div>
+                        <p className="text-gray-500 text-xs">Materials</p>
+                        <p className="text-white text-sm font-semibold">
+                          {fmt(historicalRange.materialMin)}–{fmt(historicalRange.materialMax)}
+                        </p>
+                      </div>
+                    )}
+                    {historicalRange.laborMax > 0 && (
+                      <div>
+                        <p className="text-gray-500 text-xs">Labor</p>
+                        <p className="text-white text-sm font-semibold">
+                          {fmt(historicalRange.laborMin)}–{fmt(historicalRange.laborMax)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* No data warning */}
               {!hasData && (
