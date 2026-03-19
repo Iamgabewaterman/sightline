@@ -2,6 +2,8 @@ import BottomTabBar from "@/components/BottomTabBar";
 import Nav from "@/components/Nav";
 import { ClockProvider } from "@/components/ClockContext";
 import ClockWidget from "@/components/ClockWidget";
+import { DriveProvider } from "@/components/DriveContext";
+import DriveWidget from "@/components/DriveWidget";
 import { RoleProvider, RoleData } from "@/components/RoleContext";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,12 +49,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <RoleProvider value={roleData}>
       <ClockProvider>
-        <Nav />
-        <div className="pb-[calc(56px+env(safe-area-inset-bottom))]">
-          {children}
-        </div>
-        <ClockWidget />
-        <BottomTabBar />
+        <DriveProvider>
+          <Nav />
+          <div className="pb-[calc(56px+env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+          <DriveWidget />
+          <ClockWidget />
+          <BottomTabBar />
+        </DriveProvider>
       </ClockProvider>
     </RoleProvider>
   );

@@ -225,6 +225,28 @@ export interface PunchListItem {
   created_at: string;
 }
 
+export interface Drive {
+  id: string;
+  user_id: string;
+  job_id: string | null;
+  start_lat: number;
+  start_lng: number;
+  end_lat: number | null;
+  end_lng: number | null;
+  miles: number | null;
+  duration_minutes: number | null;
+  category: string;
+  notes: string | null;
+  started_at: string;
+  ended_at: string | null;
+  is_estimated: boolean;
+  start_accuracy: number | null;
+  end_accuracy: number | null;
+  created_at: string;
+  // joined
+  job_name?: string;
+}
+
 export interface MileageLog {
   id: string;
   user_id: string;
