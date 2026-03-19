@@ -4,6 +4,7 @@ import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial, getPastMaterialNames } from "@/app/actions/materials";
 import { Material } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
+import ShoppingListModal from "@/components/ShoppingListModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -407,10 +408,12 @@ function MaterialRow({
 
 export default function MaterialsSection({
   jobId,
+  jobName = "",
   initialMaterials,
   onMaterialsAdded,
 }: {
   jobId: string;
+  jobName?: string;
   initialMaterials: Material[];
   onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
@@ -426,7 +429,8 @@ export default function MaterialsSection({
     setActualMaterialCost(cost);
   }, [materials, setActualMaterialCost]);
 
-  const [showForm,   setShowForm]   = useState(false);
+  const [showForm,      setShowForm]      = useState(false);
+  const [showShopping,  setShowShopping]  = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState("");
   const formRef = useRef<HTMLFormElement>(null);
@@ -502,12 +506,20 @@ export default function MaterialsSection({
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-xl">Materials</h2>
-        <button
-          onClick={() => setShowForm((s) => !s)}
-          className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
-        >
-          {showForm ? "Cancel" : "+ Add"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowShopping(true)}
+            className="text-orange-400 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Shopping List
+          </button>
+          <button
+            onClick={() => setShowForm((s) => !s)}
+            className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            {showForm ? "Cancel" : "+ Add"}
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
@@ -602,6 +614,15 @@ export default function MaterialsSection({
             <MaterialRow key={m.id} material={m} onUpdate={handleUpdate} onDelete={handleDelete} />
           ))}
         </div>
+      )}
+
+      {/* Shopping List modal */}
+      {showShopping && (
+        <ShoppingListModal
+          jobName={jobName}
+          materials={materials}
+          onClose={() => setShowShopping(false)}
+        />
       )}
     </div>
   );

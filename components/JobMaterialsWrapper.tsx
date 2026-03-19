@@ -7,6 +7,7 @@ import EstimationSuggestions from "./EstimationSuggestions";
 
 interface Props {
   jobId: string;
+  jobName?: string;
   jobTypes: string[];
   calculatedSqft: number | null;
   initialMaterials: Material[];
@@ -15,6 +16,7 @@ interface Props {
 
 export default function JobMaterialsWrapper({
   jobId,
+  jobName = "",
   jobTypes,
   calculatedSqft,
   initialMaterials,
@@ -39,6 +41,7 @@ export default function JobMaterialsWrapper({
       )}
       <MaterialsSection
         jobId={jobId}
+        jobName={jobName}
         initialMaterials={materials}
         onMaterialsAdded={handleSuggestionApplied}
       />

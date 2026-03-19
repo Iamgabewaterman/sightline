@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addMaterialsBulk, BulkMaterialItem } from "@/app/actions/materials-bulk";
+import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
 
 // ── Oregon baseline prices (zip 97xxx) ────────────────────────────────────
 const P = {
@@ -135,17 +135,18 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
   const [headerSpan, setHeaderSpan]     = useState("");
 
   // Save to job
-  const [jobPickerOpen, setJobPickerOpen] = useState(false);
-  const [selectedJob, setSelectedJob]     = useState("");
-  const [saving, setSaving]               = useState(false);
-  const [saved, setSaved]                 = useState(false);
-  const [saveError, setSaveError]         = useState("");
+  const [jobPickerOpen,    setJobPickerOpen]    = useState(false);
+  const [selectedJob,      setSelectedJob]      = useState("");
+  const [saving,           setSaving]           = useState(false);
+  const [saved,            setSaved]            = useState(false);
+  const [saveError,        setSaveError]        = useState("");
+  const [saveMode,         setSaveMode]         = useState<"job" | "shopping">("job");
 
   function reset() {
     setStep(1); setTrade(null); setSub(null); setResult(null);
     setLen(""); setWid(""); setHgt(""); setWallSqft(""); setCeilSqft("");
     setDepth(""); setOpenings(""); setLf(""); setPitch("1.0");
-    setSaved(false); setSaveError("");
+    setSaved(false); setSaveError(""); setJobPickerOpen(false); setSaveMode("job");
   }
 
   function selectTrade(t: TradeId) { setTrade(t); setSub(null); setResult(null); setStep(2); }
@@ -481,7 +482,9 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
       quantity_ordered: r.qty,
       unit_cost: r.unitCost,
     }));
-    const res = await addMaterialsBulk(selectedJob, items);
+    const res = saveMode === "shopping"
+      ? await addMaterialsAsShoppingList(selectedJob, items)
+      : await addMaterialsBulk(selectedJob, items);
     setSaving(false);
     if (res.error) { setSaveError(res.error); return; }
     setSaved(true); setJobPickerOpen(false);
@@ -818,18 +821,28 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
             {/* Add to job */}
             {saved ? (
               <div className="bg-green-900/30 border border-green-800 text-green-400 font-bold text-base py-4 rounded-xl text-center">
-                ✓ Added to job materials
+                {saveMode === "shopping" ? "✓ Added to shopping list" : "✓ Added to job materials"}
               </div>
             ) : !jobPickerOpen ? (
-              <button
-                onClick={() => jobs.length === 0 ? null : setJobPickerOpen(true)}
-                className="w-full bg-orange-500 text-white font-bold text-lg py-5 rounded-xl active:scale-95 transition-transform"
-              >
-                {jobs.length === 0 ? "Create a job first to save" : "Add All to Job Materials"}
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => { if (jobs.length > 0) { setSaveMode("job"); setJobPickerOpen(true); } }}
+                  className="w-full bg-orange-500 text-white font-bold text-lg py-5 rounded-xl active:scale-95 transition-transform"
+                >
+                  {jobs.length === 0 ? "Create a job first to save" : "Add All to Job Materials"}
+                </button>
+                <button
+                  onClick={() => { if (jobs.length > 0) { setSaveMode("shopping"); setJobPickerOpen(true); } }}
+                  className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-orange-400 font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+                >
+                  {jobs.length === 0 ? "Create a job first to save" : "Add All to Shopping List"}
+                </button>
+              </div>
             ) : (
               <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex flex-col gap-3">
-                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Select a Job</p>
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                  {saveMode === "shopping" ? "Add to Shopping List — Select Job" : "Add to Job Materials — Select Job"}
+                </p>
                 <div className="flex flex-col gap-2">
                   {jobs.map((j) => (
                     <button
@@ -848,7 +861,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
                     disabled={saving}
                     className="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
                   >
-                    {saving ? "Adding..." : `Add ${result.length} items to job`}
+                    {saving ? "Adding..." : `Add ${result.length} items`}
                   </button>
                 )}
                 <button onClick={() => setJobPickerOpen(false)} className="text-gray-500 text-sm py-2 text-center">Cancel</button>

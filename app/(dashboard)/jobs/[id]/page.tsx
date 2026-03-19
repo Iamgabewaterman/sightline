@@ -320,6 +320,7 @@ export default async function JobDetailPage({
           <div className="mt-8">
             <JobMaterialsWrapper
               jobId={job.id}
+              jobName={job.name}
               jobTypes={job.types}
               calculatedSqft={job.calculated_sqft ?? null}
               initialMaterials={materials ?? []}
