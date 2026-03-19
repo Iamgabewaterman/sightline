@@ -10,6 +10,12 @@ export interface PhotoReportBusinessProfile {
   email?: string | null;
 }
 
+export interface PhotoReportDocument {
+  name: string;
+  category: string;
+  created_at: string;
+}
+
 export interface PhotoReportData {
   jobName: string;
   jobAddress: string;
@@ -19,6 +25,7 @@ export interface PhotoReportData {
   businessProfile?: PhotoReportBusinessProfile | null;
   logoUrl?: string | null;
   getPublicUrl: (path: string) => string;
+  documents?: PhotoReportDocument[] | null;
 }
 
 const ORANGE = rgb(0.976, 0.451, 0.086);
@@ -362,6 +369,40 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
         const sepY = imgY - INFO_H - GAP / 2;
         page.drawLine({ start: { x: MARGIN, y: sepY }, end: { x: COL_R, y: sepY }, thickness: 0.5, color: LGRAY });
       }
+    }
+  }
+
+  // ── SUPPORTING DOCUMENTS INDEX ─────────────────────────────────────────────
+  if (data.documents && data.documents.length > 0) {
+    const docsPage = addPage();
+    await drawHeader(docsPage, pdfDoc, bold, reg, bp, logoImg);
+
+    let dy = PAGE_H - HEADER_H - 48;
+    docsPage.drawText("SUPPORTING DOCUMENTS", { x: MARGIN, y: dy, font: bold, size: 18, color: DARK });
+    dy -= 8;
+    docsPage.drawLine({ start: { x: MARGIN, y: dy }, end: { x: COL_R, y: dy }, thickness: 3, color: ORANGE });
+    dy -= 28;
+
+    const DOC_ROW_H = 36;
+    for (const doc of data.documents) {
+      if (dy < FOOTER_H + 40) break; // don't overflow into footer
+
+      docsPage.drawRectangle({ x: MARGIN, y: dy - DOC_ROW_H + 8, width: CONTENT_W, height: DOC_ROW_H, color: rgb(0.1, 0.1, 0.1) });
+
+      docsPage.drawText(doc.name, {
+        x: MARGIN + 12, y: dy - 8,
+        font: bold, size: 10, color: WHITE,
+      });
+
+      const catStr = doc.category.charAt(0).toUpperCase() + doc.category.slice(1);
+      const dateStr = new Date(doc.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const metaStr = `${catStr} · ${dateStr}`;
+      docsPage.drawText(metaStr, {
+        x: MARGIN + 12, y: dy - 22,
+        font: reg, size: 8, color: GRAY,
+      });
+
+      dy -= DOC_ROW_H + 6;
     }
   }
 

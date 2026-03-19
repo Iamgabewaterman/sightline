@@ -300,6 +300,18 @@ export interface Invoice {
   created_at: string;
 }
 
+export interface JobDocument {
+  id: string;
+  job_id: string;
+  user_id: string;
+  name: string;
+  category: string;
+  storage_path: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+}
+
 export interface Estimate {
   id: string;
   job_id: string;

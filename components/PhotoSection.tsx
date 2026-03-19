@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import { deletePhoto } from "@/app/actions/photos";
-import { generatePhotoReportPDF } from "@/lib/generatePhotoReportPDF";
+import { generatePhotoReportPDF, PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
 
 function TrashIcon() {
@@ -53,9 +53,10 @@ interface Props {
   jobAddress?: string;
   clientName?: string | null;
   initialPhotos: Photo[];
+  documents?: PhotoReportDocument[] | null;
 }
 
-export default function PhotoSection({ jobId, jobName = "", jobAddress = "", clientName, initialPhotos }: Props) {
+export default function PhotoSection({ jobId, jobName = "", jobAddress = "", clientName, initialPhotos, documents }: Props) {
   const [activeCategory,   setActiveCategory]   = useState<PhotoCategory>("before");
   const [photos,           setPhotos]           = useState<Photo[]>(initialPhotos);
   const [uploading,        setUploading]        = useState(false);
@@ -166,6 +167,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
         businessProfile: bp,
         logoUrl,
         getPublicUrl,
+        documents,
       });
       setShowExport(false);
     } catch (e) {

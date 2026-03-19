@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -19,6 +19,7 @@ import PunchListWidget from "@/components/PunchListWidget";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import CostReport from "@/components/CostReport";
+import DocumentsSection from "@/components/DocumentsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -51,6 +52,7 @@ export default async function JobDetailPage({
     { data: changeOrders },
     { data: punchListItems },
     { data: clockSessions },
+    { data: documents },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -112,6 +114,12 @@ export default async function JobDetailPage({
       .not("clocked_out_at", "is", null)
       .not("hours", "is", null)
       .returns<Pick<ClockSession, "hours" | "rate" | "total">[]>(),
+    supabase
+      .from("documents")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<JobDocument[]>(),
   ]);
 
   if (!job) notFound();
@@ -332,6 +340,13 @@ export default async function JobDetailPage({
             jobAddress={job.address}
             clientName={jobClient?.name ?? null}
             initialPhotos={photos ?? []}
+            documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
+          />
+
+          {/* Documents */}
+          <DocumentsSection
+            jobId={job.id}
+            initialDocuments={documents ?? []}
           />
         </JobCostProvider>
 
