@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument, SubcontractorLog } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -20,6 +20,8 @@ import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import CostReport from "@/components/CostReport";
 import DocumentsSection from "@/components/DocumentsSection";
+import WeatherWidget from "@/components/WeatherWidget";
+import SubcontractorsSection from "@/components/SubcontractorsSection";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -53,6 +55,7 @@ export default async function JobDetailPage({
     { data: punchListItems },
     { data: clockSessions },
     { data: documents },
+    { data: subLogs },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -120,6 +123,12 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<JobDocument[]>(),
+    supabase
+      .from("subcontractor_logs")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<SubcontractorLog[]>(),
   ]);
 
   if (!job) notFound();
@@ -144,6 +153,13 @@ export default async function JobDetailPage({
     (s, l) => s + Number(l.hours) * Number(l.rate),
     0
   );
+
+  const initialSubCost = (subLogs ?? []).reduce((s, l) => {
+    const amt = l.invoice_received && l.invoice_amount != null
+      ? Number(l.invoice_amount)
+      : Number(l.quoted_amount ?? 0);
+    return s + amt;
+  }, 0);
 
   // Count completed jobs of same types for AI suggestions
   const { count: completedJobCount } = await supabase
@@ -223,9 +239,15 @@ export default async function JobDetailPage({
           </Link>
         )}
 
+        {/* Weather widget — only if job has coordinates */}
+        {job.job_lat && job.job_lng && (
+          <WeatherWidget lat={job.job_lat} lng={job.job_lng} jobStatus={job.status ?? "active"} />
+        )}
+
         <JobCostProvider
           initialMaterialCost={initialMaterialCost}
           initialLaborCost={initialLaborCost}
+          initialSubCost={initialSubCost}
           initialQuoteData={initialQuoteData}
           initialChangeOrders={changeOrders ?? []}
         >
@@ -257,6 +279,7 @@ export default async function JobDetailPage({
               laborLogs={laborLogs ?? []}
               clockSessionsLaborTotal={clockSessionsLaborTotal}
               changeOrdersTotal={(changeOrders ?? []).reduce((s, o) => s + Number(o.amount), 0)}
+              subsTotal={initialSubCost}
             />
           </div>
 
@@ -330,6 +353,9 @@ export default async function JobDetailPage({
 
           {/* Labor */}
           <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
+
+          {/* Subcontractors */}
+          <SubcontractorsSection jobId={job.id} initialLogs={subLogs ?? []} />
 
           {/* Receipts */}
           <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />

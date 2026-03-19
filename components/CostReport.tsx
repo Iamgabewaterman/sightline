@@ -20,12 +20,14 @@ export default function CostReport({
   laborLogs,
   clockSessionsLaborTotal,
   changeOrdersTotal,
+  subsTotal,
 }: {
   estimate: QuoteSnapshot | null;
   materials: Material[];
   laborLogs: LaborLog[];
   clockSessionsLaborTotal: number;
   changeOrdersTotal: number;
+  subsTotal: number;
 }) {
   const actualMaterials = materials.reduce((s, m) => {
     if (m.unit_cost === null) return s;
@@ -37,7 +39,7 @@ export default function CostReport({
     laborLogs.reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0) +
     clockSessionsLaborTotal;
 
-  const actualTotal = actualMaterials + actualLabor;
+  const actualTotal = actualMaterials + actualLabor + subsTotal;
 
   if (!estimate) {
     return (
@@ -68,9 +70,10 @@ export default function CostReport({
   const actualMarginPct = quotedTotal > 0 ? (actualProfit / quotedTotal) * 100 : 0;
 
   const rows = [
-    { label: "Materials", quoted: quotedMaterials, actual: actualMaterials, variance: materialVariance },
-    { label: "Labor",     quoted: quotedLabor,     actual: actualLabor,     variance: laborVariance     },
-    { label: "Total",     quoted: quotedTotal,     actual: actualTotal,     variance: totalVariance,  bold: true },
+    { label: "Materials",      quoted: quotedMaterials, actual: actualMaterials, variance: materialVariance },
+    { label: "Labor",          quoted: quotedLabor,     actual: actualLabor,     variance: laborVariance     },
+    ...(subsTotal > 0 ? [{ label: "Subcontractors", quoted: 0, actual: subsTotal, variance: subsTotal, subRow: true }] : []),
+    { label: "Total",          quoted: quotedTotal,     actual: actualTotal,     variance: totalVariance,  bold: true },
   ];
 
   return (
@@ -99,27 +102,29 @@ export default function CostReport({
             {rows.map((row) => {
               const over = row.variance > 0;
               const hasActual = row.actual > 0;
+              const isSubRow = "subRow" in row && row.subRow;
               return (
                 <tr key={row.label} className="border-b border-[#242424]">
-                  <td className={`py-3 pr-2 ${row.bold ? "text-white font-bold" : "text-gray-300"}`}>
+                  <td className={`py-3 pr-2 ${row.bold ? "text-white font-bold" : isSubRow ? "text-purple-300" : "text-gray-300"}`}>
                     {row.label}
                   </td>
                   <td className="py-3 text-right text-white font-medium">
-                    {row.quoted > 0 ? fmt(row.quoted) : "—"}
+                    {isSubRow ? "—" : row.quoted > 0 ? fmt(row.quoted) : "—"}
                   </td>
                   <td className="py-3 text-right text-white font-medium">
                     {hasActual ? fmt(row.actual) : "—"}
                   </td>
                   <td className={`py-3 text-right font-semibold ${
+                    isSubRow ? "text-gray-600" :
                     !hasActual ? "text-gray-600" :
                     over ? "text-red-400" : "text-green-400"
                   }`}>
-                    {hasActual
+                    {isSubRow ? "—" : hasActual
                       ? `${over ? "+" : "−"}${fmt(Math.abs(row.variance))}`
                       : "—"}
                   </td>
                   <td className="py-3 text-right">
-                    {hasActual && (
+                    {!isSubRow && hasActual && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         over
                           ? "bg-red-900/40 text-red-400"

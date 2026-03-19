@@ -23,6 +23,7 @@ export async function createContact(
         ? Number(formData.get("hourly_rate"))
         : null,
       notes: (formData.get("notes") as string) || null,
+      is_subcontractor: formData.get("is_subcontractor") === "on",
     })
     .select()
     .single<Contact>();
@@ -51,6 +52,7 @@ export async function updateContact(
         ? Number(formData.get("hourly_rate"))
         : null,
       notes: (formData.get("notes") as string) || null,
+      is_subcontractor: formData.get("is_subcontractor") === "on",
     })
     .eq("id", id)
     .eq("user_id", user.id)

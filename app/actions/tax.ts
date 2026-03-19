@@ -26,6 +26,7 @@ export async function getTaxReport(year: number): Promise<TaxReportData> {
     { data: receipts },
     { data: changeOrders },
     { data: mileageLogs },
+    { data: subLogs },
     { data: allJobs },
     { data: allInvoicesForYears },
   ] = await Promise.all([
@@ -53,6 +54,10 @@ export async function getTaxReport(year: number): Promise<TaxReportData> {
     supabase.from("mileage_logs").select("id, job_id, description, miles, deduction, log_date")
       .eq("user_id", user.id)
       .gte("log_date", `${year}-01-01`).lte("log_date", `${year}-12-31`),
+    // Subcontractors (paid only — Schedule C deduction)
+    supabase.from("subcontractor_logs").select("id, job_id, company_name, invoice_amount, quoted_amount, paid, paid_at, created_at")
+      .eq("user_id", user.id).eq("paid", true)
+      .gte("created_at", yearStart).lt("created_at", yearEnd),
     // All jobs for name lookup
     supabase.from("jobs").select("id, name").eq("user_id", user.id),
     // Get all years with paid invoices for year selector
@@ -134,6 +139,19 @@ export async function getTaxReport(year: number): Promise<TaxReportData> {
       category: "vehicle",
       amount: Number(m.deduction),
       source: "mileage",
+    });
+  });
+
+  (subLogs ?? []).forEach((s) => {
+    const amount = Number(s.invoice_amount ?? s.quoted_amount ?? 0);
+    if (amount <= 0) return;
+    expenses.push({
+      date: s.paid_at ?? s.created_at,
+      description: `${s.company_name} (subcontractor)`,
+      job_name: jobMap.get(s.job_id) ?? "Unknown Job",
+      category: "subcontractor" as ExpenseCategory,
+      amount,
+      source: "receipt" as const,
     });
   });
 

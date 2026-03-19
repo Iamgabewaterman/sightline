@@ -48,6 +48,7 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
   const [section, setSection] = useState<"contacts" | "crews">("contacts");
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [crews, setCrews] = useState<CrewWithMembers[]>(initialCrews);
+  const [subFilter, setSubFilter] = useState<"all" | "sub" | "employee">("all");
 
   // Contact form state
   const [showContactForm, setShowContactForm] = useState(false);
@@ -223,6 +224,22 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
       {/* ── CONTACTS SECTION ── */}
       {section === "contacts" && (
         <div>
+          {/* Filter pills */}
+          <div className="flex gap-2 mb-4">
+            {(["all", "sub", "employee"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setSubFilter(f)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-colors active:scale-95 ${
+                  subFilter === f
+                    ? "bg-orange-500/20 border-orange-500/40 text-orange-400"
+                    : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-400"
+                }`}
+              >
+                {f === "all" ? "All" : f === "sub" ? "Subcontractors" : "Employees"}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
               {contacts.length} contact{contacts.length !== 1 ? "s" : ""}
@@ -307,6 +324,15 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
                   className={inputClass}
                 />
               </div>
+              <label className="flex items-center gap-3 px-4 py-4 bg-[#242424] border border-[#333] rounded-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_subcontractor"
+                  defaultChecked={editingContact?.is_subcontractor ?? false}
+                  className="w-5 h-5 accent-orange-500"
+                />
+                <span className="text-white text-base">This person is a subcontractor</span>
+              </label>
               <textarea
                 name="notes"
                 placeholder="Notes (optional)"
@@ -347,7 +373,11 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {contacts.map((c) => {
+              {contacts.filter((c) => {
+                if (subFilter === "sub") return c.is_subcontractor;
+                if (subFilter === "employee") return !c.is_subcontractor;
+                return true;
+              }).map((c) => {
                 const supabase = createClient();
                 const avatarUrl = c.avatar_path
                   ? supabase.storage.from("avatars").getPublicUrl(c.avatar_path).data.publicUrl
@@ -366,6 +396,11 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
                             {c.trade && (
                               <span className="text-orange-500 text-xs font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
                                 {c.trade}
+                              </span>
+                            )}
+                            {c.is_subcontractor && (
+                              <span className="text-purple-400 text-xs font-semibold bg-purple-900/30 px-2 py-0.5 rounded-full border border-purple-800/40">
+                                Sub
                               </span>
                             )}
                             {c.hourly_rate !== null && (

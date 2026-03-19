@@ -35,7 +35,7 @@ export default function QuoteProfitSection({
   signedByName: string | null;
 }) {
   const { role, can_see_financials } = useRole();
-  const { actualMaterialCost, actualLaborCost, quoteData, setQuoteData, changeOrders } = useJobCost();
+  const { actualMaterialCost, actualLaborCost, actualSubCost, quoteData, setQuoteData, changeOrders } = useJobCost();
 
   // Field members without financial permission see nothing here
   if (role === "field_member" && !can_see_financials) return null;
@@ -116,6 +116,7 @@ export default function QuoteProfitSection({
   const [materials, setMaterials] = useState<Material[]>([]);
   const [laborLogs, setLaborLogs] = useState<LaborLog[]>([]);
   const [savedItems, setSavedItems] = useState<SavedLineItem[]>([]);
+  const [subTotal, setSubTotal] = useState(0);
 
   // Per-row "saved" tracking
   const [savingItemIdx, setSavingItemIdx] = useState<number | null>(null);
@@ -137,15 +138,17 @@ export default function QuoteProfitSection({
     }
 
     const supabase = createClient();
-    const [{ data: mats }, { data: labor }, { data: saved }] = await Promise.all([
+    const [{ data: mats }, { data: labor }, { data: saved }, { data: subs }] = await Promise.all([
       supabase.from("materials").select("*").eq("job_id", job.id).returns<Material[]>(),
       supabase.from("labor_logs").select("*").eq("job_id", job.id).returns<LaborLog[]>(),
       supabase.from("saved_line_items").select("*").order("name").returns<SavedLineItem[]>(),
+      supabase.from("subcontractor_logs").select("quoted_amount").eq("job_id", job.id),
     ]);
 
     setMaterials(mats ?? []);
     setLaborLogs(labor ?? []);
     setSavedItems(saved ?? []);
+    setSubTotal((subs ?? []).reduce((s, r) => s + Number(r.quoted_amount ?? 0), 0));
     setLoading(false);
   }
 
@@ -159,12 +162,12 @@ export default function QuoteProfitSection({
     (s, l) => s + Number(l.hours) * Number(l.rate),
     0
   );
-  const baseSubtotal = materialsTotal + laborTotal;
+  const baseSubtotal = materialsTotal + laborTotal + subTotal;
   const profitAmount = baseSubtotal * (margin / 100);
   const baseQuote = baseSubtotal + profitAmount;
   const addonsTotal = addons.reduce((s, a) => s + (Number(a.amount) || 0), 0);
   const grandTotal = baseQuote + addonsTotal;
-  const hasData = materialsTotal > 0 || laborTotal > 0;
+  const hasData = materialsTotal > 0 || laborTotal > 0 || subTotal > 0;
 
   // ── Addon helpers ─────────────────────────────────────
   function addBlankAddon() {
@@ -220,6 +223,7 @@ export default function QuoteProfitSection({
       "",
       `Materials:        ${fmt(materialsTotal)}`,
       `Labor:            ${fmt(laborTotal)}`,
+      ...(subTotal > 0 ? [`Subcontractors:   ${fmt(subTotal)}`] : []),
     ];
     if (validAddons.length > 0) {
       lines.push("", "Add-Ons:");
@@ -343,7 +347,7 @@ export default function QuoteProfitSection({
   const qAddonsTotal = qd ? qd.addons.reduce((s, a) => s + a.amount, 0) : 0;
   const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
   const totalQuote = qd ? qd.finalQuote + qAddonsTotal + changeOrdersTotal : 0;
-  const totalActual = actualMaterialCost + actualLaborCost;
+  const totalActual = actualMaterialCost + actualLaborCost + actualSubCost;
   const profitBudget = qd ? totalQuote - qd.materialBudget - qd.laborBudget : 0;
   const profitRemaining = totalQuote - totalActual;
   const matZonePct = qd && totalQuote > 0 ? (qd.materialBudget / totalQuote) * 100 : 0;
@@ -659,6 +663,17 @@ export default function QuoteProfitSection({
                       {laborTotal > 0 ? fmt(laborTotal) : "—"}
                     </span>
                   </div>
+
+                  {/* Subcontractors */}
+                  {subTotal > 0 && (
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-gray-300 font-semibold text-base">Subcontractors</p>
+                        <p className="text-gray-500 text-xs mt-0.5">quoted · auto</p>
+                      </div>
+                      <span className="text-white font-bold text-lg">{fmt(subTotal)}</span>
+                    </div>
+                  )}
 
                   {/* Add-on line items in preview */}
                   {addons.filter((a) => a.name && Number(a.amount) > 0).length > 0 && (

@@ -153,6 +153,24 @@ export interface Contact {
   hourly_rate: number | null;
   notes: string | null;
   avatar_path: string | null;
+  is_subcontractor: boolean;
+  created_at: string;
+}
+
+export interface SubcontractorLog {
+  id: string;
+  job_id: string;
+  user_id: string;
+  contact_id: string | null;
+  company_name: string;
+  trade: string | null;
+  scope_description: string | null;
+  quoted_amount: number | null;
+  invoice_amount: number | null;
+  invoice_received: boolean;
+  paid: boolean;
+  paid_at: string | null;
+  notes: string | null;
   created_at: string;
 }
 
