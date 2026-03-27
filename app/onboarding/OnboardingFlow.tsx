@@ -19,8 +19,9 @@ const JOB_TYPES = [
   { value: "flooring",    label: "Flooring" },
   { value: "electrical",  label: "Electrical" },
   { value: "hvac",        label: "HVAC" },
-  { value: "concrete",    label: "Concrete" },
-  { value: "landscaping", label: "Landscaping" },
+  { value: "concrete",     label: "Concrete" },
+  { value: "landscaping",  label: "Landscaping" },
+  { value: "decks_patios", label: "Decks & Patios" },
 ];
 
 // ── Small shared components ───────────────────────────────────────────────────
@@ -63,6 +64,8 @@ function Field({
   placeholder,
   required,
   onSkip,
+  inputMode,
+  type = "text",
 }: {
   label: string;
   id: string;
@@ -71,6 +74,8 @@ function Field({
   placeholder?: string;
   required?: boolean;
   onSkip?: () => void;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  type?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -80,7 +85,8 @@ function Field({
       </label>
       <input
         id={id}
-        type="text"
+        type={type}
+        inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -281,6 +287,8 @@ export default function OnboardingFlow({ inviteCode }: { inviteCode: string }) {
               <Field
                 label="Phone"
                 id="phone"
+                type="tel"
+                inputMode="tel"
                 value={phone}
                 onChange={setPhone}
                 placeholder="(503) 555-0100"

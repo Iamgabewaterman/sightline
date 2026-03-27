@@ -11,6 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
   hvac: "HVAC",
   concrete: "Concrete",
   landscaping: "Landscaping",
+  decks_patios: "Decks & Patios",
 };
 
 export default function TypeTags({ types }: { types: string[] }) {

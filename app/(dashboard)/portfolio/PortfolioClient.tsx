@@ -6,12 +6,12 @@ import { Job, JobType, Estimate, Invoice, InvoiceStatus } from "@/types";
 
 const ALL_TYPES: JobType[] = [
   "drywall","framing","plumbing","paint","trim","roofing",
-  "tile","flooring","electrical","hvac","concrete","landscaping",
+  "tile","flooring","electrical","hvac","concrete","landscaping","decks_patios",
 ];
 const TYPE_LABELS: Record<string, string> = {
   drywall:"Drywall",framing:"Framing",plumbing:"Plumbing",paint:"Paint",
   trim:"Trim",roofing:"Roofing",tile:"Tile",flooring:"Flooring",
-  electrical:"Electrical",hvac:"HVAC",concrete:"Concrete",landscaping:"Landscaping",
+  electrical:"Electrical",hvac:"HVAC",concrete:"Concrete",landscaping:"Landscaping",decks_patios:"Decks & Patios",
 };
 
 const INVOICE_STATUS: Record<InvoiceStatus, { label: string; classes: string }> = {

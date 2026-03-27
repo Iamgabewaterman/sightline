@@ -9,7 +9,7 @@ const TYPE_LABEL: Record<string, string> = {
   drywall: "Drywall", framing: "Framing", plumbing: "Plumbing",
   paint: "Paint", trim: "Trim", roofing: "Roofing", tile: "Tile",
   flooring: "Flooring", electrical: "Electrical", hvac: "HVAC",
-  concrete: "Concrete", landscaping: "Landscaping",
+  concrete: "Concrete", landscaping: "Landscaping", decks_patios: "Decks & Patios",
 };
 
 function TypeBadge({ type }: { type: string }) {

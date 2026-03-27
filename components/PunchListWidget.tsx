@@ -181,7 +181,7 @@ export default function PunchListWidget({
                       <button
                         onClick={() => handleToggle(item)}
                         disabled={togglingId === item.id}
-                        className={`w-7 h-7 mt-0.5 shrink-0 rounded-lg border-2 flex items-center justify-center active:scale-90 transition-all ${
+                        className={`w-12 h-12 shrink-0 rounded-xl border-2 flex items-center justify-center active:scale-90 transition-all ${
                           item.completed
                             ? "bg-green-500 border-green-500"
                             : "bg-transparent border-[#444] active:border-orange-500"
@@ -189,7 +189,7 @@ export default function PunchListWidget({
                         aria-label={item.completed ? "Mark incomplete" : "Mark complete"}
                       >
                         {item.completed && (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12"/>
                           </svg>
                         )}
@@ -207,7 +207,7 @@ export default function PunchListWidget({
                       </div>
                       <button
                         onClick={() => setConfirmDeleteId(item.id)}
-                        className="text-[#333] hover:text-red-400 w-9 h-9 flex items-center justify-center rounded-lg active:scale-90 transition-colors shrink-0"
+                        className="text-[#333] hover:text-red-400 w-12 h-12 flex items-center justify-center rounded-xl active:scale-90 transition-colors shrink-0"
                         aria-label="Delete item"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

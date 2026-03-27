@@ -173,7 +173,7 @@ export default function DocumentsSection({ jobId, initialDocuments }: Props) {
                 <button
                   onClick={() => setConfirmDeleteId(doc.id)}
                   aria-label="Delete"
-                  className="w-9 h-9 flex items-center justify-center text-gray-600 active:text-red-400 transition-colors shrink-0"
+                  className="w-12 h-12 flex items-center justify-center text-gray-600 active:text-red-400 transition-colors shrink-0"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

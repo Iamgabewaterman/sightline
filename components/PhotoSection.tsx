@@ -267,7 +267,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
                 <button
                   onClick={() => setConfirmDeleteId(photo.id)}
                   aria-label="Delete photo"
-                  className="absolute top-1 right-1 w-8 h-8 bg-black/70 rounded-lg flex items-center justify-center text-red-400 active:scale-95 transition-transform"
+                  className="absolute top-1 right-1 w-11 h-11 bg-black/70 rounded-xl flex items-center justify-center text-red-400 active:scale-95 transition-transform"
                 >
                   <TrashIcon />
                 </button>
