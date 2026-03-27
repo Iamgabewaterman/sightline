@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       title: "Invoice Overdue",
       body: `${invNum} for ${job?.name ?? "a job"} is overdue — ${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} past due`,
       url: `/jobs`,
-    });
+    }, "invoice_overdue");
     sent++;
   }
 

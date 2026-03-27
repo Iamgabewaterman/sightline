@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       title: "Behind Schedule",
       body: `${job.name} is past its estimated completion date`,
       url: `/jobs/${job.id}`,
-    });
+    }, "job_falling_behind");
     sent++;
   }
 

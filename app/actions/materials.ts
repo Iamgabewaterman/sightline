@@ -108,7 +108,7 @@ async function checkMaterialsBudget(jobId: string, userId: string) {
         title: "Materials Over Budget",
         body: `Materials spending on ${job.name} has exceeded your quoted amount`,
         url: `/jobs/${jobId}`,
-      });
+      }, "materials_over_budget");
     }
   } catch {
     // Never let budget check errors surface
@@ -143,20 +143,29 @@ export async function getPastMaterialNames(): Promise<string[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
+  // User's own material history
   const { data: jobs } = await supabase
     .from("jobs")
     .select("id")
     .eq("user_id", user.id);
 
-  if (!jobs?.length) return [];
+  const userNames: string[] = [];
+  if (jobs?.length) {
+    const { data } = await supabase
+      .from("materials")
+      .select("name")
+      .in("job_id", jobs.map((j) => j.id));
+    if (data) userNames.push(...data.map((m) => m.name as string));
+  }
 
-  const { data } = await supabase
-    .from("materials")
-    .select("name")
-    .in("job_id", jobs.map((j) => j.id));
+  // Regional materials as secondary source (system-seeded prices)
+  const { data: regional } = await supabase
+    .from("regional_materials")
+    .select("material_name")
+    .limit(300);
+  const regionalNames = regional?.map((r) => r.material_name as string) ?? [];
 
-  if (!data) return [];
-  const names = data.map((m) => m.name as string);
-  const unique = names.filter((n, i) => names.indexOf(n) === i);
+  const all = [...userNames, ...regionalNames];
+  const unique = all.filter((n, i) => all.indexOf(n) === i);
   return unique.sort();
 }

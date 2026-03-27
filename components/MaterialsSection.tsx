@@ -34,6 +34,34 @@ const COMMON_MATERIALS = [
   "Joist Hanger", "Hurricane Tie", "Post Base",
   "Insulation R-13", "Insulation R-19", "Insulation R-30",
   "Vapor Barrier", "House Wrap",
+  // Decks & Patios
+  "5/4x6 Pressure Treated 12ft", "5/4x6 Pressure Treated 16ft",
+  "2x6 Pressure Treated 12ft", "2x6 Pressure Treated 16ft",
+  "TimberTech PVC Composite 12ft", "TimberTech PVC Composite 16ft", "TimberTech PVC Composite 20ft",
+  "Trex Select Composite 12ft", "Trex Select Composite 16ft", "Trex Select Composite 20ft",
+  "Fiberon Composite 12ft",
+  "4x4 PT Post 8ft", "6x6 PT Post 8ft",
+  "Deck Joist Hanger", "Post Base Adjustable", "Post Cap",
+  "Hidden Fastener Clips", "Deck Screws 350ct",
+  "Carriage Bolt 1/2x6", "Lag Screw 1/2x3",
+  "Concrete Tube Form 8in", "Deck Post Footing Bracket",
+  // Windows & Doors
+  "Exterior Door Prehung", "Interior Door Prehung", "Sliding Glass Door",
+  "Window Double Pane Single Hung", "Window Double Pane Double Hung",
+  "Window Trim Kit", "Door Threshold", "Door Weatherstrip",
+  "Deadbolt Lockset", "Door Handle Set", "Window Flashing Tape",
+  // HVAC rough-in
+  "Flex Duct 6in", "Flex Duct 8in",
+  "Sheet Metal Duct 6in", "Register Box", "Return Air Grille",
+  "Duct Tape", "HVAC Filter 16x25", "Condensate Line 3/4in",
+  // Gutters & Drainage
+  "Aluminum Gutter 5in", "Downspout 2x3",
+  "Gutter End Cap", "Downspout Elbow", "Gutter Spike",
+  "Gutter Guard", "French Drain Pipe", "Drain Rock", "Landscape Fabric",
+  // Fencing
+  "Cedar Fence Picket 6ft", "Cedar Fence Picket 8ft",
+  "4x4x8 PT Fence Post", "2x4x8 PT Rail", "Fence Post Cap",
+  "Fence Stain", "Chain Link Fencing", "Concrete 80lb (fence posts)",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -153,7 +181,7 @@ function NameAutocomplete({
 
   const suggestions = useMemo(() => {
     const q = value.trim().toLowerCase();
-    if (!q) return [];
+    if (q.length < 2) return [];
 
     const pastMatches = pastNames
       .filter((n) => n.toLowerCase().includes(q))
@@ -230,12 +258,14 @@ function MaterialRow({
   material,
   onUpdate,
   onDelete,
+  onDuplicate,
 }: {
   material: Material;
   onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (m: Material) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!(material as Material & { _openEdit?: boolean })._openEdit);
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
   const [usedVal,    setUsedVal]    = useState(material.quantity_used?.toString() ?? "");
   const [costVal,    setCostVal]    = useState(material.unit_cost?.toString() ?? "");
@@ -300,6 +330,15 @@ function MaterialRow({
           <button onClick={() => setEditing((e) => !e)}
             className="text-gray-400 text-sm px-4 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform">
             {editing ? "Cancel" : "Edit"}
+          </button>
+          <button
+            onClick={() => onDuplicate(material)}
+            title="Duplicate"
+            className="text-gray-400 text-sm px-3 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
           </button>
           <button onClick={handleDelete}
             className="text-red-400 text-sm px-4 py-3 rounded-xl border border-[#2a2a2a] active:scale-95 transition-transform">
@@ -495,6 +534,21 @@ export default function MaterialsSection({
     setMaterials((prev) => prev.filter((m) => m.id !== id));
   }
 
+  async function handleDuplicate(source: Material) {
+    const fd = new FormData();
+    fd.set("name", source.name);
+    fd.set("unit", source.unit);
+    fd.set("quantity_ordered", "1");
+    if (source.unit_cost !== null) fd.set("unit_cost", source.unit_cost.toString());
+    if (source.length_ft !== null) fd.set("length_ft", source.length_ft.toString());
+    if (source.notes) fd.set("notes", source.notes);
+    const result = await addMaterial(jobId, fd);
+    if (result.material) {
+      // Open in edit mode immediately by marking it
+      setMaterials((prev) => [{ ...(result.material as Material), _openEdit: true } as Material, ...prev]);
+    }
+  }
+
   function handleAddMany(newMaterials: Material[]) {
     setMaterials((prev) => [...newMaterials, ...prev]);
   }
@@ -611,7 +665,7 @@ export default function MaterialsSection({
       ) : (
         <div className="flex flex-col gap-3">
           {materials.map((m) => (
-            <MaterialRow key={m.id} material={m} onUpdate={handleUpdate} onDelete={handleDelete} />
+            <MaterialRow key={m.id} material={m} onUpdate={handleUpdate} onDelete={handleDelete} onDuplicate={handleDuplicate} />
           ))}
         </div>
       )}

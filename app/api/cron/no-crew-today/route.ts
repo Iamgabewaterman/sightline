@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       title: "No Crew Assigned",
       body: `${job.name} starts today and has no crew assigned`,
       url: `/jobs/${job.id}`,
-    });
+    }, "no_crew_assigned");
     sent++;
   }
 

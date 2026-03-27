@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       title: "No Activity",
       body: `No activity logged on ${job.name} in 3 days — is everything on track?`,
       url: `/jobs/${job.id}`,
-    });
+    }, "no_activity_3_days");
     sent++;
   }
 

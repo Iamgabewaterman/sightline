@@ -53,14 +53,14 @@ export async function GET(request: NextRequest) {
       title: "Crew Not Clocked In",
       body: `${memberName} hasn't clocked in for ${job.name} yet`,
       url: `/jobs/${a.job_id}`,
-    });
+    }, "not_clocked_in");
 
     // Notify the field member
     await sendPushToUser(a.user_id, {
       title: "Don't Forget to Clock In",
       body: `You have ${job.name} today at ${job.address} — don't forget to clock in`,
       url: "/calendar",
-    });
+    }, "not_clocked_in");
 
     sent++;
   }

@@ -22,11 +22,29 @@ export interface PushPayload {
 
 /**
  * Send a push notification to all subscriptions for a given user.
- * Silently skips if no subscriptions found. Never throws.
+ * Pass notifType (e.g. "invoice_paid") to respect per-user notification preferences.
+ * Silently skips if no subscriptions found or preference disabled. Never throws.
  */
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+export async function sendPushToUser(
+  userId: string,
+  payload: PushPayload,
+  notifType?: string
+): Promise<void> {
   try {
     const supabase = adminClient();
+
+    // Check per-user notification preferences
+    if (notifType) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profile?.notification_preferences) {
+        const prefs = profile.notification_preferences as Record<string, boolean>;
+        if (prefs[notifType] === false) return;
+      }
+    }
     const { data: subs } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")

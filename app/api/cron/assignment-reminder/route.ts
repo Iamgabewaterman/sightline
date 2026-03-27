@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       title: "Assignment Tomorrow",
       body: `Tomorrow: ${job.name} at ${job.address}.${lockboxPart}`,
       url: "/calendar",
-    });
+    }, "assignment_reminder");
     sent++;
   }
 

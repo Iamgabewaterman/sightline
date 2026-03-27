@@ -31,6 +31,17 @@ const P = {
   intPaint: 38.00, extPaint: 48.00, primer: 28.00,
   rollerCover: 4.00, rollerFrame: 8.00, brush3: 8.00,
   paintersTape: 6.00, dropCloth: 12.00,
+  // ── Decks & Patios (Oregon 97xxx) ──────────────────────────────────────
+  deckBoard54PT12: 9.50, deckBoard54PT16: 12.00,
+  deckBoard2x6PT12: 8.50, deckBoard2x6PT16: 11.00,
+  timberTech12: 28.00, timberTech16: 36.00, timberTech20: 44.00,
+  trexSelect12: 22.00, trexSelect16: 28.00, trexSelect20: 34.00,
+  fiberon12: 20.00,
+  post4x4PT8: 14.00, post6x6PT8: 22.00,
+  deckJoistHanger: 1.40, postBaseAdj: 8.50, postCap: 6.00,
+  hiddenFastenerBag: 28.00, deckScrew350: 18.00,
+  carriageBolt: 1.20, lagScrew: 0.90,
+  concreteForm8in: 6.50, postFootingBracket: 12.00,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -48,6 +59,7 @@ const TRADES = [
   { id: "plumbing",   label: "Plumbing",             icon: "🔧" },
   { id: "electrical", label: "Electrical",           icon: "⚡" },
   { id: "fire_flood", label: "Fire & Flood",         icon: "🔥" },
+  { id: "decking",    label: "Decks & Patios",       icon: "🪟" },
 ] as const;
 type TradeId = typeof TRADES[number]["id"];
 
@@ -82,6 +94,12 @@ const SUB_OPTIONS: Record<TradeId, { id: string; label: string }[]> = {
   plumbing:   [{ id: "pipe",  label: "Pipe Run" }],
   electrical: [{ id: "wire",  label: "Wire Run" }],
   fire_flood: [{ id: "kit",   label: "Restoration Kit" }],
+  decking: [
+    { id: "boards",   label: "Deck Boards" },
+    { id: "framing",  label: "Framing / Joists" },
+    { id: "footings", label: "Concrete Footings" },
+    { id: "hardware", label: "Decking Hardware" },
+  ],
 };
 
 const inputCls = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
@@ -102,6 +120,13 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
   const [sub, setSub]             = useState<string | null>(null);
   const [result, setResult]       = useState<ResultItem[] | null>(null);
   const [wasteNote, setWasteNote] = useState("");
+
+  // Dimension unit (default: inches — convert to ft for calculations)
+  const [dimUnit, setDimUnit] = useState<"in" | "ft">("in");
+  function toFt(v: string) {
+    const parsed = n(v);
+    return dimUnit === "in" ? parsed / 12 : parsed;
+  }
 
   // Dimension inputs
   const [len, setLen]   = useState("");
@@ -133,6 +158,14 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
   const [wireType, setWireType]         = useState("14_2");
   const [postSize, setPostSize]         = useState("4x4");
   const [headerSpan, setHeaderSpan]     = useState("");
+  // Decking
+  const [deckBoardType, setDeckBoardType] = useState("54PT_12");
+  const [deckSpacing, setDeckSpacing]     = useState("standard");
+  const [deckSqft, setDeckSqft]           = useState("");
+  const [deckJoistSize, setDeckJoistSize] = useState("2x8");
+  const [deckJoistSpacing, setDeckJoistSpacing] = useState("16");
+  const [postHeight, setPostHeight]       = useState("4");
+  const [postCount, setPostCount]         = useState("");
 
   // Save to job
   const [jobPickerOpen,    setJobPickerOpen]    = useState(false);
@@ -161,7 +194,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     let note = "";
 
     if (trade === "framing" && sub === "wall") {
-      const lfN = n(len), heightN = n(hgt), ops = parseInt(openings) || 0;
+      const lfN = toFt(len), heightN = toFt(hgt), ops = parseInt(openings) || 0;
       const sp = parseInt(studSpacing);
       const rawStuds = ceil((lfN * 12) / sp) + ops * 2 + ceil(lfN / 8);
       const studs = ceil(rawStuds * 1.10);
@@ -181,7 +214,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "framing" && sub === "floor") {
-      const sqft = n(len) * n(wid) || n(wallSqft);
+      const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const sp = parseInt(joistSpacing);
       const jSize = joistSize;
       const jPx = jSize === "2x8" ? P.framing2x8 : jSize === "2x10" ? P.framing2x10 : P.framing2x12;
@@ -202,7 +235,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "framing" && sub === "roof") {
-      const sqft = n(len) * n(wid) || n(wallSqft);
+      const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const rafter2x = joistSize;
       const rPx = rafter2x === "2x8" ? P.framing2x8 : rafter2x === "2x10" ? P.framing2x10 : P.framing2x12;
       const rafterCount = ceil((Math.sqrt(sqft) * 12) / parseInt(joistSpacing)) * 2;
@@ -217,7 +250,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "framing" && sub === "header") {
-      const span = n(headerSpan) || n(len);
+      const span = n(headerSpan) || toFt(len);
       const lvlLen = ceil(span + 1); // span + bearing
       items.push(
         { name: "LVL 1.75x9.25",            qty: lvlLen * 2, unit: "per ft", unitCost: 8.50 },
@@ -238,7 +271,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "roofing" && sub === "shingles") {
-      const sqft = n(wallSqft) || (n(len) * n(wid));
+      const sqft = n(wallSqft) || (toFt(len) * toFt(wid));
       const pitchN = parseFloat(pitch) || 1.0;
       const roofArea = sqft * pitchN;
       const withWaste = roofArea * 1.12;
@@ -269,14 +302,14 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "concrete" && (sub === "slab" || sub === "rebar")) {
-      const volCuFt = n(len) * n(wid) * (n(depth) / 12);
+      const volCuFt = toFt(len) * toFt(wid) * (n(depth) / 12);
       const bags = ceil(volCuFt / 0.45 * 1.10); // 80lb bag = ~0.45 cuft, 10% overage
       items.push(
         { name: "Concrete 80lb Bag", qty: bags, unit: "bag", unitCost: P.concrete80 },
       );
       if (sub === "rebar") {
         const gridSpacingFt = 1.5; // 18" default
-        const rebarSticks = ceil(((n(len) / gridSpacingFt) + (n(wid) / gridSpacingFt)) * 1.1);
+        const rebarSticks = ceil(((toFt(len) / gridSpacingFt) + (toFt(wid) / gridSpacingFt)) * 1.1);
         const meshSheets = ceil((n(len) * n(wid)) / 32);
         items.push(
           { name: "Rebar #4 20ft",  qty: rebarSticks, unit: "stick", unitCost: P.rebar4 },
@@ -335,7 +368,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "tile" && sub === "ceramic") {
-      const sqft = n(len) * n(wid) || n(wallSqft);
+      const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const withWaste = sqft * 1.15;
       const tilePx: Record<string,number> = { "12x12_ceramic": P.ceramic12, "12x12_porcelain": P.porcelain12, "24x24": P.porcelain24, "mosaic": P.mosaic };
       const tileLabel: Record<string,string> = { "12x12_ceramic": "Ceramic Tile 12x12", "12x12_porcelain": "Porcelain Tile 12x12", "24x24": "Porcelain Tile 24x24", "mosaic": "Mosaic Tile" };
@@ -355,7 +388,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "tile" && sub === "lvp") {
-      const sqft = n(len) * n(wid) || n(wallSqft);
+      const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const withWaste = sqft * 1.10;
       items.push(
         { name: "LVP Flooring",              qty: ceil(withWaste), unit: "sqft", unitCost: P.lvp },
@@ -365,7 +398,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "tile" && sub === "hardwood") {
-      const sqft = n(len) * n(wid) || n(wallSqft);
+      const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const withWaste = sqft * 1.10;
       const px = floorType === "hardwood" ? P.hardwood : P.laminate;
       const label = floorType === "hardwood" ? "Hardwood Oak Flooring" : "Laminate Flooring";
@@ -377,7 +410,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "siding" && sub === "panel") {
-      const sqft = n(len) * n(hgt) || n(wallSqft);
+      const sqft = toFt(len) * toFt(hgt) || n(wallSqft);
       const withWaste = sqft * 1.10;
       const sidingPx: Record<string,number> = { hardie: P.hardie, lp: P.lpSmart, t111: 0, vinyl: P.vinyl, cedar: P.cedar };
       const sidingLabel: Record<string,string> = { hardie: "Hardie Plank Siding", lp: "LP SmartSide Siding", t111: "T1-11 Siding 4x8", vinyl: "Vinyl Siding", cedar: "Cedar Siding" };
@@ -417,7 +450,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "plumbing" && sub === "pipe") {
-      const lfN = n(lf) || n(len);
+      const lfN = n(lf) || toFt(len);
       const withWaste = lfN * 1.10;
       const pipeMap: Record<string,[string,number]> = {
         pex12:    ["PEX 1/2in",       0.55],
@@ -438,7 +471,7 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
     }
 
     else if (trade === "electrical" && sub === "wire") {
-      const lfN = n(lf) || n(len);
+      const lfN = n(lf) || toFt(len);
       const withWaste = lfN * 1.15;
       const wireMap: Record<string,[string,number]> = {
         "14_2": ["14/2 Romex", 0.65],
@@ -468,6 +501,93 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
         { name: "Mold Remediation Spray",    qty: ceil(sqft / 200),   unit: "gallon", unitCost: P.moldSpray },
       );
       note = "Kit scaled to sq ft · 10% waste on drywall";
+    }
+
+    // ── DECKING ────────────────────────────────────────────────────────────
+    else if (trade === "decking" && sub === "boards") {
+      const sqftN = n(deckSqft) || (toFt(len) * toFt(wid));
+      const boardTypeMap: Record<string, [string, number, number]> = {
+        // [label, price, board_length_ft]
+        "54PT_12":  ["5/4x6 Pressure Treated 12ft", P.deckBoard54PT12, 12],
+        "54PT_16":  ["5/4x6 Pressure Treated 16ft", P.deckBoard54PT16, 16],
+        "2x6PT_12": ["2x6 Pressure Treated 12ft",   P.deckBoard2x6PT12, 12],
+        "2x6PT_16": ["2x6 Pressure Treated 16ft",   P.deckBoard2x6PT16, 16],
+        "TT_12":    ["TimberTech PVC Composite 12ft",P.timberTech12, 12],
+        "TT_16":    ["TimberTech PVC Composite 16ft",P.timberTech16, 16],
+        "TT_20":    ["TimberTech PVC Composite 20ft",P.timberTech20, 20],
+        "Trex_12":  ["Trex Select Composite 12ft",   P.trexSelect12, 12],
+        "Trex_16":  ["Trex Select Composite 16ft",   P.trexSelect16, 16],
+        "Trex_20":  ["Trex Select Composite 20ft",   P.trexSelect20, 20],
+        "Fib_12":   ["Fiberon Composite 12ft",        P.fiberon12, 12],
+      };
+      const [boardLabel, boardPx, boardLenFt] = boardTypeMap[deckBoardType] ?? boardTypeMap["54PT_12"];
+      const faceWidthIn = deckSpacing === "tight" ? 5.5 : 5.25;
+      const totalLF = (sqftN * 12 / faceWidthIn) * 1.08;
+      const boards = ceil(totalLF / boardLenFt);
+      const isComposite = deckBoardType.startsWith("TT") || deckBoardType.startsWith("Trex") || deckBoardType.startsWith("Fib");
+      items.push({ name: boardLabel, qty: boards, unit: "each", unitCost: boardPx });
+      if (deckSpacing === "standard") {
+        items.push({ name: "Hidden Fastener Clips (bag/50LF)", qty: ceil(totalLF / 50), unit: "bag", unitCost: P.hiddenFastenerBag });
+      } else {
+        items.push({ name: "Deck Screws 350ct", qty: ceil(boards / 35), unit: "box", unitCost: P.deckScrew350 });
+      }
+      if (isComposite) {
+        items.push({ name: "Deck Screws 350ct (starter/finish)", qty: 1, unit: "box", unitCost: P.deckScrew350 });
+      }
+      note = `${boardLenFt}ft boards · ${faceWidthIn}" face coverage · 8% waste`;
+    }
+
+    else if (trade === "decking" && sub === "framing") {
+      const deckLenFt = toFt(len);
+      const deckWidFt = toFt(wid);
+      const jSpacing = parseInt(deckJoistSpacing);
+      const jPx = deckJoistSize === "2x8" ? P.framing2x8 : P.framing2x10;
+      const jLabel = `${deckJoistSize}x${deckJoistSize === "2x8" ? "8" : "10"} Deck Joist`;
+      const joistCount = ceil((deckLenFt * 12 / jSpacing)) + 2;
+      const rimJoistSticks = ceil(((deckLenFt * 2) + (deckWidFt * 2)) / 8);
+      const postCnt = ceil(deckLenFt / 8) + 1;
+      items.push(
+        { name: jLabel,                        qty: joistCount,     unit: "each", unitCost: jPx },
+        { name: `${deckJoistSize}x8 Rim Joist`,qty: rimJoistSticks, unit: "each", unitCost: jPx },
+        { name: "Deck Joist Hanger",            qty: joistCount * 2, unit: "each", unitCost: P.deckJoistHanger },
+        { name: "4x4 PT Post 8ft",              qty: postCnt,        unit: "each", unitCost: P.post4x4PT8 },
+        { name: "Post Base Adjustable",         qty: postCnt,        unit: "each", unitCost: P.postBaseAdj },
+        { name: "Post Cap",                     qty: postCnt,        unit: "each", unitCost: P.postCap },
+        { name: "Lag Screw 1/2x3",             qty: postCnt * 4,    unit: "each", unitCost: P.lagScrew },
+      );
+      note = `${jSpacing}" OC joists · post every 8ft · rim joist included`;
+    }
+
+    else if (trade === "decking" && sub === "footings") {
+      const pCnt = parseInt(postCount) || 4;
+      const depthFt = toFt(depth) || (n(depth) / 12) || 2;
+      // 8" tube form: vol = π × (4/12)² × depth = 0.349 × depth cu ft
+      const volPerFooting = 0.349 * depthFt;
+      const bagsPerFooting = Math.max(1, ceil(volPerFooting / 0.45));
+      const totalBags = pCnt * bagsPerFooting;
+      items.push(
+        { name: "Concrete 80lb Bag",        qty: totalBags, unit: "bag",  unitCost: P.concrete80 },
+        { name: "Concrete Tube Form 8in",   qty: pCnt,      unit: "each", unitCost: P.concreteForm8in },
+        { name: "Deck Post Footing Bracket",qty: pCnt,      unit: "each", unitCost: P.postFootingBracket },
+      );
+      note = `8" tube form · ${depthFt}ft depth · ${bagsPerFooting} bag${bagsPerFooting !== 1 ? "s" : ""} per footing`;
+    }
+
+    else if (trade === "decking" && sub === "hardware") {
+      const deckLenFt = toFt(len);
+      const deckWidFt = toFt(wid);
+      const jSpacing = parseInt(deckJoistSpacing);
+      const joistCnt = ceil(deckLenFt * 12 / jSpacing) + 2;
+      const pCnt = ceil(deckLenFt / 8) + 1;
+      const ledgerBolts = ceil(deckLenFt / 1.5) * 2;
+      items.push(
+        { name: "Deck Joist Hanger",    qty: joistCnt * 2, unit: "each", unitCost: P.deckJoistHanger },
+        { name: "Post Base Adjustable", qty: pCnt,          unit: "each", unitCost: P.postBaseAdj },
+        { name: "Post Cap",             qty: pCnt,          unit: "each", unitCost: P.postCap },
+        { name: "Carriage Bolt 1/2x6",  qty: ledgerBolts,   unit: "each", unitCost: P.carriageBolt },
+        { name: "Lag Screw 1/2x3",     qty: pCnt * 4,      unit: "each", unitCost: P.lagScrew },
+      );
+      note = "Joist hangers + post bases + ledger bolts + lag screws";
     }
 
     if (items.length > 0) { setResult(items); setWasteNote(note); setStep(5); }
@@ -562,12 +682,29 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
         {/* ── STEP 3+4: Inputs + Specs ── */}
         {(step === 3 || step === 4) && trade && sub && (
           <div className="flex flex-col gap-5">
-            <p className="text-gray-400 text-sm">Enter dimensions</p>
+            <div className="flex items-center justify-between">
+              <p className="text-gray-400 text-sm">Enter dimensions</p>
+              <div className="flex gap-1">
+                {(["in", "ft"] as const).map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => setDimUnit(u)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors active:scale-95 ${
+                      dimUnit === u
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : "bg-[#1A1A1A] text-gray-400 border-[#2a2a2a]"
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* FRAMING WALL */}
             {trade === "framing" && sub === "wall" && (<>
-              <div><label className={labelCls}>Wall Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Wall Height (ft)</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder="9" className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Height ({dimUnit})</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder={dimUnit==="in"?"108":"9"} className={inputCls}/></div>
               <div><label className={labelCls}>Openings (doors + windows)</label><input type="number" inputMode="numeric" value={openings} onChange={e=>setOpenings(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Stud Size</label>
@@ -775,6 +912,66 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
             {/* FIRE & FLOOD */}
             {trade === "fire_flood" && (<>
               <div><label className={labelCls}>Affected Area (sq ft)</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+            </>)}
+
+            {/* DECKING BOARDS */}
+            {trade === "decking" && sub === "boards" && (<>
+              <div>
+                <label className={labelCls}>Board Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ["54PT_12","5/4x6 PT 12ft"],["54PT_16","5/4x6 PT 16ft"],
+                    ["2x6PT_12","2x6 PT 12ft"],["2x6PT_16","2x6 PT 16ft"],
+                    ["TT_12","TimberTech 12ft"],["TT_16","TimberTech 16ft"],["TT_20","TimberTech 20ft"],
+                    ["Trex_12","Trex 12ft"],["Trex_16","Trex 16ft"],["Trex_20","Trex 20ft"],
+                    ["Fib_12","Fiberon 12ft"],
+                  ].map(([v,l])=><button key={v} onClick={()=>setDeckBoardType(v)} className={chip(deckBoardType===v)}>{l}</button>)}
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Board Spacing</label>
+                <div className="flex gap-2">
+                  <button onClick={()=>setDeckSpacing("standard")} className={chip(deckSpacing==="standard")}>Standard (1/4")</button>
+                  <button onClick={()=>setDeckSpacing("tight")} className={chip(deckSpacing==="tight")}>Tight (flush)</button>
+                </div>
+              </div>
+              <div><label className={labelCls}>Deck Sq Ft</label><input type="number" inputMode="decimal" value={deckSqft} onChange={e=>setDeckSqft(e.target.value)} placeholder="e.g. 320" className={inputCls}/></div>
+            </>)}
+
+            {/* DECKING FRAMING */}
+            {trade === "decking" && sub === "framing" && (<>
+              <div><label className={labelCls}>Deck Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Width ({dimUnit})</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div>
+                <label className={labelCls}>Joist Size</label>
+                <div className="flex gap-2">
+                  {["2x8","2x10"].map(s=><button key={s} onClick={()=>setDeckJoistSize(s)} className={chip(deckJoistSize===s)}>{s}</button>)}
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Joist Spacing (OC)</label>
+                <div className="flex gap-2">
+                  {["12","16"].map(s=><button key={s} onClick={()=>setDeckJoistSpacing(s)} className={chip(deckJoistSpacing===s)}>{s}"</button>)}
+                </div>
+              </div>
+            </>)}
+
+            {/* DECKING FOOTINGS */}
+            {trade === "decking" && sub === "footings" && (<>
+              <div><label className={labelCls}>Number of Posts</label><input type="number" inputMode="numeric" value={postCount} onChange={e=>setPostCount(e.target.value)} placeholder="4" className={inputCls}/></div>
+              <div><label className={labelCls}>Footing Depth (inches)</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="24" className={inputCls}/></div>
+            </>)}
+
+            {/* DECKING HARDWARE */}
+            {trade === "decking" && sub === "hardware" && (<>
+              <div><label className={labelCls}>Deck Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Width ({dimUnit})</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div>
+                <label className={labelCls}>Joist Spacing (OC)</label>
+                <div className="flex gap-2">
+                  {["12","16"].map(s=><button key={s} onClick={()=>setDeckJoistSpacing(s)} className={chip(deckJoistSpacing===s)}>{s}"</button>)}
+                </div>
+              </div>
             </>)}
 
             <button

@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { updateEmail, updatePassword } from "@/app/actions/auth";
 import TeamSection from "./TeamSection";
 import { ProfileWithCompany, CompanyMember } from "@/app/actions/team";
+import {
+  NOTIF_TYPES,
+  NotifKey,
+  getNotificationPreferences,
+  saveNotificationPreferences,
+} from "@/app/actions/notification-preferences";
 
 interface SectionProps {
   title: string;
@@ -20,6 +26,31 @@ function Section({ title, children }: SectionProps) {
 
 const inputClass =
   "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500 w-full";
+
+const NOTIF_GROUP_LABELS: Record<string, string> = {
+  money: "Money",
+  jobsite: "Job Site",
+  operational: "Operational",
+  client: "Client",
+};
+
+function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors active:scale-95 ${
+        enabled ? "bg-orange-500" : "bg-[#333]"
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          enabled ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function SettingsClient({
   currentEmail,
@@ -82,6 +113,26 @@ export default function SettingsClient({
     setPwSaving(false);
   }
 
+  // Notification preferences
+  const [notifPrefs, setNotifPrefs] = useState<Record<NotifKey, boolean> | null>(null);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifToast, setNotifToast] = useState(false);
+
+  useEffect(() => {
+    getNotificationPreferences().then(setNotifPrefs);
+  }, []);
+
+  async function handleNotifToggle(key: NotifKey) {
+    if (!notifPrefs) return;
+    const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(updated);
+    setNotifSaving(true);
+    await saveNotificationPreferences(updated);
+    setNotifSaving(false);
+    setNotifToast(true);
+    setTimeout(() => setNotifToast(false), 1500);
+  }
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto flex flex-col gap-6">
@@ -89,6 +140,39 @@ export default function SettingsClient({
 
         {/* Team */}
         {profile && <TeamSection profile={profile} members={members} />}
+
+        {/* Notifications */}
+        <Section title="Notifications">
+          {notifSaving && <p className="text-gray-500 text-xs -mt-2">Saving…</p>}
+          {notifToast && <p className="text-green-400 text-xs -mt-2">Saved</p>}
+          {notifPrefs ? (
+            <div className="flex flex-col gap-5">
+              {(Object.keys(NOTIF_TYPES) as (keyof typeof NOTIF_TYPES)[]).map((group) => (
+                <div key={group}>
+                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">
+                    {NOTIF_GROUP_LABELS[group]}
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {NOTIF_TYPES[group].map(({ key, label }) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between py-3 border-b border-[#222] last:border-0"
+                      >
+                        <span className="text-white text-sm">{label}</span>
+                        <Toggle
+                          enabled={notifPrefs[key as NotifKey] ?? true}
+                          onToggle={() => handleNotifToggle(key as NotifKey)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600 text-sm">Loading…</p>
+          )}
+        </Section>
 
         {/* Email */}
         <Section title="Change Email">

@@ -19,6 +19,7 @@ const JOB_TYPES = [
   { value: "hvac", label: "HVAC" },
   { value: "concrete", label: "Concrete" },
   { value: "landscaping", label: "Landscaping" },
+  { value: "decks_patios", label: "Decks & Patios" },
 ];
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(JOB_TYPES.map((t) => [t.value, t.label]));
