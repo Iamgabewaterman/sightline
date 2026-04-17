@@ -82,20 +82,23 @@ export default function BottomTabBar() {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase
-        .from("profiles")
-        .select("display_name, avatar_path")
-        .eq("id", user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.display_name) setDisplayName(data.display_name);
-          if (data?.avatar_path) {
-            setAvatarUrl(
-              supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl +
-              "?t=" + Date.now()
-            );
-          }
-        });
+      Promise.all([
+        supabase.from("profiles").select("display_name, avatar_path").eq("id", user.id).maybeSingle(),
+        supabase.from("business_profiles").select("owner_name").eq("user_id", user.id).maybeSingle(),
+      ]).then(([{ data: profile }, { data: bp }]) => {
+        const name =
+          profile?.display_name ||
+          bp?.owner_name ||
+          user.email?.split("@")[0] ||
+          "Me";
+        setDisplayName(name);
+        if (profile?.avatar_path) {
+          setAvatarUrl(
+            supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl +
+            "?t=" + Date.now()
+          );
+        }
+      });
     });
   }, []);
 
@@ -162,7 +165,7 @@ export default function BottomTabBar() {
 
           {/* Account */}
           <Link href="/account" className={tabClass} onClick={closeAll}>
-            {avatarUrl || displayName !== "Me" ? (
+            {avatarUrl ? (
               <div className={`rounded-full overflow-hidden ${isAccount ? "ring-2 ring-orange-500" : ""}`}>
                 <Avatar name={displayName} avatarUrl={avatarUrl} size={24} />
               </div>

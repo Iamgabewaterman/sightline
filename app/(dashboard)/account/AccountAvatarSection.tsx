@@ -17,15 +17,18 @@ export default function AccountAvatarSection() {
       if (!user) return;
       setUserId(user.id);
       setEmail(user.email ?? "");
-      supabase
-        .from("profiles")
-        .select("display_name, avatar_path")
-        .eq("id", user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.display_name) setDisplayName(data.display_name);
-          if (data?.avatar_path) setAvatarPath(data.avatar_path);
-        });
+      Promise.all([
+        supabase.from("profiles").select("display_name, avatar_path").eq("id", user.id).maybeSingle(),
+        supabase.from("business_profiles").select("owner_name").eq("user_id", user.id).maybeSingle(),
+      ]).then(([{ data: profile }, { data: bp }]) => {
+        const name =
+          profile?.display_name ||
+          bp?.owner_name ||
+          user.email?.split("@")[0] ||
+          "Me";
+        setDisplayName(name);
+        if (profile?.avatar_path) setAvatarPath(profile.avatar_path);
+      });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
