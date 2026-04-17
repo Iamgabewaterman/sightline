@@ -5,11 +5,10 @@ import { updateEmail, updatePassword } from "@/app/actions/auth";
 import TeamSection from "./TeamSection";
 import { ProfileWithCompany, CompanyMember } from "@/app/actions/team";
 import {
-  NOTIF_TYPES,
-  NotifKey,
   getNotificationPreferences,
   saveNotificationPreferences,
 } from "@/app/actions/notification-preferences";
+import { NOTIF_TYPES, NotifKey } from "@/app/lib/notification-preferences-config";
 
 interface SectionProps {
   title: string;

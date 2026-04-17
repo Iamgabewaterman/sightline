@@ -20,7 +20,8 @@ export type JobType =
   | "electrical"
   | "hvac"
   | "concrete"
-  | "landscaping";
+  | "landscaping"
+  | "decks_patios";
 
 export type JobStatus = "active" | "on_hold" | "completed";
 
