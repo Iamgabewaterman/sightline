@@ -91,7 +91,8 @@ export default function BottomTabBar() {
           if (data?.display_name) setDisplayName(data.display_name);
           if (data?.avatar_path) {
             setAvatarUrl(
-              supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl
+              supabase.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl +
+              "?t=" + Date.now()
             );
           }
         });

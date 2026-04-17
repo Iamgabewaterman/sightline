@@ -34,7 +34,8 @@ export default function AccountAvatarSection() {
 
   async function handleSaved(path: string) {
     setAvatarPath(path);
-    await updateProfileAvatar(path);
+    const result = await updateProfileAvatar(path);
+    if (result.error) throw new Error(result.error);
   }
 
   return (

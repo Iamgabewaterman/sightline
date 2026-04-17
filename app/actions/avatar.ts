@@ -9,8 +9,7 @@ export async function updateProfileAvatar(avatarPath: string): Promise<{ error?:
 
   const { error } = await supabase
     .from("profiles")
-    .update({ avatar_path: avatarPath })
-    .eq("id", user.id);
+    .upsert({ id: user.id, avatar_path: avatarPath }, { onConflict: "id" });
 
   if (error) return { error: error.message };
   return {};
