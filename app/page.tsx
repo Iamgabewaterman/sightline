@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import {
   Briefcase, Zap, Camera, FileText, Globe, ScanLine,
   Navigation, BarChart2, Users, Calculator, WifiOff, Bell,
@@ -87,7 +88,11 @@ function LogoMark({ size = 28 }: { size?: number }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white">
 
@@ -110,18 +115,29 @@ export default function LandingPage() {
 
           {/* CTA buttons */}
           <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
-            >
-              Log In
-            </Link>
-            <Link
-              href="/signup"
-              className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
-            >
-              Start Free
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/jobs"
+                className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
+              >
+                Go to App →
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
+                >
+                  Log In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
+                >
+                  Start Free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
