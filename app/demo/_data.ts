@@ -10,7 +10,6 @@ export interface DemoMaterial {
   qty_ordered: number;
   qty_used: number | null;
   unit_cost: number | null;
-  unit?: string;
 }
 
 export interface DemoLabor {
@@ -59,6 +58,39 @@ export interface DemoPunchItem {
   completed: boolean;
 }
 
+export interface DemoSubcontractor {
+  id: string;
+  company_name: string;
+  trade: string;
+  scope_description: string;
+  quoted_amount: number;
+  invoice_received: boolean;
+  invoice_amount: number | null;
+  paid: boolean;
+}
+
+export interface DemoDocument {
+  id: string;
+  name: string;
+  category: string;
+  size: string;
+  date: string;
+  file_type: "application/pdf" | "image/jpeg";
+}
+
+export interface DemoClient {
+  name: string;
+  company: string | null;
+  phone: string;
+  email: string | null;
+}
+
+export interface DemoDimensions {
+  length_ft: number;
+  width_ft: number;
+  sqft: number;
+}
+
 export interface DemoJob {
   slug: string;
   name: string;
@@ -67,10 +99,18 @@ export interface DemoJob {
   status: "active" | "completed";
   notes: string;
   created_at: string;
+  start_date: string | null;
+  completed_date: string | null;
+  total_days: number | null;
+  lockbox_code: string | null;
+  client: DemoClient | null;
+  dimensions: DemoDimensions | null;
   photos: DemoPhoto[];
   materials: DemoMaterial[];
   labor: DemoLabor[];
+  subcontractors: DemoSubcontractor[];
   receipts: DemoReceipt[];
+  documents: DemoDocument[];
   quote: DemoQuote;
   invoice?: DemoInvoice;
   punchList: DemoPunchItem[];
@@ -86,6 +126,12 @@ export const DEMO_JOBS: DemoJob[] = [
     notes:
       "Insurance claim #INS-2024-8847. Full gut to studs on main floor. Demo complete, asbestos clear. Complete by end of April per adjuster schedule.",
     created_at: "Mar 28, 2026",
+    start_date: "Mar 28, 2026",
+    completed_date: null,
+    total_days: null,
+    lockbox_code: null,
+    client: { name: "Rosa Martinez", company: null, phone: "(503) 771-4892", email: "rosa.martinez@gmail.com" },
+    dimensions: { length_ft: 48, width_ft: 32, sqft: 1536 },
     photos: [
       { id: "p1", label: "Before – Main floor water damage", category: "before" },
       { id: "p2", label: "During – Framing exposed, cleanup in progress", category: "during" },
@@ -105,8 +151,23 @@ export const DEMO_JOBS: DemoJob[] = [
       { id: "l2", name: "Mike (Drywall)", hours: 48, rate: 55, date: "Apr 7" },
       { id: "l3", name: "Tyler (Flooring)", hours: 28, rate: 50, date: "Apr 12" },
     ],
+    subcontractors: [
+      {
+        id: "s1",
+        company_name: "QuickDry Remediation Co.",
+        trade: "General",
+        scope_description: "Water extraction, drying equipment setup & 3-day monitoring",
+        quoted_amount: 2800,
+        invoice_received: true,
+        invoice_amount: 2800,
+        paid: true,
+      },
+    ],
     receipts: [
       { id: "r1", vendor: "Home Depot #6241", amount: 847.32, category: "Materials", date: "Apr 2" },
+    ],
+    documents: [
+      { id: "d1", name: "Insurance Claim #INS-2024-8847.pdf", category: "Insurance", size: "284 KB", date: "Mar 29", file_type: "application/pdf" },
     ],
     quote: {
       material_total: 8500,
@@ -137,6 +198,12 @@ export const DEMO_JOBS: DemoJob[] = [
     notes:
       "16' × 24' deck with stairs. Owner wants built-in bench along north rail. Footings poured 4/1. Ledger and posts set. Framing next.",
     created_at: "Apr 1, 2026",
+    start_date: "Apr 1, 2026",
+    completed_date: null,
+    total_days: null,
+    lockbox_code: "7741",
+    client: { name: "Robert Thompson", company: "Thompson Properties LLC", phone: "(503) 842-1156", email: null },
+    dimensions: { length_ft: 24, width_ft: 16, sqft: 384 },
     photos: [
       { id: "p1", label: "Before – Backyard layout, string lines marked", category: "before" },
       { id: "p2", label: "During – Footings poured, posts and beam set", category: "during" },
@@ -153,8 +220,13 @@ export const DEMO_JOBS: DemoJob[] = [
       { id: "l1", name: "Jason & Crew", hours: 28, rate: 58, date: "Apr 3" },
       { id: "l2", name: "Self", hours: 16, rate: 45, date: "Apr 5" },
     ],
+    subcontractors: [],
     receipts: [
       { id: "r1", vendor: "Pacific Building Supply", amount: 2340.0, category: "Materials", date: "Apr 3" },
+    ],
+    documents: [
+      { id: "d1", name: "Permit #BP-2026-0441.pdf", category: "Permit", size: "156 KB", date: "Mar 30", file_type: "application/pdf" },
+      { id: "d2", name: "Signed Contract – Thompson.pdf", category: "Contract", size: "412 KB", date: "Apr 1", file_type: "application/pdf" },
     ],
     quote: {
       material_total: 5800,
@@ -186,6 +258,12 @@ export const DEMO_JOBS: DemoJob[] = [
     notes:
       "Full gut and rebuild. Walk-in shower with tile bench, frameless glass door. New Kohler fixtures. Completed on time, client very happy.",
     created_at: "Feb 15, 2026",
+    start_date: "Feb 15, 2026",
+    completed_date: "Mar 20, 2026",
+    total_days: 26,
+    lockbox_code: null,
+    client: { name: "David Chen", company: null, phone: "(971) 304-7788", email: "david.chen@icloud.com" },
+    dimensions: { length_ft: 12, width_ft: 8, sqft: 96 },
     photos: [
       { id: "p1", label: "Before – Original bathroom, all original fixtures", category: "before" },
       { id: "p2", label: "After – Completed shower with frameless glass door", category: "after" },
@@ -201,9 +279,25 @@ export const DEMO_JOBS: DemoJob[] = [
       { id: "l1", name: "Roberto (Tile)", hours: 40, rate: 60, date: "Mar 5" },
       { id: "l2", name: "Mike (Plumbing)", hours: 16, rate: 85, date: "Mar 14" },
     ],
+    subcontractors: [
+      {
+        id: "s1",
+        company_name: "Frameless Glass NW",
+        trade: "General",
+        scope_description: "Frameless shower door & hardware – supply and install",
+        quoted_amount: 1400,
+        invoice_received: true,
+        invoice_amount: 1400,
+        paid: true,
+      },
+    ],
     receipts: [
       { id: "r1", vendor: "Tile Depot Portland", amount: 1290.0, category: "Materials", date: "Feb 18" },
       { id: "r2", vendor: "Ferguson Plumbing Supply", amount: 742.5, category: "Materials", date: "Feb 22" },
+    ],
+    documents: [
+      { id: "d1", name: "Signed Contract – Chen.pdf", category: "Contract", size: "398 KB", date: "Feb 15", file_type: "application/pdf" },
+      { id: "d2", name: "Final Inspection Certificate.pdf", category: "Inspection", size: "201 KB", date: "Mar 21", file_type: "application/pdf" },
     ],
     quote: {
       material_total: 4200,
