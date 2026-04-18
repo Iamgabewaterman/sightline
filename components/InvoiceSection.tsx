@@ -137,8 +137,30 @@ export default function InvoiceSection({
     const url = `${window.location.origin}/pay/${invoice!.id}`;
     if (navigator.share) {
       await navigator.share({ title: invoiceNumber, text: `Pay invoice ${invoiceNumber}`, url });
-    } else {
-      await navigator.clipboard.writeText(url);
+      return;
+    }
+    // navigator.clipboard requires HTTPS + user gesture and is unavailable in
+    // Chrome on iOS/Android WebView. Fall back to execCommand on a textarea.
+    let success = false;
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        success = true;
+      } catch {
+        // fall through to execCommand
+      }
+    }
+    if (!success) {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand("copy"); success = true; } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }

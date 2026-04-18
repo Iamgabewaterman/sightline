@@ -352,17 +352,12 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   const fw = reg.widthOfTextAtSize(footText, 7.5);
   page.drawText(footText, { x: PW / 2 - fw / 2, y: FY, font: reg, size: 7.5, color: GRAY });
 
-  // ── Download ──────────────────────────────────────────────────────────────
+  // ── Open in new tab ───────────────────────────────────────────────────────
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
   const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `invoice-${data.jobName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
