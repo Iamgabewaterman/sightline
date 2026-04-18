@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateJob } from "@/app/actions/jobs";
 import { Job } from "@/types";
 import ClientSelector from "@/components/ClientSelector";
+import { getCustomJobTypes, saveCustomJobType } from "@/app/actions/custom-job-types";
 
-const JOB_TYPES = [
+const BUILT_IN_TYPES = [
   { value: "drywall", label: "Drywall" },
   { value: "framing", label: "Framing" },
   { value: "plumbing", label: "Plumbing" },
@@ -23,6 +24,8 @@ const JOB_TYPES = [
   { value: "fencing",      label: "Fencing" },
 ];
 
+const BUILT_IN_VALUES = new Set(BUILT_IN_TYPES.map((t) => t.value));
+
 export default function EditJobForm({ job }: { job: Job }) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -30,10 +33,46 @@ export default function EditJobForm({ job }: { job: Job }) {
   const [selectedTypes, setSelectedTypes] = useState<string[]>(job.types ?? []);
   const [clientId, setClientId] = useState<string | null>(job.client_id ?? null);
 
+  // Seed custom types from any non-built-in types already on this job
+  const [customTypes, setCustomTypes] = useState<{ value: string; label: string }[]>(() =>
+    (job.types ?? [])
+      .filter((t) => !BUILT_IN_VALUES.has(t))
+      .map((t) => ({ value: t, label: t }))
+  );
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+
+  useEffect(() => {
+    getCustomJobTypes().then((dbTypes) => {
+      setCustomTypes((prev) => {
+        const existing = new Set(prev.map((t) => t.value.toLowerCase()));
+        const newOnes = dbTypes.filter((t) => !existing.has(t.value.toLowerCase()));
+        return [...prev, ...newOnes];
+      });
+    });
+  }, []);
+
+  const allTypes = [...BUILT_IN_TYPES, ...customTypes];
+
   function toggleType(value: string) {
     setSelectedTypes((prev) =>
       prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
     );
+  }
+
+  async function confirmCustomType() {
+    const label = customInput.trim();
+    if (!label) return;
+    const lower = label.toLowerCase();
+    if (!allTypes.some((t) => t.value.toLowerCase() === lower)) {
+      setCustomTypes((prev) => [...prev, { value: label, label }]);
+    }
+    if (!selectedTypes.includes(label)) {
+      setSelectedTypes((prev) => [...prev, label]);
+    }
+    await saveCustomJobType(label);
+    setCustomInput("");
+    setShowCustomInput(false);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -100,7 +139,7 @@ export default function EditJobForm({ job }: { job: Job }) {
               Job Type <span className="text-gray-500 normal-case">(select all that apply)</span>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {JOB_TYPES.map(({ value, label }) => {
+              {allTypes.map(({ value, label }) => {
                 const checked = selectedTypes.includes(value);
                 return (
                   <button
@@ -126,7 +165,46 @@ export default function EditJobForm({ job }: { job: Job }) {
                   </button>
                 );
               })}
+              {/* Custom type button */}
+              {!showCustomInput && (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomInput(true)}
+                  className="flex items-center gap-3 px-4 py-4 rounded-xl border border-dashed border-[#2a2a2a] bg-[#1A1A1A] text-gray-500 text-left transition-colors active:scale-95"
+                >
+                  <span className="w-5 h-5 shrink-0 rounded border-2 border-gray-600 flex items-center justify-center text-gray-600 text-lg leading-none">+</span>
+                  <span className="text-base">Custom…</span>
+                </button>
+              )}
             </div>
+            {showCustomInput && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="e.g. Masonry, Demolition…"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmCustomType(); } }}
+                  autoCapitalize="words"
+                  className="flex-1 bg-[#1A1A1A] border border-orange-500 text-white rounded-xl px-4 py-4 text-base focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={confirmCustomType}
+                  className="bg-orange-500 text-white font-bold px-5 py-4 rounded-xl active:scale-95 transition-transform"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowCustomInput(false); setCustomInput(""); }}
+                  className="bg-[#242424] text-gray-400 font-bold px-4 py-4 rounded-xl active:scale-95 transition-transform"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Address */}

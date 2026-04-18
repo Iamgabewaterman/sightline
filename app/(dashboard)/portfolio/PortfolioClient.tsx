@@ -42,12 +42,14 @@ function StatPill({ label, value }: { label: string; value: string }) {
 
 export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
   const [search, setSearch] = useState("");
-  const [activeType, setActiveType] = useState<JobType | null>(null);
+  const [activeType, setActiveType] = useState<string | null>(null);
 
   const usedTypes = useMemo(() => {
-    const s = new Set<JobType>();
+    const s = new Set<string>();
     jobs.forEach((j) => j.types.forEach((t) => s.add(t)));
-    return ALL_TYPES.filter((t) => s.has(t));
+    const builtInUsed = ALL_TYPES.filter((t) => s.has(t));
+    const customUsed = Array.from(s).filter((t) => !ALL_TYPES.includes(t as JobType));
+    return [...builtInUsed, ...customUsed];
   }, [jobs]);
 
   const filtered = useMemo(() => {
@@ -57,7 +59,7 @@ export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
       result = result.filter((j) => j.name.toLowerCase().includes(q));
     }
     if (activeType) {
-      result = result.filter((j) => j.types.includes(activeType));
+      result = result.filter((j) => (j.types as string[]).includes(activeType));
     }
     return result;
   }, [jobs, search, activeType]);
@@ -104,7 +106,7 @@ export default function PortfolioClient({ jobs }: { jobs: JobWithEstimate[] }) {
                     : "bg-[#1A1A1A] text-gray-400 border border-[#2a2a2a]"
                 }`}
               >
-                {TYPE_LABELS[t]}
+                {TYPE_LABELS[t] ?? t}
               </button>
             ))}
           </div>
