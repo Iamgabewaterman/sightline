@@ -9,6 +9,7 @@ import {
   saveNotificationPreferences,
 } from "@/app/actions/notification-preferences";
 import { NOTIF_TYPES, NotifKey } from "@/app/lib/notification-preferences-config";
+import ContactForm from "@/components/ContactForm";
 
 interface SectionProps {
   title: string;
@@ -257,6 +258,14 @@ export default function SettingsClient({
           >
             Forgot your password? Reset via email →
           </a>
+        </Section>
+
+        {/* Contact & Support */}
+        <Section title="Contact &amp; Support">
+          <p className="text-gray-500 text-sm -mt-1">
+            Questions, feedback, or need help? We reply same day.
+          </p>
+          <ContactForm variant="settings" />
         </Section>
 
         {/* Theme */}

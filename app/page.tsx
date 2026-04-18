@@ -7,6 +7,7 @@ import {
   Edit3, CloudRain, FolderOpen, X, Check,
 } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
+import ContactForm from "@/components/ContactForm";
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -114,6 +115,7 @@ export default async function LandingPage() {
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#about" className="hover:text-white transition-colors">About</a>
+            <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           </nav>
 
           {/* CTA buttons */}
@@ -371,6 +373,19 @@ export default async function LandingPage() {
           >
             Start Free Beta
           </Link>
+        </div>
+      </section>
+
+      {/* ── Contact ── */}
+      <section id="contact" className="py-20 px-5 border-t border-[#1a1a1a]">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            Get in touch
+          </h2>
+          <p className="text-gray-500 text-center mb-10 max-w-md mx-auto">
+            Questions about pricing, features, or getting started? We&rsquo;ll reply same day.
+          </p>
+          <ContactForm variant="landing" />
         </div>
       </section>
 
