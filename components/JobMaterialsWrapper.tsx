@@ -42,6 +42,7 @@ export default function JobMaterialsWrapper({
       <MaterialsSection
         jobId={jobId}
         jobName={jobName}
+        jobTypes={jobTypes}
         initialMaterials={materials}
         onMaterialsAdded={handleSuggestionApplied}
       />

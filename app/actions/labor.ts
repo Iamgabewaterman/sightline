@@ -18,6 +18,7 @@ export async function addLaborLog(
   const crew_name = (formData.get("crew_name") as string)?.trim();
   const hours = parseFloat(formData.get("hours") as string);
   const rate = parseFloat(formData.get("rate") as string);
+  const trade = (formData.get("trade") as string)?.trim() || null;
 
   if (!crew_name) return { error: "Crew name is required" };
   if (isNaN(hours) || hours <= 0) return { error: "Enter valid hours" };
@@ -25,7 +26,7 @@ export async function addLaborLog(
 
   const { data: log, error } = await supabase
     .from("labor_logs")
-    .insert({ job_id: jobId, crew_name, hours, rate })
+    .insert({ job_id: jobId, crew_name, hours, rate, trade })
     .select()
     .single<LaborLog>();
 
@@ -101,6 +102,7 @@ export async function updateLaborLog(
   const crew_name = (formData.get("crew_name") as string)?.trim();
   const hours = parseFloat(formData.get("hours") as string);
   const rate = parseFloat(formData.get("rate") as string);
+  const trade = (formData.get("trade") as string)?.trim() || null;
 
   if (!crew_name) return { error: "Crew name is required" };
   if (isNaN(hours) || hours <= 0) return { error: "Enter valid hours" };
@@ -108,7 +110,7 @@ export async function updateLaborLog(
 
   const { data: log, error } = await supabase
     .from("labor_logs")
-    .update({ crew_name, hours, rate })
+    .update({ crew_name, hours, rate, trade })
     .eq("id", id)
     .select()
     .single<LaborLog>();

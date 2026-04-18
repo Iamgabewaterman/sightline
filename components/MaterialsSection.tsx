@@ -260,17 +260,20 @@ function MaterialRow({
   onUpdate,
   onDelete,
   onDuplicate,
+  jobTypes,
 }: {
   material: Material;
   onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void;
   onDuplicate: (m: Material) => void;
+  jobTypes: string[];
 }) {
   const [editing, setEditing] = useState(!!(material as Material & { _openEdit?: boolean })._openEdit);
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
   const [usedVal,    setUsedVal]    = useState(material.quantity_used?.toString() ?? "");
   const [costVal,    setCostVal]    = useState(material.unit_cost?.toString() ?? "");
   const [notesVal,   setNotesVal]   = useState(material.notes ?? "");
+  const [tradeVal,   setTradeVal]   = useState(material.trade ?? "");
   const [lengthPreset, setLengthPreset] = useState(getLengthPresetKey(material.length_ft));
   const [customLength, setCustomLength] = useState(
     material.length_ft !== null && !LENGTH_PRESETS.includes(material.length_ft)
@@ -293,11 +296,12 @@ function MaterialRow({
     const length_ft        = effectiveLengthFt;
     const notes            = notesVal.trim() || null;
 
-    const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes });
+    const trade = tradeVal || null;
+    const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
     if (result.error) {
       setError(result.error);
     } else {
-      onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes });
+      onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
       setEditing(false);
     }
     setSaving(false);
@@ -322,6 +326,11 @@ function MaterialRow({
               </span>
             )}
             <span className="text-gray-400 text-sm">({material.unit})</span>
+            {material.trade && (
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                {material.trade}
+              </span>
+            )}
           </div>
           {material.notes && (
             <p className="text-gray-500 text-sm mt-0.5 italic">{material.notes}</p>
@@ -427,6 +436,22 @@ function MaterialRow({
             />
           </div>
 
+          {jobTypes.length >= 2 && (
+            <div>
+              <label className="text-gray-400 text-xs uppercase tracking-wider">Trade</label>
+              <select
+                value={tradeVal}
+                onChange={(e) => setTradeVal(e.target.value)}
+                className="w-full mt-1 bg-[#242424] border border-[#333333] text-white rounded-lg px-3 py-3 text-base focus:outline-none focus:border-orange-500"
+              >
+                <option value="">— None —</option>
+                {jobTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <CostPerLFChip
             qtyOrdered={orderedVal}
             unitCost={costVal}
@@ -449,11 +474,13 @@ function MaterialRow({
 export default function MaterialsSection({
   jobId,
   jobName = "",
+  jobTypes = [],
   initialMaterials,
   onMaterialsAdded,
 }: {
   jobId: string;
   jobName?: string;
+  jobTypes?: string[];
   initialMaterials: Material[];
   onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
@@ -486,6 +513,7 @@ export default function MaterialsSection({
   const [customLength, setCustomLength] = useState("");
   const [qtyOrdered,   setQtyOrdered]   = useState("");
   const [unitCost,     setUnitCost]     = useState("");
+  const [addTrade,     setAddTrade]     = useState("");
 
   const effectiveLengthFt: number | null =
     lengthPreset === "" ? null
@@ -510,6 +538,7 @@ export default function MaterialsSection({
     if (effectiveLengthFt !== null) {
       formData.set("length_ft", effectiveLengthFt.toString());
     }
+    if (addTrade) formData.set("trade", addTrade);
 
     const result = await addMaterial(jobId, formData);
 
@@ -523,6 +552,7 @@ export default function MaterialsSection({
       setCustomLength("");
       setQtyOrdered("");
       setUnitCost("");
+      setAddTrade("");
       setShowForm(false);
     }
     setSaving(false);
@@ -645,6 +675,25 @@ export default function MaterialsSection({
               className={inputClass} />
           </div>
 
+          {/* Trade tag — only when job has 2+ types */}
+          {jobTypes.length >= 2 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-gray-400 text-xs uppercase tracking-wider">
+                Trade <span className="text-gray-600 normal-case">(optional)</span>
+              </label>
+              <select
+                value={addTrade}
+                onChange={(e) => setAddTrade(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— None —</option>
+                {jobTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Live $/LF preview */}
           <CostPerLFChip
             qtyOrdered={qtyOrdered}
@@ -673,7 +722,7 @@ export default function MaterialsSection({
       ) : (
         <div className="flex flex-col gap-3">
           {materials.map((m) => (
-            <MaterialRow key={m.id} material={m} onUpdate={handleUpdate} onDelete={handleDelete} onDuplicate={handleDuplicate} />
+            <MaterialRow key={m.id} material={m} onUpdate={handleUpdate} onDelete={handleDelete} onDuplicate={handleDuplicate} jobTypes={jobTypes} />
           ))}
         </div>
       )}

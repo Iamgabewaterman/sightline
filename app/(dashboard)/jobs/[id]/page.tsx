@@ -19,6 +19,7 @@ import PunchListWidget from "@/components/PunchListWidget";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import CostReport from "@/components/CostReport";
+import TradeCostBreakdown from "@/components/TradeCostBreakdown";
 import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
 import SubcontractorsSection from "@/components/SubcontractorsSection";
@@ -281,6 +282,11 @@ export default async function JobDetailPage({
               changeOrdersTotal={(changeOrders ?? []).reduce((s, o) => s + Number(o.amount), 0)}
               subsTotal={initialSubCost}
             />
+            <TradeCostBreakdown
+              jobTypes={job.types as string[]}
+              materials={materials ?? []}
+              laborLogs={laborLogs ?? []}
+            />
           </div>
 
           {/* Punch List widget */}
@@ -352,7 +358,7 @@ export default async function JobDetailPage({
           </div>
 
           {/* Labor */}
-          <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} />
+          <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} jobTypes={job.types as string[]} />
 
           {/* Subcontractors */}
           <SubcontractorsSection jobId={job.id} initialLogs={subLogs ?? []} />

@@ -88,6 +88,7 @@ export interface Material {
   length_ft: number | null;
   notes: string | null;
   category: ExpenseCategory;
+  trade: string | null;
   created_at: string;
 }
 
@@ -98,6 +99,7 @@ export interface LaborLog {
   hours: number;
   rate: number;
   category: ExpenseCategory;
+  trade: string | null;
   created_at: string;
 }
 

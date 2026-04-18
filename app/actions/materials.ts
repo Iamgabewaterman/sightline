@@ -15,11 +15,13 @@ export async function addMaterial(jobId: string, formData: FormData) {
   const unit_cost_raw    = formData.get("unit_cost") as string;
   const length_ft_raw    = formData.get("length_ft") as string;
   const notes_raw        = formData.get("notes") as string;
+  const trade_raw        = formData.get("trade") as string;
 
   const quantity_used = quantity_used_raw ? parseFloat(quantity_used_raw) : null;
   const unit_cost     = unit_cost_raw     ? parseFloat(unit_cost_raw)     : null;
   const length_ft     = length_ft_raw     ? parseFloat(length_ft_raw)     : null;
   const notes         = notes_raw?.trim() || null;
+  const trade         = trade_raw?.trim()  || null;
 
   if (!name || !unit || isNaN(quantity_ordered)) {
     return { error: "Name, unit, and quantity ordered are required." };
@@ -29,7 +31,7 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   const { data, error } = await supabase
     .from("materials")
-    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes })
+    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade })
     .select()
     .single();
 
@@ -123,6 +125,7 @@ export async function updateMaterial(
     unit_cost?: number | null;
     length_ft?: number | null;
     notes?: string | null;
+    trade?: string | null;
   }
 ) {
   const supabase = createClient();

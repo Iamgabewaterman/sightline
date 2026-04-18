@@ -94,9 +94,11 @@ function formatDate(iso: string) {
 export default function LaborSection({
   jobId,
   initialLogs,
+  jobTypes = [],
 }: {
   jobId: string;
   initialLogs: LaborLog[];
+  jobTypes?: string[];
 }) {
   const { role, can_see_financials } = useRole();
   const [logs, setLogs] = useState<LaborLog[]>(initialLogs);
@@ -118,6 +120,7 @@ export default function LaborSection({
   const [formName, setFormName] = useState("");
   const [formHours, setFormHours] = useState("");
   const [formRate, setFormRate] = useState("");
+  const [formTrade, setFormTrade] = useState("");
   const [formKey, setFormKey] = useState(0);
 
   // Inline autocomplete contacts
@@ -227,6 +230,7 @@ export default function LaborSection({
         hours: formHours as unknown as number,
         rate: formRate as unknown as number,
         category: "labor",
+        trade: formTrade || null,
         created_at: new Date().toISOString(),
       };
       setLogs((prev) => [optimistic, ...prev]);
@@ -243,6 +247,7 @@ export default function LaborSection({
     fd.set("crew_name", formName);
     fd.set("hours", formHours);
     fd.set("rate", formRate);
+    if (formTrade) fd.set("trade", formTrade);
 
     const result = await addLaborLog(jobId, fd);
 
@@ -253,6 +258,7 @@ export default function LaborSection({
       setFormName("");
       setFormHours("");
       setFormRate("");
+      setFormTrade("");
       setFormKey((k) => k + 1);
       setShowForm(false);
     }
@@ -376,6 +382,23 @@ export default function LaborSection({
               />
             </div>
           </div>
+          {jobTypes.length >= 2 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-gray-400 text-xs uppercase tracking-wider">
+                Trade <span className="text-gray-600 normal-case">(optional)</span>
+              </label>
+              <select
+                value={formTrade}
+                onChange={(e) => setFormTrade(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— None —</option>
+                {jobTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {formError && (
             <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
               {formError}
@@ -447,6 +470,21 @@ export default function LaborSection({
                       />
                     </div>
                   </div>
+                  {jobTypes.length >= 2 && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-gray-400 text-xs uppercase tracking-wider">Trade</label>
+                      <select
+                        name="trade"
+                        defaultValue={log.trade ?? ""}
+                        className={inputClass}
+                      >
+                        <option value="">— None —</option>
+                        {jobTypes.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {editError && (
                     <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">
                       {editError}
@@ -481,7 +519,14 @@ export default function LaborSection({
                   <div className="flex items-center gap-3">
                     <Avatar name={log.crew_name} size={36} />
                     <div>
-                      <p className="text-white font-semibold text-base">{log.crew_name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-white font-semibold text-base">{log.crew_name}</p>
+                        {log.trade && (
+                          <span className="text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                            {log.trade}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-500 text-xs mt-0.5">{formatDate(log.created_at)}</p>
                     </div>
                   </div>
