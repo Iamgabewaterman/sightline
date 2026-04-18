@@ -41,8 +41,26 @@ export default function PortalToggle({ jobId, initialEnabled, initialToken }: Pr
     if (!portalUrl) return;
     if (navigator.share) {
       await navigator.share({ title: "Project Portal", url: portalUrl });
-    } else {
-      await navigator.clipboard.writeText(portalUrl);
+      return;
+    }
+    let success = false;
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(portalUrl);
+        success = true;
+      } catch { /* fall through */ }
+    }
+    if (!success) {
+      const ta = document.createElement("textarea");
+      ta.value = portalUrl;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand("copy"); success = true; } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     }
@@ -60,15 +78,31 @@ export default function PortalToggle({ jobId, initialEnabled, initialToken }: Pr
         <button
           onClick={handleToggle}
           disabled={saving}
-          className={`relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0 disabled:opacity-60 ${
-            enabled ? "bg-orange-500" : "bg-[#333]"
-          }`}
           aria-label={enabled ? "Disable portal" : "Enable portal"}
+          style={{
+            position: "relative",
+            width: 44,
+            height: 24,
+            borderRadius: 12,
+            flexShrink: 0,
+            transition: "background-color 0.2s",
+            backgroundColor: enabled ? "#F97316" : "#333",
+            opacity: saving ? 0.6 : 1,
+          }}
         >
           <span
-            className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-              enabled ? "translate-x-6" : "translate-x-0.5"
-            }`}
+            style={{
+              position: "absolute",
+              top: 2,
+              left: 2,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              backgroundColor: "white",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+              transition: "transform 0.2s",
+              transform: enabled ? "translateX(20px)" : "translateX(0)",
+            }}
           />
         </button>
       </div>
