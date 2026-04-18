@@ -1,8 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSendWithTTL } from "@/lib/notif-dedup";
+import PortalPhotoGallery from "@/components/PortalPhotoGallery";
 
 function adminClient() {
   return createClient(
@@ -80,7 +83,7 @@ export default async function PortalPage({
       .from("photos")
       .select("*")
       .eq("job_id", job.id)
-      .in("category", ["after", "during"])
+      .in("category", ["before", "during", "after", "damages"])
       .order("taken_at", { ascending: true }),
     supabase
       .from("job_assignments")
@@ -181,27 +184,13 @@ export default async function PortalPage({
         </div>
 
         {/* Photo gallery */}
-        {(photos?.length ?? 0) > 0 && (
-          <div className="mb-5">
-            <h2 className="text-white font-bold text-lg mb-3">Photos</h2>
-            <div className="grid grid-cols-3 gap-1.5">
-              {(photos ?? []).map((photo) => (
-                <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-[#1A1A1A]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getPhotoUrl(photo.storage_path)}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <span className="absolute top-1 left-1 text-[9px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded-md capitalize">
-                    {photo.category}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <PortalPhotoGallery
+          photos={(photos ?? []).map((p) => ({
+            id: p.id,
+            url: getPhotoUrl(p.storage_path),
+            category: p.category,
+          }))}
+        />
 
         {/* Crew section */}
         {crewMembers.length > 0 && (
