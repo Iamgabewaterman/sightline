@@ -65,8 +65,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Logged-in users visiting auth pages → send to dashboard
-  if (user && isAuthPage) {
+  // Logged-in users visiting auth pages or the landing page → send to dashboard
+  if (user && (isAuthPage || isLandingPage)) {
     return NextResponse.redirect(new URL("/jobs", request.url));
   }
 

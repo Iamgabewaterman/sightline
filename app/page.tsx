@@ -6,6 +6,7 @@ import {
   Navigation, BarChart2, Users, Calculator, WifiOff, Bell,
   Edit3, CloudRain, FolderOpen, X, Check,
 } from "lucide-react";
+import StandaloneRedirect from "@/components/StandaloneRedirect";
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -95,6 +96,8 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white">
+      {/* Redirect PWA (standalone) users straight to the dashboard */}
+      <StandaloneRedirect to="/jobs" />
 
       {/* ── Sticky nav ── */}
       <header className="sticky top-0 z-50 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-[#1a1a1a]">
