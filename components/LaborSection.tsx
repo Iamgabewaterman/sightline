@@ -8,6 +8,7 @@ import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRole } from "@/hooks/useRole";
 import Avatar from "@/components/Avatar";
+import JobImportModal from "@/components/JobImportModal";
 
 // ─── LaborNameAutocomplete ────────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ export default function LaborSection({
   }, [logs, setActualLaborCost]);
 
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -304,6 +306,12 @@ export default function LaborSection({
             className="text-gray-400 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Saved
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="text-gray-300 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Import
           </button>
           <button
             onClick={() => {
@@ -645,6 +653,23 @@ export default function LaborSection({
             </div>
           )}
         </div>
+      )}
+
+      {showImport && (
+        <JobImportModal
+          jobId={jobId}
+          mode="labor"
+          onClose={() => setShowImport(false)}
+          onComplete={async () => {
+            const supabase = createClient();
+            const { data } = await supabase
+              .from("labor_logs")
+              .select("*")
+              .eq("job_id", jobId)
+              .order("created_at", { ascending: false });
+            if (data) setLogs(data as LaborLog[]);
+          }}
+        />
       )}
     </div>
   );

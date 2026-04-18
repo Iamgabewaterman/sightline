@@ -5,6 +5,7 @@ import { addMaterial, updateMaterial, deleteMaterial, getPastMaterialNames } fro
 import { Material } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
+import JobImportModal from "@/components/JobImportModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -470,6 +471,7 @@ export default function MaterialsSection({
 
   const [showForm,      setShowForm]      = useState(false);
   const [showShopping,  setShowShopping]  = useState(false);
+  const [showImport,    setShowImport]    = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState("");
   const formRef = useRef<HTMLFormElement>(null);
@@ -566,6 +568,12 @@ export default function MaterialsSection({
             className="text-orange-400 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Shopping List
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="text-gray-300 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Import
           </button>
           <button
             onClick={() => setShowForm((s) => !s)}
@@ -676,6 +684,25 @@ export default function MaterialsSection({
           jobName={jobName}
           materials={materials}
           onClose={() => setShowShopping(false)}
+        />
+      )}
+
+      {showImport && (
+        <JobImportModal
+          jobId={jobId}
+          mode="materials"
+          onClose={() => setShowImport(false)}
+          onComplete={async () => {
+            // Refresh materials list from DB
+            const { createClient } = await import("@/lib/supabase/client");
+            const supabase = createClient();
+            const { data } = await supabase
+              .from("materials")
+              .select("*")
+              .eq("job_id", jobId)
+              .order("created_at", { ascending: false });
+            if (data) setMaterials(data as Material[]);
+          }}
         />
       )}
     </div>
