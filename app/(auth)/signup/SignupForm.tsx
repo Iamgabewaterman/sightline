@@ -251,7 +251,7 @@ export default function SignupForm() {
 
           {mode === "owner" && (
             <p className="text-center text-gray-500 text-sm mt-6">
-              $30/month · 3-month free trial · Cancel anytime
+              $49.99/month · 3-month free trial · Cancel anytime
             </p>
           )}
           {mode === "field_member" && (

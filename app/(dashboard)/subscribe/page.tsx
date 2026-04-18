@@ -68,7 +68,7 @@ export default async function SubscribePage() {
         {/* Pricing card */}
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-6 mb-6">
           <div className="flex items-end gap-1 mb-4">
-            <span className="text-orange-500 text-5xl font-black">$50</span>
+            <span className="text-orange-500 text-5xl font-black">$49.99</span>
             <span className="text-gray-400 text-lg mb-1">/month</span>
           </div>
           <ul className="flex flex-col gap-3 text-sm text-gray-300">
@@ -94,7 +94,7 @@ export default async function SubscribePage() {
               type="submit"
               className="w-full bg-orange-500 text-white font-bold text-lg py-5 rounded-xl active:scale-95 transition-transform"
             >
-              Subscribe — $50/month
+              Subscribe — $49.99/month
             </button>
           </form>
         )}

@@ -12,7 +12,7 @@ import ContactForm from "@/components/ContactForm";
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
   description:
-    "Replace QuickBooks, Buildertrend, and your notebook. One app for every job. $49/month. Built by a carpenter.",
+    "Replace QuickBooks, Buildertrend, and your notebook. One app for every job. $49.99/month. Built by a carpenter.",
 };
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ export default async function LandingPage() {
         <p className="text-gray-400 text-lg sm:text-xl max-w-xl leading-relaxed mb-10">
           The job management app built by a working carpenter. Replaces QuickBooks, Buildertrend,
           and your notebook — for{" "}
-          <span className="text-white font-semibold">$49/month.</span>
+          <span className="text-white font-semibold">$49.99/month.</span>
         </p>
 
         {/* CTAs */}
@@ -295,6 +295,7 @@ export default async function LandingPage() {
               <div className="flex items-start justify-center gap-1">
                 <span className="text-gray-400 text-xl font-semibold mt-3">$</span>
                 <span className="text-white font-black text-7xl leading-none">49</span>
+                <span className="text-white font-black text-4xl leading-none mt-4">.99</span>
                 <span className="text-gray-400 text-xl font-semibold mt-auto mb-1">/mo</span>
               </div>
               <p className="text-gray-400 text-base mt-3 font-medium">
