@@ -21,7 +21,8 @@ export type JobType =
   | "hvac"
   | "concrete"
   | "landscaping"
-  | "decks_patios";
+  | "decks_patios"
+  | "fencing";
 
 export type JobStatus = "active" | "on_hold" | "completed";
 

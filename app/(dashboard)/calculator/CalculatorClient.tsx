@@ -42,6 +42,11 @@ const P = {
   hiddenFastenerBag: 28.00, deckScrew350: 18.00,
   carriageBolt: 1.20, lagScrew: 0.90,
   concreteForm8in: 6.50, postFootingBracket: 12.00,
+  // ── Fencing (Oregon 97xxx) ───────────────────────────────────────────────
+  fencePicket6: 4.50, fencePicket8: 5.80,
+  fencePost4x4: 14.00, fenceRail2x4: 7.50,
+  fencePostCap: 3.50, fenceStain: 38.00,
+  fenceConcrete: 7.50,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -70,6 +75,7 @@ const SUB_OPTIONS: Record<TradeId, { id: string; label: string }[]> = {
     { id: "roof",    label: "Roof Structure" },
     { id: "header",  label: "Header / Beam" },
     { id: "post",    label: "Post" },
+    { id: "fence",   label: "Fence Line" },
   ],
   roofing:    [
     { id: "shingles",     label: "Shingles & Full Roof" },
@@ -166,6 +172,9 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
   const [deckJoistSpacing, setDeckJoistSpacing] = useState("16");
   const [postHeight, setPostHeight]       = useState("4");
   const [postCount, setPostCount]         = useState("");
+  // Fencing
+  const [fenceHeight, setFenceHeight]     = useState("6");
+  const [fencePostSpacing, setFencePostSpacing] = useState("8");
 
   // Save to job
   const [jobPickerOpen,    setJobPickerOpen]    = useState(false);
@@ -590,6 +599,33 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
       note = "Joist hangers + post bases + ledger bolts + lag screws";
     }
 
+    // ── FENCING ────────────────────────────────────────────────────────────
+    else if (trade === "framing" && sub === "fence") {
+      const linearFt = n(lf);
+      const postSpacingFt = parseInt(fencePostSpacing);
+      const fenceHt = parseInt(fenceHeight);
+      const posts = ceil(linearFt / postSpacingFt) + 1;
+      const bays = Math.max(1, posts - 1);
+      const railsPerBay = fenceHt >= 6 ? 3 : 2;
+      const totalRails = ceil(bays * railsPerBay * 1.05);
+      const picketFaceIn = 5.5; // cedar picket face width
+      const pickets = ceil((linearFt * 12 / picketFaceIn) * 1.05);
+      const concrBags = posts * 2; // 2 × 80lb bags per post hole
+      const picketPx = fenceHt >= 7 ? P.fencePicket8 : P.fencePicket6;
+      const picketLabel = fenceHt >= 7 ? "Cedar Fence Picket 8ft" : "Cedar Fence Picket 6ft";
+      const stainGal = ceil(linearFt * fenceHt / 200); // ~200 sqft/gal one coat
+      items.push(
+        { name: "4x4x8 PT Fence Post",   qty: posts,      unit: "each",   unitCost: P.fencePost4x4 },
+        { name: "2x4x8 PT Rail",          qty: totalRails, unit: "each",   unitCost: P.fenceRail2x4 },
+        { name: picketLabel,              qty: pickets,    unit: "each",   unitCost: picketPx },
+        { name: "Concrete 80lb (posts)",  qty: concrBags,  unit: "bag",    unitCost: P.fenceConcrete },
+        { name: "Fence Post Cap",         qty: posts,      unit: "each",   unitCost: P.fencePostCap },
+        { name: "Fence Stain",            qty: Math.max(1, stainGal), unit: "gallon", unitCost: P.fenceStain },
+        { name: "Deck Screws 350ct",      qty: ceil(pickets / 70), unit: "box", unitCost: P.deckScrew350 },
+      );
+      note = `${posts} posts @ ${postSpacingFt}ft OC · ${railsPerBay} rails/bay · 5% waste · 2 bags concrete/post`;
+    }
+
     if (items.length > 0) { setResult(items); setWasteNote(note); setStep(5); }
   }
 
@@ -759,6 +795,19 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
               <div>
                 <label className={labelCls}>Post Size</label>
                 <div className="flex gap-2">{[["4x4","4x4"],["4x6","4x6"],["6x6","6x6"]].map(([v,l])=><button key={v} onClick={()=>setPostSize(v)} className={chip(postSize===v)}>{l}</button>)}</div>
+              </div>
+            </>)}
+
+            {/* FENCE LINE */}
+            {trade === "framing" && sub === "fence" && (<>
+              <div><label className={labelCls}>Linear Feet of Fence</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div>
+                <label className={labelCls}>Fence Height</label>
+                <div className="flex gap-2">{[["4","4 ft"],["5","5 ft"],["6","6 ft"],["8","8 ft"]].map(([v,l])=><button key={v} onClick={()=>setFenceHeight(v)} className={chip(fenceHeight===v)}>{l}</button>)}</div>
+              </div>
+              <div>
+                <label className={labelCls}>Post Spacing (OC)</label>
+                <div className="flex gap-2">{[["6","6 ft"],["8","8 ft"]].map(([v,l])=><button key={v} onClick={()=>setFencePostSpacing(v)} className={chip(fencePostSpacing===v)}>{l}</button>)}</div>
               </div>
             </>)}
 

@@ -20,6 +20,7 @@ const JOB_TYPES = [
   { value: "concrete", label: "Concrete" },
   { value: "landscaping", label: "Landscaping" },
   { value: "decks_patios", label: "Decks & Patios" },
+  { value: "fencing",      label: "Fencing" },
 ];
 
 export default function EditJobForm({ job }: { job: Job }) {

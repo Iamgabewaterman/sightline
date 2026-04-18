@@ -19,6 +19,7 @@ const JOB_TYPES = [
   { value: "concrete", label: "Concrete" },
   { value: "landscaping", label: "Landscaping" },
   { value: "decks_patios", label: "Decks & Patios" },
+  { value: "fencing",      label: "Fencing" },
 ];
 
 const UNITS = ["ea", "sq ft", "ln ft", "bag", "sheet", "gal", "roll", "tube", "box", "lb", "hr", "day"];
