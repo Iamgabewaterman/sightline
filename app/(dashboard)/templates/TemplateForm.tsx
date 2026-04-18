@@ -131,6 +131,8 @@ export default function TemplateForm({ template }: { template?: JobTemplate }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Bathroom Remodel"
+              autoCapitalize="words"
+              autoCorrect="on"
               className={inputCls}
             />
           </div>

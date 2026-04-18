@@ -170,6 +170,8 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
               type="text"
               required
               placeholder="e.g. Johnson Kitchen Remodel"
+              autoCapitalize="words"
+              autoCorrect="on"
               className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
