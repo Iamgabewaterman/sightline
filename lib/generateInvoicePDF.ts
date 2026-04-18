@@ -241,7 +241,7 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   tr("AMOUNT", TC_A_R - 2, y, bold, 7.5, GRAY);
   y -= 6;
   hLine(y, 0.75, BLACK);
-  y -= 3;
+  y -= 10;
 
   let rowIdx = 0;
 
