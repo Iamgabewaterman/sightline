@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { addLaborLog, updateLaborLog, deleteLaborLog } from "@/app/actions/labor";
 import { LaborLog, Contact, CrewWithMembers } from "@/types";
 import { enqueue } from "@/hooks/useOfflineQueue";
@@ -8,6 +8,80 @@ import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRole } from "@/hooks/useRole";
 import Avatar from "@/components/Avatar";
+
+// ─── LaborNameAutocomplete ────────────────────────────────────────────────────
+
+function LaborNameAutocomplete({
+  value,
+  onChange,
+  onSelectContact,
+  contacts,
+  onLoadContacts,
+  contactsLoaded,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelectContact: (c: Contact) => void;
+  contacts: Contact[];
+  onLoadContacts: () => void;
+  contactsLoaded: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const suggestions = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (q.length < 1) return [];
+    return contacts.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [value, contacts]);
+
+  function handleFocus() {
+    setOpen(true);
+    if (!contactsLoaded) onLoadContacts();
+  }
+
+  function handleBlur() {
+    setTimeout(() => setOpen(false), 150);
+  }
+
+  const showDropdown = open && suggestions.length > 0;
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        required
+        autoComplete="off"
+        placeholder="Crew name (e.g. Mike, Sub crew, You)"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        autoCapitalize="words"
+        autoCorrect="on"
+        className="w-full bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
+      />
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden z-40 shadow-xl">
+          {suggestions.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={() => { onSelectContact(c); setOpen(false); }}
+              className="w-full text-left px-4 py-3 text-white text-base active:bg-[#242424] transition-colors flex items-center justify-between"
+            >
+              <span>{c.name}</span>
+              <span className="text-gray-500 text-sm">
+                {c.trade ? `${c.trade}` : ""}
+                {c.trade && c.hourly_rate !== null ? " · " : ""}
+                {c.hourly_rate !== null ? `$${Number(c.hourly_rate)}/hr` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -44,6 +118,41 @@ export default function LaborSection({
   const [formRate, setFormRate] = useState("");
   const [formKey, setFormKey] = useState(0);
 
+  // Inline autocomplete contacts
+  const [acContacts, setAcContacts] = useState<Contact[]>([]);
+  const [acLoaded, setAcLoaded] = useState(false);
+
+  async function loadAcContacts() {
+    if (acLoaded) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("contacts")
+      .select("id, name, hourly_rate, trade")
+      .order("name")
+      .returns<Contact[]>();
+    setAcContacts(data ?? []);
+    setAcLoaded(true);
+  }
+
+  async function handleSelectAutoContact(contact: Contact) {
+    setFormName(contact.name);
+    if (contact.hourly_rate !== null) {
+      setFormRate(String(contact.hourly_rate));
+    } else {
+      // Fall back to most recently used rate for this person from labor_logs
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("labor_logs")
+        .select("rate")
+        .eq("crew_name", contact.name)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setFormRate(String(data[0].rate));
+      }
+    }
+  }
+
   // Saved contacts picker
   const [showPicker, setShowPicker] = useState(false);
   const [pickerLoading, setPickerLoading] = useState(false);
@@ -69,6 +178,11 @@ export default function LaborSection({
     setPickerContacts(contacts ?? []);
     setPickerCrews(crews ?? []);
     setPickerLoading(false);
+    // Share loaded contacts with autocomplete too
+    if (!acLoaded) {
+      setAcContacts(contacts ?? []);
+      setAcLoaded(true);
+    }
   }
 
   function selectContact(contact: Contact) {
@@ -216,13 +330,13 @@ export default function LaborSection({
           <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
             Log Labor
           </p>
-          <input
-            type="text"
-            required
-            placeholder="Crew name (e.g. Mike, Sub crew, You)"
+          <LaborNameAutocomplete
             value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-            className={inputClass}
+            onChange={setFormName}
+            onSelectContact={handleSelectAutoContact}
+            contacts={acContacts}
+            onLoadContacts={loadAcContacts}
+            contactsLoaded={acLoaded}
           />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 flex flex-col gap-1">
