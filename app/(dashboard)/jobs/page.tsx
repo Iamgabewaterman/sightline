@@ -7,6 +7,7 @@ import { ensureOwnerSetup } from "@/app/actions/team";
 import { getTodayAssignments } from "@/app/actions/assignments";
 import { computeInsights } from "@/lib/insights";
 import InsightsSection from "@/components/InsightsSection";
+import InfoTooltip from "@/components/InfoTooltip";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -194,7 +195,10 @@ export default async function DashboardPage() {
           </div>
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
             <p className="text-orange-500 text-xl font-black leading-none mb-1">{fmt$(monthlyRevenue)}</p>
-            <p className="text-gray-400 text-xs uppercase tracking-wider">Rev. Est.</p>
+            <p className="text-gray-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+              Rev. Est.
+              <InfoTooltip text="Estimated from saved quotes on active jobs. Add a quote to a job to see your projected revenue." />
+            </p>
           </div>
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
             <p className="text-orange-500 text-xl font-black leading-none mb-1">{fmt$(monthlyMaterials)}</p>
