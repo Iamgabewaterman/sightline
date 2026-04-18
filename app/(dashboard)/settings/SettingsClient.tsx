@@ -116,9 +116,12 @@ export default function SettingsClient({
   const [notifPrefs, setNotifPrefs] = useState<Record<NotifKey, boolean> | null>(null);
   const [notifSaving, setNotifSaving] = useState(false);
   const [notifToast, setNotifToast] = useState(false);
+  const [notifLoadError, setNotifLoadError] = useState(false);
 
   useEffect(() => {
-    getNotificationPreferences().then(setNotifPrefs);
+    getNotificationPreferences()
+      .then(setNotifPrefs)
+      .catch(() => setNotifLoadError(true));
   }, []);
 
   async function handleNotifToggle(key: NotifKey) {
@@ -168,6 +171,8 @@ export default function SettingsClient({
                 </div>
               ))}
             </div>
+          ) : notifLoadError ? (
+            <p className="text-red-400 text-sm">Failed to load preferences. Please refresh.</p>
           ) : (
             <p className="text-gray-600 text-sm">Loading…</p>
           )}

@@ -12,16 +12,33 @@ function isIOSNotInstalled(): boolean {
   return !isInstalled;
 }
 
-async function subscribeToPush(): Promise<boolean> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+async function subscribeToPush(): Promise<{ ok: boolean; error?: string }> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return { ok: false, error: "Push notifications are not supported in this browser." };
+  }
 
-  const registration = await navigator.serviceWorker.ready;
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) {
+    return { ok: false, error: "Push notifications are not configured." };
+  }
+
+  // Register SW explicitly first, then wait for it to become active.
+  // navigator.serviceWorker.ready hangs forever if no SW is registered —
+  // wrap in a timeout so we fail fast instead of loading indefinitely.
+  await navigator.serviceWorker.register("/sw.js").catch(() => {
+    // Already registered or registration failed — .ready will surface the error
+  });
+
+  const registration = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Service worker took too long to activate.")), 15000)
+    ),
+  ]);
 
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-    ) as unknown as BufferSource,
+    applicationServerKey: urlBase64ToUint8Array(vapidKey) as unknown as BufferSource,
   });
 
   const json = subscription.toJSON();
@@ -35,7 +52,12 @@ async function subscribeToPush(): Promise<boolean> {
     }),
   });
 
-  return res.ok;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { ok: false, error: body.error ?? "Failed to save push subscription." };
+  }
+
+  return { ok: true };
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -50,6 +72,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export default function NotificationPrompt() {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pushError, setPushError] = useState("");
 
   useEffect(() => {
     // Don't show on iOS unless installed as PWA
@@ -74,17 +97,23 @@ export default function NotificationPrompt() {
 
   async function enable() {
     setLoading(true);
+    setPushError("");
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        await subscribeToPush();
+        const result = await subscribeToPush();
+        if (!result.ok) {
+          setPushError(result.error ?? "Could not enable push notifications.");
+          return;
+        }
       }
-    } catch {
-      // Silently ignore — push not critical
+      setVisible(false);
+      localStorage.setItem("notif-dismissed", "1");
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "Could not enable push notifications.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setVisible(false);
-    localStorage.setItem("notif-dismissed", "1");
   }
 
   if (!visible) return null;
@@ -113,6 +142,9 @@ export default function NotificationPrompt() {
             ×
           </button>
         </div>
+        {pushError && (
+          <p className="text-red-400 text-sm mb-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">{pushError}</p>
+        )}
         <div className="flex gap-3">
           <button
             onClick={enable}
