@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import {
   Briefcase, Zap, Camera, FileText, Globe, ScanLine,
@@ -74,20 +75,6 @@ const INCLUDED = [
   "Trade calculators for any job",
 ];
 
-// ── Logo mark ─────────────────────────────────────────────────────────────────
-
-function LogoMark({ size = 28 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 512 512" width={size} height={size} style={{ borderRadius: "18%" }}>
-      <rect width="512" height="512" fill="#0F0F0F" />
-      <polygon points="106,418 406,418 256,118" fill="none" stroke="white" strokeWidth="44" strokeLinejoin="miter" />
-      <rect x="106" y="48" width="300" height="70" rx="10" fill="#0F0F0F" stroke="white" strokeWidth="12" />
-      <path d="M 160 108 Q 256 62 352 108" fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" />
-      <ellipse cx="256" cy="83" rx="28" ry="15" fill="#F97316" />
-    </svg>
-  );
-}
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function LandingPage() {
@@ -104,9 +91,15 @@ export default async function LandingPage() {
       <header className="sticky top-0 z-50 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-[#1a1a1a]">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={32} />
-            <span className="text-white font-black text-xl tracking-tight">Sightline</span>
+          <div className="flex items-center">
+            <Image
+              src="/new-logo.png.png"
+              alt="Sightline"
+              width={1408}
+              height={768}
+              className="h-9 w-auto"
+              priority
+            />
           </div>
 
           {/* Nav links */}
@@ -361,7 +354,13 @@ export default async function LandingPage() {
       {/* ── Final CTA ── */}
       <section className="py-20 px-5 border-t border-[#1a1a1a] text-center">
         <div className="max-w-lg mx-auto">
-          <LogoMark size={56} />
+          <Image
+            src="/new-logo.png.png"
+            alt="Sightline"
+            width={1408}
+            height={768}
+            className="h-14 w-auto"
+          />
           <h2 className="text-3xl sm:text-4xl font-black text-white mt-6 mb-3">
             Ready to run your business like a business?
           </h2>

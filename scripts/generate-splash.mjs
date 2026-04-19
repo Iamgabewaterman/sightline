@@ -6,41 +6,38 @@ import { mkdirSync } from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const splashDir = path.join(__dirname, "../public/splash");
 const iconsDir  = path.join(__dirname, "../public/icons");
+const logoSrc   = path.join(__dirname, "../public/new-logo.png.png");
 
 mkdirSync(splashDir, { recursive: true });
 
-const BG = "#0F0F0F";
+const BG = { r: 15, g: 15, b: 15 }; // #0F0F0F
 
-// ── Logo SVG (speed square + bubble level) ─────────────────────────────────
-// Extracted from public/icons/icon.svg — original viewBox: 0 0 512 512.
-// Background rect omitted so it composites cleanly over any solid fill.
-const LOGO_SVG_CONTENT = `
-  <polygon
-    points="106,418 406,418 256,118"
-    fill="none" stroke="white" stroke-width="44"
-    stroke-linejoin="miter" stroke-miterlimit="4"
-  />
-  <line x1="286" y1="178" x2="304" y2="169" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <line x1="316" y1="238" x2="334" y2="229" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <line x1="346" y1="298" x2="364" y2="289" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <line x1="376" y1="358" x2="394" y2="349" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <rect x="106" y="48" width="300" height="70" rx="10"
-    fill="${BG}" stroke="white" stroke-width="12"/>
-  <path d="M 160 108 Q 256 62 352 108"
-    fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <ellipse cx="256" cy="83" rx="28" ry="15" fill="#F97316"/>
-`;
+// Logo source aspect ratio: 1408 × 768
+const LOGO_ASPECT = 768 / 1408;
 
 // ── Apple touch icon: 180×180 PNG ──────────────────────────────────────────
 async function makeAppleTouchIcon() {
+  // For the square icon, fit the logo inside with dark padding
   const size = 180;
-  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-    <rect width="512" height="512" fill="${BG}"/>
-    ${LOGO_SVG_CONTENT}
-  </svg>`;
+  const logoW = Math.round(size * 0.85);
+  const logoH = Math.round(logoW * LOGO_ASPECT);
+  const logoX = Math.round((size - logoW) / 2);
+  const logoY = Math.round((size - logoH) / 2);
+
+  const logoBuffer = await sharp(logoSrc)
+    .resize(logoW, logoH, { fit: "contain", background: { ...BG, alpha: 0 } })
+    .png()
+    .toBuffer();
 
   const outPath = path.join(iconsDir, "apple-touch-icon.png");
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
+  await sharp({
+    create: { width: size, height: size, channels: 4, background: { ...BG, alpha: 255 } },
+  })
+    .composite([{ input: logoBuffer, left: logoX, top: logoY }])
+    .flatten({ background: BG })
+    .png({ compressionLevel: 9 })
+    .toFile(outPath);
+
   console.log("✓ apple-touch-icon.png (180x180)");
 }
 
@@ -57,52 +54,57 @@ const sizes = [
 ];
 
 async function makeSplash({ w, h, name }) {
-  const cx = Math.round(w / 2);
+  // Logo: 57.5% of screen width (fills 55-60% as requested)
+  const logoW = Math.round(w * 0.575);
+  const logoH = Math.round(logoW * LOGO_ASPECT);
 
-  // Logo: 40% of screen width, centered
-  const iconSize = Math.round(w * 0.40);
+  const logoX = Math.round((w - logoW) / 2);
 
-  // Tagline font size: ~4% of screen width, minimum 28px
+  // Tagline below the logo
   const fontSize = Math.max(28, Math.round(w * 0.038));
-
-  // Spacing between logo bottom and tagline baseline
-  const gap = Math.round(iconSize * 0.18);
-
-  // Total vertical height of the logo + gap + one line of text
-  const totalH = iconSize + gap + fontSize;
+  const gap = Math.round(logoH * 0.18);
+  const totalH = logoH + gap + fontSize;
 
   // Center the whole group vertically
   const groupTop = Math.round((h - totalH) / 2);
-
-  const logoX = Math.round((w - iconSize) / 2);
   const logoY = groupTop;
+  const textY = groupTop + logoH + gap + fontSize;
+  const cx = Math.round(w / 2);
+  const letterSpacing = Math.round(w * 0.004);
 
-  // SVG text y is the baseline; add font-size to move below logo
-  const textY = groupTop + iconSize + gap + fontSize;
+  // Resize logo, preserving transparency
+  const logoBuffer = await sharp(logoSrc)
+    .resize(logoW, logoH, { fit: "contain", background: { ...BG, alpha: 0 } })
+    .png()
+    .toBuffer();
 
-  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${w}" height="${h}" fill="${BG}"/>
-
-    <!-- Logo icon -->
-    <svg x="${logoX}" y="${logoY}" width="${iconSize}" height="${iconSize}" viewBox="0 0 512 512">
-      ${LOGO_SVG_CONTENT}
-    </svg>
-
-    <!-- Tagline -->
-    <text
-      x="${cx}"
-      y="${textY}"
-      text-anchor="middle"
-      font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
-      font-size="${fontSize}"
-      font-weight="400"
-      letter-spacing="${Math.round(w * 0.004)}"
-      fill="#6B7280"
-    >Every job. One view.</text>
-  </svg>`;
+  // Tagline SVG overlay
+  const taglineSvg = Buffer.from(
+    `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+      <text
+        x="${cx}" y="${textY}"
+        text-anchor="middle"
+        font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-size="${fontSize}"
+        font-weight="400"
+        letter-spacing="${letterSpacing}"
+        fill="#6B7280"
+      >Every job. One view.</text>
+    </svg>`
+  );
 
   const outPath = path.join(splashDir, `splash-${name}.png`);
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
+
+  await sharp({
+    create: { width: w, height: h, channels: 3, background: BG },
+  })
+    .composite([
+      { input: logoBuffer, left: logoX, top: logoY },
+      { input: taglineSvg, left: 0, top: 0 },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(outPath);
+
   console.log(`✓ splash-${name}.png`);
 }
 
