@@ -108,7 +108,7 @@ export default function DemoPage() {
           >
             Start Free Trial →
           </Link>
-          <p className="text-gray-600 text-xs mt-4">No credit card required · 90-day free trial</p>
+          <p className="text-gray-600 text-xs mt-4">No credit card required · 30-day free trial</p>
         </div>
 
       </div>

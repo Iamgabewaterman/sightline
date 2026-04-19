@@ -107,7 +107,7 @@ export async function middleware(request: NextRequest) {
     // ── Owner subscription enforcement ───────────────────────────────────────
     if (!isSubscribePage && !profile?.is_lifetime) {
       const trialEndsAt = new Date(user.created_at);
-      trialEndsAt.setDate(trialEndsAt.getDate() + 90);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
       const onTrial = new Date() < trialEndsAt;
 
       if (!onTrial) {

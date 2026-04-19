@@ -147,7 +147,7 @@ export default async function LandingPage() {
         <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1.5 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">
-            90-day free trial
+            30-day free trial
           </span>
         </div>
 
@@ -278,7 +278,7 @@ export default async function LandingPage() {
           {/* Beta banner */}
           <div className="bg-orange-500 rounded-t-2xl px-6 py-3 text-center">
             <p className="text-white font-bold text-sm tracking-wide">
-              🎉 90-day free trial — no credit card required
+              🎉 30-day free trial — no credit card required
             </p>
           </div>
 
