@@ -51,3 +51,28 @@ export async function sendContactEmail(
   if (error) return { error: error.message };
   return {};
 }
+
+export async function sendIdeaEmail(
+  idea: string
+): Promise<{ error?: string }> {
+  if (!idea.trim()) return { error: "Please share your idea first." };
+
+  const { error } = await resend.emails.send({
+    from: "Sightline Ideas <onboarding@resend.dev>",
+    to: "gabew595@gmail.com",
+    subject: "Sightline feature idea",
+    text: idea.trim(),
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+        <h2 style="color:#F97316;margin-bottom:4px;">New feature idea</h2>
+        <p style="color:#666;font-size:14px;margin-top:0;">via Sightline suggestions box</p>
+        <div style="margin-top:20px;padding:16px;background:#f5f5f5;border-radius:8px;">
+          <p style="margin:0;white-space:pre-wrap;">${idea.trim().replace(/</g, "&lt;")}</p>
+        </div>
+      </div>
+    `,
+  });
+
+  if (error) return { error: error.message };
+  return {};
+}

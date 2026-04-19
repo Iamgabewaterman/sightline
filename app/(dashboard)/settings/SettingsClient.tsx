@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/notification-preferences";
 import { NOTIF_TYPES, NotifKey } from "@/app/lib/notification-preferences-config";
 import ContactForm from "@/components/ContactForm";
+import IdeaBox from "@/components/IdeaBox";
 
 interface SectionProps {
   title: string;
@@ -266,6 +267,11 @@ export default function SettingsClient({
             Questions, feedback, or need help? We reply same day.
           </p>
           <ContactForm variant="settings" />
+        </Section>
+
+        {/* Share an idea */}
+        <Section title="Share an idea">
+          <IdeaBox variant="settings" />
         </Section>
 
         {/* Theme */}

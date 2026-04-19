@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
 import ContactForm from "@/components/ContactForm";
+import IdeaBox from "@/components/IdeaBox";
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -386,6 +387,11 @@ export default async function LandingPage() {
             Questions about pricing, features, or getting started? We&rsquo;ll reply same day.
           </p>
           <ContactForm variant="landing" />
+
+          <div className="mt-12 bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-7 py-8">
+            <h3 className="text-white font-black text-xl mb-1">Share an idea</h3>
+            <IdeaBox variant="landing" />
+          </div>
         </div>
       </section>
 
