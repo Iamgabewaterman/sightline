@@ -338,7 +338,7 @@ export default function InvoiceSection({
   async function handleShareLink() {
     const url = `${window.location.origin}/pay/${invoice!.id}`;
     if (navigator.share) {
-      await navigator.share({ title: invoiceNumber, text: `Pay invoice ${invoiceNumber}`, url });
+      await navigator.share({ title: invoiceNumber, url });
       return;
     }
     let success = false;
