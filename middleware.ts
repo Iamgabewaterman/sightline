@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Routes field members cannot access
@@ -72,11 +73,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute && !isPortalRoute && !isSignRoute && !isDemoRoute) {
-    const { data: profile } = await supabase
+    // Use service-role client so RLS never blocks the profile read in Edge Runtime
+    const admin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete")
       .eq("id", user.id)
       .maybeSingle();
+
+    console.log("[middleware] user:", user.id, "profile:", JSON.stringify(profile), "profileError:", profileError?.message ?? null);
 
     // ── Onboarding redirect (owners only, once) ───────────────────────────────
     if (
