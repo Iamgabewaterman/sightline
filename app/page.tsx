@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import {
-  Briefcase, Zap, Camera, FileText, Globe, ScanLine,
-  Navigation, BarChart2, Users, Calculator, WifiOff, Bell,
-  Edit3, CloudRain, FolderOpen, X, Check,
-} from "lucide-react";
+import { X, Check } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
 import ContactForm from "@/components/ContactForm";
 import IdeaBox from "@/components/IdeaBox";
@@ -18,24 +14,6 @@ export const metadata: Metadata = {
 };
 
 // ── Data ─────────────────────────────────────────────────────────────────────
-
-const FEATURES = [
-  { icon: Briefcase,  label: "Jobs & Timelines",        desc: "Track every job from start to finish" },
-  { icon: Zap,        label: "AI Material Estimates",   desc: "Accurate cost estimates in seconds" },
-  { icon: Camera,     label: "Photo Documentation",     desc: "Before, during, and after — all organized" },
-  { icon: FileText,   label: "Quotes & Invoices",       desc: "Professional PDFs, ready to send" },
-  { icon: Globe,      label: "Client Portal",           desc: "Clients track job progress in real time" },
-  { icon: ScanLine,   label: "Receipt Scanning",        desc: "OCR extracts amounts automatically" },
-  { icon: Navigation, label: "GPS Mileage Tracking",    desc: "Auto-log drives for tax deductions" },
-  { icon: BarChart2,  label: "Tax Reports",             desc: "Export-ready summaries for your accountant" },
-  { icon: Users,      label: "Team Management",         desc: "Assign crew, track hours, share job details" },
-  { icon: Calculator, label: "Trade Calculators",       desc: "Material math for any trade built in" },
-  { icon: WifiOff,    label: "Offline Mode",            desc: "Keep working without signal" },
-  { icon: Bell,       label: "Push Notifications",      desc: "Invoice paid, crew clocked in, and more" },
-  { icon: Edit3,      label: "E-Signatures",            desc: "Get quotes signed from anywhere" },
-  { icon: CloudRain,  label: "Weather Alerts",          desc: "Know before your crew shows up" },
-  { icon: FolderOpen, label: "Document Storage",        desc: "Permits, plans, contracts — all in one place" },
-];
 
 const PROBLEMS = [
   "QuickBooks doesn't know what a square foot is",
@@ -57,12 +35,6 @@ const TESTIMONIALS = [
     trade: "Remodeling Contractor",
     city: "Eugene, OR",
   },
-  {
-    quote: "My guys clock in on their phones and I see it in real time. No more 'I forgot how many hours' conversations.",
-    name: "David T.",
-    trade: "Framing Contractor",
-    city: "Bend, OR",
-  },
 ];
 
 const INCLUDED = [
@@ -71,7 +43,6 @@ const INCLUDED = [
   "Quotes & invoices (PDF + e-sign)",
   "GPS mileage & tax reports",
   "Client portal + receipt scanning",
-  "Team management & time tracking",
   "Push notifications & offline mode",
   "Trade calculators for any job",
 ];
@@ -206,35 +177,6 @@ export default async function LandingPage() {
                   <X size={16} className="text-red-400" />
                 </div>
                 <p className="text-gray-300 text-base leading-snug">{problem}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Solution / Features ── */}
-      <section id="features" className="py-20 px-5 border-t border-[#1a1a1a]">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-4">
-            Sightline does all of it
-          </h2>
-          <p className="text-gray-500 text-center mb-12 max-w-xl mx-auto">
-            Every feature a working contractor actually needs — nothing you don&rsquo;t.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-            {FEATURES.map(({ icon: Icon, label, desc }) => (
-              <div
-                key={label}
-                className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-4 py-5 flex flex-col gap-3"
-              >
-                <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-                  <Icon size={18} className="text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-white font-bold text-sm leading-tight">{label}</p>
-                  <p className="text-gray-500 text-xs mt-1 leading-snug">{desc}</p>
-                </div>
               </div>
             ))}
           </div>
