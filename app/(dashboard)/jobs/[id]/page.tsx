@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument, SubcontractorLog } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -133,6 +133,16 @@ export default async function JobDetailPage({
   ]);
 
   if (!job) notFound();
+
+  // Fetch milestones for the invoice (if one exists)
+  const { data: invoiceMilestones } = invoice
+    ? await supabase
+        .from("payment_milestones")
+        .select("*")
+        .eq("invoice_id", invoice.id)
+        .order("sort_order")
+        .returns<PaymentMilestone[]>()
+    : { data: [] };
 
   const clockSessionsLaborTotal = (clockSessions ?? []).reduce((s, cs) => {
     return s + (cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0));
@@ -313,6 +323,7 @@ export default async function JobDetailPage({
                 estimate={estimate}
                 initialInvoice={invoice ?? null}
                 jobClient={jobClient ?? null}
+                initialMilestones={invoiceMilestones ?? []}
               />
             </div>
           )}

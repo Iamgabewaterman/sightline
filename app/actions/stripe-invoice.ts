@@ -61,3 +61,57 @@ export async function createInvoiceCheckoutSession(
 
   return { url: session.url! };
 }
+
+export async function createMilestoneCheckoutSession(
+  milestoneId: string
+): Promise<{ url?: string; error?: string }> {
+  const supabase = adminClient();
+
+  const { data: milestone } = await supabase
+    .from("payment_milestones")
+    .select("*, invoices(job_id, status)")
+    .eq("id", milestoneId)
+    .single();
+
+  if (!milestone) return { error: "Milestone not found" };
+  if (milestone.status === "paid") return { error: "Already paid" };
+
+  const inv = milestone.invoices as { job_id: string; status: string } | null;
+  if (!inv) return { error: "Invoice not found" };
+
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("name")
+    .eq("id", inv.job_id)
+    .single();
+
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
+  const amountCents = Math.round(Number(milestone.amount) * 100);
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: job?.name
+              ? `${milestone.label} — ${job.name}`
+              : milestone.label,
+          },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      milestone_id: milestoneId,
+      invoice_id: milestone.invoice_id,
+      job_id: inv.job_id,
+    },
+    success_url: `${origin}/pay/${milestone.invoice_id}?status=success`,
+    cancel_url: `${origin}/pay/${milestone.invoice_id}?status=cancel`,
+  });
+
+  return { url: session.url! };
+}

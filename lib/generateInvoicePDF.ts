@@ -44,6 +44,7 @@ export interface InvoicePDFData {
   displayShowLabor?: boolean;
   displayShowProfitMargin?: boolean;
   clientLineItems?: Array<{ name: string; amount: number }>;
+  milestones?: Array<{ label: string; amount: number; due_date: string | null; status: string }>;
 }
 
 // ─── Colors ─────────────────────────────────────────────────────────────────
@@ -299,6 +300,21 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   page.drawText("TOTAL DUE", { x: M, y: y + 6, font: bold, size: 16, color: BLACK });
   tr(fmtTotal(data.grandTotal), RX - 2, y, bold, 30, ORANGE);
   y -= 42;
+
+  // ── Payment schedule (milestones) ────────────────────────────────────────
+  if (data.milestones && data.milestones.length > 0) {
+    y -= 6;
+    hLine(y, 0.4);
+    y -= 16;
+    page.drawText("PAYMENT SCHEDULE", { x: TC_D + 2, y, font: bold, size: 7.5, color: GRAY });
+    y -= 16;
+    for (const ms of data.milestones) {
+      const label = ms.due_date ? `${ms.label}  ·  Due ${ms.due_date}` : ms.label;
+      const statusTag = ms.status === "paid" ? "  ✓ PAID" : "";
+      drawInvRow(label + statusTag, fmtTotal(ms.amount), ms.status === "paid" ? GREEN_TEXT : BLACK);
+    }
+    y -= 4;
+  }
 
   // ── Payment status badge ──────────────────────────────────────────────────
   if (data.status) {

@@ -329,6 +329,19 @@ export interface JobMember {
 }
 
 export type InvoiceStatus = "unpaid" | "sent" | "paid";
+
+export interface PaymentMilestone {
+  id: string;
+  invoice_id: string;
+  user_id: string;
+  label: string;
+  amount: number;
+  due_date: string | null;
+  status: "unpaid" | "paid";
+  paid_at: string | null;
+  sort_order: number;
+  created_at: string;
+}
 export type PaymentTerms = "due_on_receipt" | "net_15" | "net_30" | "net_45";
 
 export interface Invoice {

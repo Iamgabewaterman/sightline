@@ -17,12 +17,23 @@ function fmtDate(iso: string) {
   });
 }
 
+function fmtDateTs(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+}
+
 function fmtAmount(n: number) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function isOverdue(dueDate: string | null, status: string) {
   if (status === "paid" || !dueDate) return false;
+  return dueDate < new Date().toISOString().split("T")[0];
+}
+
+function isMilestoneDuePast(dueDate: string | null) {
+  if (!dueDate) return false;
   return dueDate < new Date().toISOString().split("T")[0];
 }
 
@@ -43,7 +54,7 @@ export default async function PayPage({
 
   if (!invoice) notFound();
 
-  const [{ data: job }, { data: bp }, { data: client }, { data: estimate }] = await Promise.all([
+  const [{ data: job }, { data: bp }, { data: client }, { data: estimate }, { data: milestones }] = await Promise.all([
     supabase.from("jobs").select("name, address").eq("id", invoice.job_id).single(),
     supabase.from("business_profiles").select("*").eq("user_id", invoice.user_id).maybeSingle(),
     invoice.client_id
@@ -54,6 +65,11 @@ export default async function PayPage({
       .select("material_total, labor_total, profit_margin_pct")
       .eq("job_id", invoice.job_id)
       .maybeSingle(),
+    supabase
+      .from("payment_milestones")
+      .select("*")
+      .eq("invoice_id", invoice.id)
+      .order("sort_order"),
   ]);
 
   let logoUrl: string | null = null;
@@ -64,6 +80,8 @@ export default async function PayPage({
   const invoiceNumber = `INV-${invoice.job_id.slice(0, 8).toUpperCase()}`;
   const overdue = isOverdue(invoice.due_date, invoice.status);
   const paid = invoice.status === "paid";
+  const milestoneList = milestones ?? [];
+  const hasMilestones = milestoneList.length > 0;
 
   // Fire "invoice viewed" push — once per invoice, only when unpaid
   if (!paid && invoice.user_id) {
@@ -89,7 +107,7 @@ export default async function PayPage({
     net_45: "Net 45",
   };
 
-  // Determine what the client sees
+  // Determine what the client sees (non-milestone line items)
   const clientLineItems: Array<{ name: string; amount: number }> = invoice.client_line_items ?? [];
   const showMaterials = invoice.display_show_materials ?? false;
   const showLabor = invoice.display_show_labor ?? false;
@@ -146,17 +164,11 @@ export default async function PayPage({
               <p className="text-white font-bold text-base font-mono">{invoiceNumber}</p>
             </div>
             {paid ? (
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">
-                Paid
-              </span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">Paid</span>
             ) : overdue ? (
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400">
-                Overdue
-              </span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400">Overdue</span>
             ) : (
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
-                Unpaid
-              </span>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">Unpaid</span>
             )}
           </div>
 
@@ -179,14 +191,12 @@ export default async function PayPage({
           </div>
 
           {/* Dates */}
-          <div className="px-5 py-4 border-b border-[#2a2a2a] flex gap-6">
+          <div className="px-5 py-4 border-b border-[#2a2a2a] flex gap-6 flex-wrap">
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Issued</p>
-              <p className="text-white text-sm font-semibold">
-                {fmtDate(invoice.created_at.split("T")[0])}
-              </p>
+              <p className="text-white text-sm font-semibold">{fmtDate(invoice.created_at.split("T")[0])}</p>
             </div>
-            {invoice.due_date && (
+            {invoice.due_date && !hasMilestones && (
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Due</p>
                 <p className={`text-sm font-semibold ${overdue ? "text-red-400" : "text-white"}`}>
@@ -195,68 +205,61 @@ export default async function PayPage({
                 </p>
               </div>
             )}
-            <div>
-              <p className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Terms</p>
-              <p className="text-white text-sm font-semibold">
-                {termsLabels[invoice.payment_terms] ?? invoice.payment_terms}
-              </p>
-            </div>
-          </div>
-
-          {/* Line items */}
-          <div className="px-5 py-4 border-b border-[#2a2a2a]">
-            {hasClientView ? (
-              <>
-                {/* Contractor-built client line items */}
-                {clientLineItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
-                    <p className="text-white font-semibold text-sm">{item.name}</p>
-                    <p className="text-white font-semibold text-sm">{fmtAmount(item.amount)}</p>
-                  </div>
-                ))}
-                {/* Optional internal breakdowns if toggled on */}
-                {showMaterials && estimate && (
-                  <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
-                    <p className="text-white font-semibold text-sm">Materials</p>
-                    <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.material_total))}</p>
-                  </div>
-                )}
-                {showLabor && estimate && (
-                  <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
-                    <p className="text-white font-semibold text-sm">Labor</p>
-                    <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.labor_total))}</p>
-                  </div>
-                )}
-                {showProfitMargin && estimate && (
-                  <div className="flex items-center justify-between py-2">
-                    <p className="text-white font-semibold text-sm">Margin</p>
-                    <p className="text-white font-semibold text-sm">{estimate.profit_margin_pct}%</p>
-                  </div>
-                )}
-              </>
-            ) : (
-              /* Legacy: single line */
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="text-white font-semibold text-sm">Professional Services</p>
-                  {job?.name && (
-                    <p className="text-gray-400 text-xs mt-0.5">{job.name}</p>
-                  )}
-                </div>
-                <p className="text-white font-semibold text-sm">
-                  {fmtAmount(Number(invoice.total_amount))}
-                </p>
+            {!hasMilestones && (
+              <div>
+                <p className="text-gray-500 text-xs uppercase tracking-wider mb-0.5">Terms</p>
+                <p className="text-white text-sm font-semibold">{termsLabels[invoice.payment_terms] ?? invoice.payment_terms}</p>
               </div>
             )}
           </div>
+
+          {/* Line items — only shown when no milestones */}
+          {!hasMilestones && (
+            <div className="px-5 py-4 border-b border-[#2a2a2a]">
+              {hasClientView ? (
+                <>
+                  {clientLineItems.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                      <p className="text-white font-semibold text-sm">{item.name}</p>
+                      <p className="text-white font-semibold text-sm">{fmtAmount(item.amount)}</p>
+                    </div>
+                  ))}
+                  {showMaterials && estimate && (
+                    <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                      <p className="text-white font-semibold text-sm">Materials</p>
+                      <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.material_total))}</p>
+                    </div>
+                  )}
+                  {showLabor && estimate && (
+                    <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                      <p className="text-white font-semibold text-sm">Labor</p>
+                      <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.labor_total))}</p>
+                    </div>
+                  )}
+                  {showProfitMargin && estimate && (
+                    <div className="flex items-center justify-between py-2">
+                      <p className="text-white font-semibold text-sm">Margin</p>
+                      <p className="text-white font-semibold text-sm">{estimate.profit_margin_pct}%</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-white font-semibold text-sm">Professional Services</p>
+                    {job?.name && <p className="text-gray-400 text-xs mt-0.5">{job.name}</p>}
+                  </div>
+                  <p className="text-white font-semibold text-sm">{fmtAmount(Number(invoice.total_amount))}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Total */}
           <div className="px-5 py-5">
             <div className="flex items-center justify-between">
               <p className="text-gray-400 font-semibold text-sm uppercase tracking-wider">Total Due</p>
-              <p className="text-orange-500 font-black text-3xl">
-                {fmtAmount(Number(invoice.total_amount))}
-              </p>
+              <p className="text-orange-500 font-black text-3xl">{fmtAmount(Number(invoice.total_amount))}</p>
             </div>
           </div>
         </div>
@@ -269,18 +272,61 @@ export default async function PayPage({
           </div>
         )}
 
-        {/* Pay button or paid state */}
+        {/* Payment milestones or single Pay button */}
         {paid ? (
           <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-6 text-center">
             <p className="text-green-400 font-bold text-xl mb-1">Payment Received</p>
             <p className="text-green-300 text-sm">Thank you for your payment.</p>
             {invoice.paid_at && (
               <p className="text-green-500 text-xs mt-2">
-                Paid {new Date(invoice.paid_at).toLocaleDateString("en-US", {
-                  month: "long", day: "numeric", year: "numeric",
-                })}
+                Paid {new Date(invoice.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </p>
             )}
+          </div>
+        ) : hasMilestones ? (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
+            <div className="bg-[#141414] border-b border-[#2a2a2a] px-5 py-3">
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Payment Schedule</p>
+            </div>
+            {milestoneList.map((milestone) => {
+              const mPaid = milestone.status === "paid";
+              const mOverdue = !mPaid && isMilestoneDuePast(milestone.due_date);
+              return (
+                <div key={milestone.id} className="px-5 py-4 border-b border-[#2a2a2a] last:border-0">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="text-white font-semibold">{milestone.label}</p>
+                      {milestone.due_date && (
+                        <p className={`text-sm mt-0.5 ${mOverdue ? "text-red-400" : "text-gray-400"}`}>
+                          Due {fmtDate(milestone.due_date)}
+                          {mOverdue && " · Overdue"}
+                        </p>
+                      )}
+                      {mPaid && milestone.paid_at && (
+                        <p className="text-green-500 text-xs mt-0.5">Paid {fmtDateTs(milestone.paid_at)}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white font-bold text-lg">{fmtAmount(Number(milestone.amount))}</p>
+                      {mPaid ? (
+                        <span className="text-xs font-bold text-green-400">✓ Paid</span>
+                      ) : (
+                        <span className={`text-xs font-semibold ${mOverdue ? "text-red-400" : "text-yellow-400"}`}>
+                          {mOverdue ? "Overdue" : "Unpaid"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {!mPaid && (
+                    <PayButton
+                      invoiceId={invoice.id}
+                      milestoneId={milestone.id}
+                      label={`Pay ${milestone.label}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <PayButton invoiceId={params.invoice_id} />

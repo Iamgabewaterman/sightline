@@ -1,16 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { createInvoiceCheckoutSession } from "@/app/actions/stripe-invoice";
+import { createInvoiceCheckoutSession, createMilestoneCheckoutSession } from "@/app/actions/stripe-invoice";
 
-export default function PayButton({ invoiceId }: { invoiceId: string }) {
+export default function PayButton({
+  invoiceId,
+  milestoneId,
+  label = "Pay Now",
+}: {
+  invoiceId: string;
+  milestoneId?: string;
+  label?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function handlePay() {
     setLoading(true);
     setError("");
-    const result = await createInvoiceCheckoutSession(invoiceId);
+    const result = milestoneId
+      ? await createMilestoneCheckoutSession(milestoneId)
+      : await createInvoiceCheckoutSession(invoiceId);
     if (result.url) {
       window.location.href = result.url;
     } else {
@@ -31,7 +41,7 @@ export default function PayButton({ invoiceId }: { invoiceId: string }) {
         disabled={loading}
         className="w-full bg-orange-500 text-white font-bold text-lg py-5 rounded-2xl active:scale-95 transition-transform disabled:opacity-50"
       >
-        {loading ? "Redirecting to payment…" : "Pay Now"}
+        {loading ? "Redirecting to payment…" : label}
       </button>
     </div>
   );

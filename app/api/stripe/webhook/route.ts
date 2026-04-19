@@ -77,7 +77,60 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      // ── Invoice payment ──────────────────────────────────────────────────
+      // ── Milestone payment ────────────────────────────────────────────────
+      if (session.metadata?.milestone_id) {
+        const milestoneId = session.metadata.milestone_id;
+        const invoiceId   = session.metadata.invoice_id;
+        const now = new Date().toISOString();
+
+        // Mark the milestone paid
+        await supabase
+          .from("payment_milestones")
+          .update({ status: "paid", paid_at: now })
+          .eq("id", milestoneId);
+
+        // Check if all milestones for this invoice are now paid
+        const { data: remaining } = await supabase
+          .from("payment_milestones")
+          .select("id, status")
+          .eq("invoice_id", invoiceId);
+
+        const allPaid = (remaining ?? []).every((m) => m.status === "paid" || m.id === milestoneId);
+        if (allPaid) {
+          await supabase
+            .from("invoices")
+            .update({ status: "paid", paid_at: now })
+            .eq("id", invoiceId);
+        }
+
+        // Notify contractor
+        const { data: inv } = await supabase
+          .from("invoices")
+          .select("job_id, total_amount, jobs(user_id, name, client_id)")
+          .eq("id", invoiceId)
+          .single();
+        if (inv) {
+          const job = inv.jobs as unknown as { user_id: string; name: string; client_id: string | null } | null;
+          if (job?.user_id) {
+            let clientName = "Client";
+            if (job.client_id) {
+              const { data: cl } = await supabase.from("clients").select("name").eq("id", job.client_id).single();
+              if (cl?.name) clientName = cl.name;
+            }
+            const { data: ms } = await supabase.from("payment_milestones").select("label, amount").eq("id", milestoneId).single();
+            const invNum = `INV-${invoiceId.slice(0, 8).toUpperCase()}`;
+            const amt = Number(ms?.amount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
+            await sendPushToUser(job.user_id, {
+              title: "Milestone Paid",
+              body: `${clientName} paid ${ms?.label ?? "milestone"} on ${invNum} — $${amt}`,
+              url: `/jobs`,
+            });
+          }
+        }
+        break;
+      }
+
+      // ── Full invoice payment ─────────────────────────────────────────────
       if (session.metadata?.invoice_id) {
         await supabase
           .from("invoices")
