@@ -116,7 +116,7 @@ export async function updateInvoiceStatus(
 
   const now = new Date().toISOString();
   const updates: Record<string, unknown> = { status };
-  if (status === "sent" && true) updates.sent_at = now;
+  if (status === "sent") updates.sent_at = now;
   if (status === "paid") updates.paid_at = now;
 
   const { data, error } = await supabase

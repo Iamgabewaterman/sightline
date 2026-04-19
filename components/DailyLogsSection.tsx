@@ -56,10 +56,11 @@ export default function DailyLogsSection({
 
   async function handleDelete(id: string) {
     setDeleting(true);
-    await deleteDailyLog(id);
+    const res = await deleteDailyLog(id);
+    setDeleting(false);
+    if (res.error) { setError(res.error); setConfirmDeleteId(null); return; }
     setLogs((prev) => prev.filter((l) => l.id !== id));
     setConfirmDeleteId(null);
-    setDeleting(false);
   }
 
   return (

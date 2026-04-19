@@ -120,7 +120,8 @@ export default function ReceiptsSection({
   }
 
   async function handleCategoryChange(receiptId: string, category: ExpenseCategory) {
-    await updateReceiptCategory(receiptId, category);
+    const res = await updateReceiptCategory(receiptId, category);
+    if (res.error) { setError(res.error); setCategoryPickerId(null); return; }
     setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, category } : r));
     setCategoryPickerId(null);
   }
@@ -128,10 +129,11 @@ export default function ReceiptsSection({
   async function handleDeleteConfirmed() {
     if (!confirmDeleteId) return;
     setDeleting(true);
-    await deleteReceipt(confirmDeleteId);
+    const res = await deleteReceipt(confirmDeleteId);
+    setDeleting(false);
+    if (res.error) { setError(res.error); setConfirmDeleteId(null); return; }
     setReceipts((prev) => prev.filter((r) => r.id !== confirmDeleteId));
     setConfirmDeleteId(null);
-    setDeleting(false);
   }
 
   const total = receipts.reduce((sum, r) => sum + (r.amount ?? 0), 0);
