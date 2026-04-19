@@ -15,7 +15,7 @@ export default async function SubscribePage() {
 
   // Calculate trial info
   const trialEndsAt = new Date(user!.created_at);
-  trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
+  trialEndsAt.setDate(trialEndsAt.getDate() + 90);
   const now = new Date();
   const onTrial = now < trialEndsAt;
   const daysLeft = Math.max(

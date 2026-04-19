@@ -153,7 +153,7 @@ export default async function LandingPage() {
         <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1.5 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">
-            Beta — 3 months free
+            90-day free trial
           </span>
         </div>
 
@@ -176,7 +176,7 @@ export default async function LandingPage() {
             href="/signup"
             className="w-full sm:w-auto bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-orange-400 transition-colors active:scale-95 text-center"
           >
-            Start Free Beta
+            Start Free Trial
           </Link>
           <a
             href="#problem"
@@ -284,7 +284,7 @@ export default async function LandingPage() {
           {/* Beta banner */}
           <div className="bg-orange-500 rounded-t-2xl px-6 py-3 text-center">
             <p className="text-white font-bold text-sm tracking-wide">
-              🎉 Beta offer — 3 months free, no credit card required
+              🎉 90-day free trial — no credit card required
             </p>
           </div>
 
@@ -327,7 +327,7 @@ export default async function LandingPage() {
               href="/signup"
               className="block w-full bg-orange-500 text-white font-bold text-lg py-5 rounded-2xl text-center hover:bg-orange-400 transition-colors active:scale-95"
             >
-              Start Free Beta
+              Start Free Trial
             </Link>
             <p className="text-gray-600 text-xs text-center mt-3">
               No credit card · Cancel anytime
@@ -372,7 +372,7 @@ export default async function LandingPage() {
             href="/signup"
             className="inline-block bg-orange-500 text-white font-bold text-lg px-10 py-5 rounded-2xl hover:bg-orange-400 transition-colors active:scale-95"
           >
-            Start Free Beta
+            Start Free Trial
           </Link>
         </div>
       </section>
