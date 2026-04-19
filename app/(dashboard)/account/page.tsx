@@ -3,11 +3,31 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import AccountAvatarSection from "./AccountAvatarSection";
+import ConnectBankButton from "./ConnectBankButton";
+import { verifyConnectAccount } from "@/app/actions/stripe-connect";
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: { connect?: string };
+}) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // If returning from Stripe Connect onboarding, re-verify
+  if (searchParams.connect === "success") {
+    await verifyConnectAccount();
+  }
+
+  // Fetch connect status
+  const { data: bp } = await supabase
+    .from("business_profiles")
+    .select("stripe_onboarded")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const onboarded = bp?.stripe_onboarded ?? false;
 
   const rowClass =
     "flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform";
@@ -25,6 +45,12 @@ export default async function AccountPage() {
 
         {/* Avatar + name */}
         <AccountAvatarSection />
+
+        {/* Payouts */}
+        <div>
+          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2 px-1">Payouts</p>
+          <ConnectBankButton onboarded={onboarded} />
+        </div>
 
         {/* Links */}
         <div className="flex flex-col gap-3">

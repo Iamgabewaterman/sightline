@@ -148,10 +148,14 @@ export default async function JobDetailPage({
     return s + (cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0));
   }, 0);
 
-  // Fetch client if linked
-  const { data: jobClient } = job.client_id
-    ? await supabase.from("clients").select("id, name, company, phone, email, address").eq("id", job.client_id).maybeSingle()
-    : { data: null };
+  // Fetch client if linked, and contractor's Stripe Connect status
+  const [{ data: jobClient }, { data: bpConnect }] = await Promise.all([
+    job.client_id
+      ? supabase.from("clients").select("id, name, company, phone, email, address").eq("id", job.client_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("business_profiles").select("stripe_onboarded").eq("user_id", user!.id).maybeSingle(),
+  ]);
+  const stripeConnected = bpConnect?.stripe_onboarded ?? false;
 
   // Initial actual costs (used to seed the live context)
   const initialMaterialCost = (materials ?? []).reduce((sum, m) => {
@@ -324,6 +328,7 @@ export default async function JobDetailPage({
                 initialInvoice={invoice ?? null}
                 jobClient={jobClient ?? null}
                 initialMilestones={invoiceMilestones ?? []}
+                stripeConnected={stripeConnected}
               />
             </div>
           )}

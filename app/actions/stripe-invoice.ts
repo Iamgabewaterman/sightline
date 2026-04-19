@@ -14,6 +14,24 @@ function adminClient() {
   );
 }
 
+async function getConnectedAccountId(jobId: string): Promise<string | null> {
+  const supabase = adminClient();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("user_id")
+    .eq("id", jobId)
+    .single();
+  if (!job?.user_id) return null;
+
+  const { data: bp } = await supabase
+    .from("business_profiles")
+    .select("stripe_account_id, stripe_onboarded")
+    .eq("user_id", job.user_id)
+    .maybeSingle();
+
+  return bp?.stripe_onboarded && bp?.stripe_account_id ? bp.stripe_account_id : null;
+}
+
 export async function createInvoiceCheckoutSession(
   invoiceId: string
 ): Promise<{ url?: string; error?: string }> {
@@ -34,6 +52,7 @@ export async function createInvoiceCheckoutSession(
     .eq("id", invoice.job_id)
     .single();
 
+  const connectedAccountId = await getConnectedAccountId(invoice.job_id);
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
   const amountCents = Math.round(Number(invoice.total_amount) * 100);
 
@@ -55,6 +74,11 @@ export async function createInvoiceCheckoutSession(
       invoice_id: invoiceId,
       job_id: invoice.job_id,
     },
+    ...(connectedAccountId && {
+      payment_intent_data: {
+        transfer_data: { destination: connectedAccountId },
+      },
+    }),
     success_url: `${origin}/pay/${invoiceId}?status=success`,
     cancel_url: `${origin}/pay/${invoiceId}?status=cancel`,
   });
@@ -85,6 +109,7 @@ export async function createMilestoneCheckoutSession(
     .eq("id", inv.job_id)
     .single();
 
+  const connectedAccountId = await getConnectedAccountId(inv.job_id);
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
   const amountCents = Math.round(Number(milestone.amount) * 100);
 
@@ -109,6 +134,11 @@ export async function createMilestoneCheckoutSession(
       invoice_id: milestone.invoice_id,
       job_id: inv.job_id,
     },
+    ...(connectedAccountId && {
+      payment_intent_data: {
+        transfer_data: { destination: connectedAccountId },
+      },
+    }),
     success_url: `${origin}/pay/${milestone.invoice_id}?status=success`,
     cancel_url: `${origin}/pay/${milestone.invoice_id}?status=cancel`,
   });
