@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client } from "@/types";
 import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions/invoices";
@@ -9,6 +9,88 @@ import { createClient } from "@/lib/supabase/client";
 import { useJobCost } from "./JobCostContext";
 import { useRole } from "@/hooks/useRole";
 
+// ── Preset line item categories ───────────────────────────────────────────────
+
+const PRESET_CATEGORIES: { name: string; items: string[] }[] = [
+  {
+    name: "General",
+    items: [
+      "Demo & debris removal",
+      "Site preparation & cleanup",
+      "Project management & supervision",
+      "Permits & inspections",
+      "Equipment & tool rental",
+    ],
+  },
+  {
+    name: "Structural & Framing",
+    items: [
+      "Framing & structural work",
+      "Foundation work",
+      "Concrete & flatwork",
+      "Roofing & flashing",
+      "Insulation",
+    ],
+  },
+  {
+    name: "Interior",
+    items: [
+      "Drywall & patching",
+      "Interior painting",
+      "Flooring installation",
+      "Tile work",
+      "Cabinetry & millwork",
+      "Trim & finish carpentry",
+      "Door & window installation",
+    ],
+  },
+  {
+    name: "Exterior",
+    items: [
+      "Exterior painting",
+      "Siding installation",
+      "Deck & patio construction",
+      "Fencing",
+      "Gutters & drainage",
+    ],
+  },
+  {
+    name: "Mechanical",
+    items: [
+      "Plumbing rough-in & finish",
+      "Electrical rough-in & finish",
+      "HVAC installation & ducting",
+      "Water heater installation",
+    ],
+  },
+  {
+    name: "Restoration",
+    items: [
+      "Water damage remediation",
+      "Fire damage remediation",
+      "Mold remediation",
+      "Structural drying",
+      "Content pack-out & storage",
+    ],
+  },
+];
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface ClientLineItemRow {
+  id: string;
+  name: string;
+  amount: string;
+}
+
+interface SavedLineItemData {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const TERMS_OPTIONS: { value: PaymentTerms; label: string; days: number }[] = [
   { value: "due_on_receipt", label: "Due on Receipt", days: 0 },
   { value: "net_15",         label: "Net 15",          days: 15 },
@@ -16,14 +98,22 @@ const TERMS_OPTIONS: { value: PaymentTerms; label: string; days: number }[] = [
   { value: "net_45",         label: "Net 45",          days: 45 },
 ];
 
+const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
+  unpaid: { label: "Unpaid", color: "text-red-400",    bg: "bg-red-500/20 border-red-500/40"    },
+  sent:   { label: "Sent",   color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/40" },
+  paid:   { label: "Paid",   color: "text-green-400",  bg: "bg-green-500/20 border-green-500/40"  },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function termsLabel(t: PaymentTerms) {
   return TERMS_OPTIONS.find((o) => o.value === t)?.label ?? t;
 }
 
-function calcDueDate(terms: PaymentTerms, fromIso?: string): Date | null {
+function calcDueDate(terms: PaymentTerms): Date | null {
   const opt = TERMS_OPTIONS.find((o) => o.value === terms);
   if (!opt || opt.days === 0) return null;
-  const base = fromIso ? new Date(fromIso) : new Date();
+  const base = new Date();
   base.setDate(base.getDate() + opt.days);
   return base;
 }
@@ -56,11 +146,33 @@ function daysOverdue(invoice: Invoice): number {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
-  unpaid: { label: "Unpaid", color: "text-red-400",    bg: "bg-red-500/20 border-red-500/40"    },
-  sent:   { label: "Sent",   color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/40" },
-  paid:   { label: "Paid",   color: "text-green-400",  bg: "bg-green-500/20 border-green-500/40"  },
-};
+function uid(): string {
+  return Math.random().toString(36).slice(2);
+}
+
+function newRow(): ClientLineItemRow {
+  return { id: uid(), name: "", amount: "" };
+}
+
+function initRows(invoice: Invoice | null): ClientLineItemRow[] {
+  if (invoice?.client_line_items?.length) {
+    return invoice.client_line_items.map((item) => ({
+      id: uid(),
+      name: item.name,
+      amount: item.amount ? item.amount.toString() : "",
+    }));
+  }
+  return [newRow()];
+}
+
+function rowsToItems(rows: ClientLineItemRow[]): Array<{ name: string; amount: number }> {
+  return rows.filter((r) => r.name.trim()).map((r) => ({
+    name: r.name.trim(),
+    amount: parseFloat(r.amount) || 0,
+  }));
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function InvoiceSection({
   jobId,
@@ -78,33 +190,96 @@ export default function InvoiceSection({
   jobClient: Pick<Client, "id" | "name" | "company" | "phone" | "email" | "address"> | null;
 }) {
   const { role, can_see_financials } = useRole();
+  const { changeOrders } = useJobCost();
+
+  // All hooks before any conditional returns
   const [invoice, setInvoice] = useState<Invoice | null>(initialInvoice);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [pdfLoading,    setPdfLoading]    = useState(false);
-  const [copied,        setCopied]        = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Field members without financial access can't see invoices
-  if (role === "field_member" && !can_see_financials) return null;
-
-  // Pre-invoice creation state
+  // Pre-creation form state
   const [terms, setTerms] = useState<PaymentTerms>("net_30");
   const [notes, setNotes] = useState("");
 
-  // Post-invoice edit state
+  // Display settings state
+  const [showMaterials, setShowMaterials] = useState(initialInvoice?.display_show_materials ?? false);
+  const [showLabor, setShowLabor] = useState(initialInvoice?.display_show_labor ?? false);
+  const [showItemizedMaterials, setShowItemizedMaterials] = useState(initialInvoice?.display_show_itemized_materials ?? false);
+  const [showProfitMargin, setShowProfitMargin] = useState(initialInvoice?.display_show_profit_margin ?? false);
+  const [clientLineItems, setClientLineItems] = useState<ClientLineItemRow[]>(() => initRows(initialInvoice));
+
+  // Saved line items from DB
+  const [savedLineItems, setSavedLineItems] = useState<SavedLineItemData[]>([]);
+
+  // Post-creation edit state
   const [editingNotes, setEditingNotes] = useState(false);
-  const [notesDraft, setNotesDraft] = useState(invoice?.notes ?? "");
+  const [notesDraft, setNotesDraft] = useState(initialInvoice?.notes ?? "");
+  const [editingDisplay, setEditingDisplay] = useState(false);
 
-  const { changeOrders } = useJobCost();
+  // Preset panel state
+  const [showPresetsPanel, setShowPresetsPanel] = useState(false);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+  const [customName, setCustomName] = useState("");
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("saved_line_items")
+        .select("id, name, amount")
+        .eq("user_id", user.id)
+        .order("name")
+        .then(({ data }) => { if (data) setSavedLineItems(data); });
+    });
+  }, []);
+
+  // Guards
+  if (role === "field_member" && !can_see_financials) return null;
   if (!estimate) return null;
 
+  // Calculations
   const addons = (estimate.addons as QuoteAddon[]) ?? [];
   const addonsTotal = addons.reduce((s, a) => s + Number(a.amount), 0);
   const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
   const grandTotal = estimate.final_quote + addonsTotal + changeOrdersTotal;
   const invoiceNumber = `INV-${jobId.slice(0, 8).toUpperCase()}`;
+
+  const clientLineItemsTotal = clientLineItems.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+  const hasClientItems = clientLineItems.some((r) => r.name.trim());
+  const totalMismatch = hasClientItems && Math.abs(clientLineItemsTotal - grandTotal) > 0.01;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  function addPreset(name: string) {
+    setClientLineItems((prev) => [...prev, { id: uid(), name, amount: "" }]);
+    setShowPresetsPanel(false);
+  }
+
+  function updateRow(id: string, field: "name" | "amount", value: string) {
+    setClientLineItems((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
+  }
+
+  function removeRow(id: string) {
+    setClientLineItems((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      return next.length ? next : [newRow()];
+    });
+  }
+
+  function toggleCategory(name: string) {
+    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
+  }
+
+  function addCustom() {
+    if (!customName.trim()) return;
+    setClientLineItems((prev) => [...prev, { id: uid(), name: customName.trim(), amount: "" }]);
+    setCustomName("");
+    setShowPresetsPanel(false);
+  }
 
   async function handleGenerate() {
     setCreating(true);
@@ -113,6 +288,11 @@ export default function InvoiceSection({
       clientId: jobClient?.id ?? null,
       paymentTerms: terms,
       notes: notes.trim() || undefined,
+      displayShowMaterials: showMaterials,
+      displayShowLabor: showLabor,
+      displayShowItemizedMaterials: showItemizedMaterials,
+      displayShowProfitMargin: showProfitMargin,
+      clientLineItems: rowsToItems(clientLineItems),
     });
     setCreating(false);
     if (res.error) { setError(res.error); return; }
@@ -133,37 +313,48 @@ export default function InvoiceSection({
     if (res.invoice) { setInvoice(res.invoice); setEditingNotes(false); }
   }
 
+  async function handleSaveDisplaySettings() {
+    if (!invoice) return;
+    const res = await updateInvoice(invoice.id, {
+      display_show_materials: showMaterials,
+      display_show_labor: showLabor,
+      display_show_itemized_materials: showItemizedMaterials,
+      display_show_profit_margin: showProfitMargin,
+      client_line_items: rowsToItems(clientLineItems),
+    });
+    if (res.invoice) { setInvoice(res.invoice); setEditingDisplay(false); }
+  }
+
+  function cancelDisplayEdit(inv: Invoice) {
+    setShowMaterials(inv.display_show_materials);
+    setShowLabor(inv.display_show_labor);
+    setShowItemizedMaterials(inv.display_show_itemized_materials);
+    setShowProfitMargin(inv.display_show_profit_margin);
+    setClientLineItems(initRows(inv));
+    setEditingDisplay(false);
+    setShowPresetsPanel(false);
+  }
+
   async function handleShareLink() {
     const url = `${window.location.origin}/pay/${invoice!.id}`;
     if (navigator.share) {
       await navigator.share({ title: invoiceNumber, text: `Pay invoice ${invoiceNumber}`, url });
       return;
     }
-    // navigator.clipboard requires HTTPS + user gesture and is unavailable in
-    // Chrome on iOS/Android WebView. Fall back to execCommand on a textarea.
     let success = false;
     if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(url);
-        success = true;
-      } catch {
-        // fall through to execCommand
-      }
+      try { await navigator.clipboard.writeText(url); success = true; } catch { /* fallthrough */ }
     }
     if (!success) {
       const ta = document.createElement("textarea");
       ta.value = url;
       ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
       document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
+      ta.focus(); ta.select();
       try { document.execCommand("copy"); success = true; } catch { /* ignore */ }
       document.body.removeChild(ta);
     }
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
+    if (success) { setCopied(true); setTimeout(() => setCopied(false), 2500); }
   }
 
   async function handleDownloadPDF() {
@@ -189,16 +380,12 @@ export default function InvoiceSection({
       const baseAddons = addons
         .filter((a) => a.name && Number(a.amount) !== 0)
         .map((a) => ({ name: a.name, amount: Number(a.amount) }));
-      const coLineItems = changeOrders.map((o) => ({
-        name: `CO: ${o.description}`,
-        amount: Number(o.amount),
-      }));
+      const coLineItems = changeOrders.map((o) => ({ name: `CO: ${o.description}`, amount: Number(o.amount) }));
 
       const inv = invoice!;
       const dueDate = inv.due_date
         ? new Date(inv.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
         : null;
-
       const paidDate = inv.paid_at
         ? new Date(inv.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
         : null;
@@ -212,6 +399,7 @@ export default function InvoiceSection({
         invoiceId: inv.id,
         materialsTotal: estimate.material_total,
         laborTotal: estimate.labor_total,
+        profitMarginPct: estimate.profit_margin_pct,
         addons: [...baseAddons, ...coLineItems],
         grandTotal,
         businessProfile: bp,
@@ -224,20 +412,237 @@ export default function InvoiceSection({
         notes: inv.notes,
         status: inv.status,
         paidDate,
+        displayShowMaterials: inv.display_show_materials,
+        displayShowLabor: inv.display_show_labor,
+        displayShowProfitMargin: inv.display_show_profit_margin,
+        clientLineItems: inv.client_line_items,
       });
     } finally {
       setPdfLoading(false);
     }
   }
 
-  // ── No invoice yet ──
+  // ── Shared render helpers (called as functions, not components) ───────────
+
+  function renderInternalBreakdown() {
+    return (
+      <div className="mb-5 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3">
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Your Internal Breakdown</p>
+        <div className="flex justify-between text-sm mb-1.5">
+          <span className="text-gray-400">Materials</span>
+          <span className="text-white">{fmtNum(estimate!.material_total)}</span>
+        </div>
+        <div className="flex justify-between text-sm mb-1.5">
+          <span className="text-gray-400">Labor</span>
+          <span className="text-white">{fmtNum(estimate!.labor_total)}</span>
+        </div>
+        {addonsTotal !== 0 && (
+          <div className="flex justify-between text-sm mb-1.5">
+            <span className="text-gray-400">Add-ons</span>
+            <span className="text-white">{fmtNum(addonsTotal)}</span>
+          </div>
+        )}
+        {changeOrdersTotal !== 0 && (
+          <div className="flex justify-between text-sm mb-1.5">
+            <span className="text-gray-400">Change Orders</span>
+            <span className="text-white">{fmtNum(changeOrdersTotal)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-sm mt-2 pt-2 border-t border-[#2a2a2a]">
+          <span className="text-gray-300 font-semibold">Margin</span>
+          <span className="text-orange-400 font-semibold">{estimate!.profit_margin_pct}%</span>
+        </div>
+      </div>
+    );
+  }
+
+  function renderDisplaySettings() {
+    return (
+      <div className="mb-5">
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Invoice Display Settings</p>
+        <p className="text-gray-500 text-xs mb-3">What the client sees on the invoice and payment page. All off by default.</p>
+        <div className="flex flex-col gap-2">
+          {(
+            [
+              { on: showMaterials,          set: setShowMaterials,          label: "Show materials total" },
+              { on: showLabor,              set: setShowLabor,              label: "Show labor total" },
+              { on: showItemizedMaterials,  set: setShowItemizedMaterials,  label: "Show itemized materials list" },
+              { on: showProfitMargin,       set: setShowProfitMargin,       label: "Show profit / margin" },
+            ] as const
+          ).map(({ on, set, label }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => set(!on)}
+              className="flex items-center justify-between w-full py-3 px-4 bg-[#242424] border border-[#2a2a2a] rounded-xl active:scale-95 transition-transform"
+            >
+              <span className="text-gray-300 text-sm">{label}</span>
+              <div className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${on ? "bg-orange-500" : "bg-[#3a3a3a]"}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderClientLineItems() {
+    return (
+      <div className="mb-5">
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
+        <p className="text-gray-500 text-xs mb-3">Build what the client sees. Total should match {fmtNum(grandTotal)}.</p>
+
+        {/* Rows */}
+        <div className="flex flex-col gap-2 mb-3">
+          {clientLineItems.map((row) => (
+            <div key={row.id} className="flex gap-2 items-center">
+              <input
+                value={row.name}
+                onChange={(e) => updateRow(row.id, "name", e.target.value)}
+                placeholder="Line item description"
+                className="flex-1 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-orange-500 min-w-0"
+              />
+              <div className="relative flex-shrink-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
+                <input
+                  value={row.amount}
+                  onChange={(e) => updateRow(row.id, "amount", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className="w-24 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl pl-6 pr-3 py-3 text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeRow(row.id)}
+                className="text-gray-600 active:text-red-400 transition-colors p-2 rounded-xl active:scale-95 flex-shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Total indicator */}
+        <div className={`flex justify-between items-center px-4 py-2.5 rounded-xl mb-3 text-sm ${totalMismatch ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-[#1a1a1a] border border-[#2a2a2a]"}`}>
+          <span className={totalMismatch ? "text-yellow-300" : "text-gray-500"}>
+            {totalMismatch ? "⚠ Total mismatch" : "Line items total"}
+          </span>
+          <span className={`font-bold font-mono ${totalMismatch ? "text-yellow-400" : "text-gray-300"}`}>
+            {fmtNum(clientLineItemsTotal)}
+            {totalMismatch && <span className="text-yellow-500 font-normal ml-1">≠ {fmtNum(grandTotal)}</span>}
+          </span>
+        </div>
+
+        {/* Add / Preset buttons */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setClientLineItems((prev) => [...prev, newRow()])}
+            className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            + Add Row
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPresetsPanel((p) => !p)}
+            className={`flex-1 border font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform ${showPresetsPanel ? "bg-orange-500/20 border-orange-500/40 text-orange-400" : "bg-[#242424] border-[#2a2a2a] text-orange-400"}`}
+          >
+            {showPresetsPanel ? "Hide Presets" : "Add Preset"}
+          </button>
+        </div>
+
+        {/* Presets panel */}
+        {showPresetsPanel && (
+          <div className="mt-3 bg-[#141414] border border-[#2a2a2a] rounded-xl overflow-hidden">
+            {/* Saved line items */}
+            {savedLineItems.length > 0 && (
+              <div className="border-b border-[#2a2a2a] px-4 py-3">
+                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Saved</p>
+                <div className="flex flex-col gap-0.5">
+                  {savedLineItems.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => addPreset(s.name)}
+                      className="text-left text-sm text-gray-300 py-1.5 px-2 rounded-lg active:bg-orange-500/10 active:text-orange-400 transition-colors"
+                    >
+                      {s.name}
+                      {s.amount > 0 && <span className="text-gray-500 ml-1">(${s.amount.toLocaleString()})</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Category accordion */}
+            {PRESET_CATEGORIES.map((cat) => (
+              <div key={cat.name} className="border-b border-[#2a2a2a] last:border-0">
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(cat.name)}
+                  className="w-full flex justify-between items-center px-4 py-3 text-left active:bg-[#1a1a1a] transition-colors"
+                >
+                  <span className="text-gray-300 text-sm font-semibold">{cat.name}</span>
+                  <svg
+                    width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    className={`text-gray-500 transition-transform ${openCategories[cat.name] ? "rotate-180" : ""}`}
+                  >
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+                {openCategories[cat.name] && (
+                  <div className="px-4 pb-3 flex flex-col gap-0.5">
+                    {cat.items.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => addPreset(item)}
+                        className="text-left text-sm text-gray-400 py-1.5 px-2 rounded-lg active:bg-orange-500/10 active:text-orange-400 transition-colors"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Custom */}
+            <div className="px-4 py-3">
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Custom</p>
+              <div className="flex gap-2">
+                <input
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="Describe the work…"
+                  onKeyDown={(e) => { if (e.key === "Enter") addCustom(); }}
+                  className="flex-1 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={addCustom}
+                  className="bg-orange-500/20 border border-orange-500/30 text-orange-400 font-semibold text-sm px-4 py-2.5 rounded-xl active:scale-95 transition-transform"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── No invoice yet (create mode) ──────────────────────────────────────────
+
   if (!invoice) {
     const previewDue = calcDueDate(terms);
     return (
       <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoice</p>
 
-        {/* No client warning */}
         {!jobClient && (
           <div className="flex items-start gap-2 mb-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -248,9 +653,13 @@ export default function InvoiceSection({
           </div>
         )}
 
-        <p className="text-gray-500 text-sm mb-4">
+        <p className="text-gray-500 text-sm mb-5">
           Total: <span className="text-white font-bold">{fmtNum(grandTotal)}</span>
         </p>
+
+        {renderInternalBreakdown()}
+        {renderDisplaySettings()}
+        {renderClientLineItems()}
 
         {/* Payment terms */}
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Payment Terms</p>
@@ -273,7 +682,6 @@ export default function InvoiceSection({
           <p className="text-gray-500 text-xs mb-4">Due {fmtDateFull(previewDue)}</p>
         )}
 
-        {/* Notes */}
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Notes (optional)</p>
         <textarea
           value={notes}
@@ -295,7 +703,8 @@ export default function InvoiceSection({
     );
   }
 
-  // ── Invoice exists ──
+  // ── Invoice exists ────────────────────────────────────────────────────────
+
   const overdue = isOverdue(invoice);
   const cfg = STATUS_CONFIG[invoice.status];
   const invDue = invoice.due_date
@@ -304,6 +713,7 @@ export default function InvoiceSection({
 
   return (
     <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice</p>
         <div className="flex items-center gap-2">
@@ -326,7 +736,9 @@ export default function InvoiceSection({
 
       {/* Client */}
       {jobClient && (
-        <p className="text-gray-400 text-sm mb-3">{jobClient.name}{jobClient.company ? ` · ${jobClient.company}` : ""}</p>
+        <p className="text-gray-400 text-sm mb-3">
+          {jobClient.name}{jobClient.company ? ` · ${jobClient.company}` : ""}
+        </p>
       )}
 
       {/* Payment terms + due date */}
@@ -338,6 +750,9 @@ export default function InvoiceSection({
           </span>
         )}
       </div>
+
+      {/* Internal breakdown — always visible to contractor */}
+      {renderInternalBreakdown()}
 
       {/* Status selector */}
       <div className="flex gap-2 mb-4">
@@ -359,7 +774,7 @@ export default function InvoiceSection({
         })}
       </div>
 
-      {/* Record Payment button */}
+      {/* Record Payment */}
       {invoice.status !== "paid" && (
         <button
           onClick={() => handleStatusChange("paid")}
@@ -378,6 +793,69 @@ export default function InvoiceSection({
         <p className="text-green-400 text-xs font-semibold mb-1">Paid {fmtDate(invoice.paid_at)}</p>
       )}
 
+      {/* Client Display Settings (collapsible) */}
+      <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
+        <button
+          onClick={() => setEditingDisplay((v) => !v)}
+          className="w-full flex items-center justify-between mb-3 active:opacity-70"
+        >
+          <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Client Display Settings</span>
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            className={`text-gray-500 transition-transform ${editingDisplay ? "rotate-180" : ""}`}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        {editingDisplay ? (
+          <>
+            {renderDisplaySettings()}
+            {renderClientLineItems()}
+            <div className="flex gap-2 mt-1 mb-4">
+              <button
+                onClick={handleSaveDisplaySettings}
+                className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform"
+              >
+                Save Settings
+              </button>
+              <button
+                onClick={() => cancelDisplayEdit(invoice)}
+                className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold py-3 rounded-xl text-sm active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Summary of current client-facing settings */
+          <div className="mb-1">
+            {invoice.client_line_items?.length > 0 ? (
+              <div className="flex flex-col gap-1 mb-2">
+                {invoice.client_line_items.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-gray-400">{item.name}</span>
+                    <span className="text-gray-300 font-mono">{fmtNum(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 text-xs mb-2">No client line items set — client sees a single total.</p>
+            )}
+            {(invoice.display_show_materials || invoice.display_show_labor || invoice.display_show_profit_margin) && (
+              <p className="text-gray-600 text-xs">
+                Showing:{" "}
+                {[
+                  invoice.display_show_materials && "Materials",
+                  invoice.display_show_labor && "Labor",
+                  invoice.display_show_profit_margin && "Margin",
+                ].filter(Boolean).join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Notes */}
       <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
         {editingNotes ? (
@@ -394,8 +872,13 @@ export default function InvoiceSection({
             </div>
           </>
         ) : (
-          <button onClick={() => { setNotesDraft(invoice.notes ?? ""); setEditingNotes(true); }} className="text-gray-500 text-xs active:opacity-70">
-            {invoice.notes ? `📝 ${invoice.notes.slice(0, 60)}${invoice.notes.length > 60 ? "…" : ""}` : "+ Add notes to invoice"}
+          <button
+            onClick={() => { setNotesDraft(invoice.notes ?? ""); setEditingNotes(true); }}
+            className="text-gray-500 text-xs active:opacity-70"
+          >
+            {invoice.notes
+              ? `📝 ${invoice.notes.slice(0, 60)}${invoice.notes.length > 60 ? "…" : ""}`
+              : "+ Add notes to invoice"}
           </button>
         )}
       </div>

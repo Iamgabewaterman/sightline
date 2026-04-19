@@ -43,12 +43,17 @@ export default async function PayPage({
 
   if (!invoice) notFound();
 
-  const [{ data: job }, { data: bp }, { data: client }] = await Promise.all([
+  const [{ data: job }, { data: bp }, { data: client }, { data: estimate }] = await Promise.all([
     supabase.from("jobs").select("name, address").eq("id", invoice.job_id).single(),
     supabase.from("business_profiles").select("*").eq("user_id", invoice.user_id).maybeSingle(),
     invoice.client_id
       ? supabase.from("clients").select("name, company").eq("id", invoice.client_id).single()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("estimates")
+      .select("material_total, labor_total, profit_margin_pct")
+      .eq("job_id", invoice.job_id)
+      .maybeSingle(),
   ]);
 
   let logoUrl: string | null = null;
@@ -73,6 +78,7 @@ export default async function PayPage({
       });
     });
   }
+
   const statusSuccess = searchParams.status === "success";
   const statusCancel = searchParams.status === "cancel";
 
@@ -82,6 +88,13 @@ export default async function PayPage({
     net_30: "Net 30",
     net_45: "Net 45",
   };
+
+  // Determine what the client sees
+  const clientLineItems: Array<{ name: string; amount: number }> = invoice.client_line_items ?? [];
+  const showMaterials = invoice.display_show_materials ?? false;
+  const showLabor = invoice.display_show_labor ?? false;
+  const showProfitMargin = invoice.display_show_profit_margin ?? false;
+  const hasClientView = clientLineItems.length > 0 || showMaterials || showLabor || showProfitMargin;
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-10 pb-20">
@@ -192,19 +205,49 @@ export default async function PayPage({
 
           {/* Line items */}
           <div className="px-5 py-4 border-b border-[#2a2a2a]">
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-white font-semibold text-sm">
-                  Professional Services
-                </p>
-                {job?.name && (
-                  <p className="text-gray-400 text-xs mt-0.5">{job.name}</p>
+            {hasClientView ? (
+              <>
+                {/* Contractor-built client line items */}
+                {clientLineItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                    <p className="text-white font-semibold text-sm">{item.name}</p>
+                    <p className="text-white font-semibold text-sm">{fmtAmount(item.amount)}</p>
+                  </div>
+                ))}
+                {/* Optional internal breakdowns if toggled on */}
+                {showMaterials && estimate && (
+                  <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                    <p className="text-white font-semibold text-sm">Materials</p>
+                    <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.material_total))}</p>
+                  </div>
                 )}
+                {showLabor && estimate && (
+                  <div className="flex items-center justify-between py-2 border-b border-[#222] last:border-0">
+                    <p className="text-white font-semibold text-sm">Labor</p>
+                    <p className="text-white font-semibold text-sm">{fmtAmount(Number(estimate.labor_total))}</p>
+                  </div>
+                )}
+                {showProfitMargin && estimate && (
+                  <div className="flex items-center justify-between py-2">
+                    <p className="text-white font-semibold text-sm">Margin</p>
+                    <p className="text-white font-semibold text-sm">{estimate.profit_margin_pct}%</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Legacy: single line */
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-white font-semibold text-sm">Professional Services</p>
+                  {job?.name && (
+                    <p className="text-gray-400 text-xs mt-0.5">{job.name}</p>
+                  )}
+                </div>
+                <p className="text-white font-semibold text-sm">
+                  {fmtAmount(Number(invoice.total_amount))}
+                </p>
               </div>
-              <p className="text-white font-semibold text-sm">
-                {fmtAmount(Number(invoice.total_amount))}
-              </p>
-            </div>
+            )}
           </div>
 
           {/* Total */}

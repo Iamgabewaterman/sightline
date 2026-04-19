@@ -28,6 +28,7 @@ export interface InvoicePDFData {
   invoiceId?: string;
   materialsTotal: number;
   laborTotal: number;
+  profitMarginPct?: number;
   addons: { name: string; amount: number }[];
   grandTotal: number;
   businessProfile?: BusinessProfileData | null;
@@ -38,34 +39,38 @@ export interface InvoicePDFData {
   notes?: string | null;
   status?: "unpaid" | "sent" | "paid";
   paidDate?: string | null;
+  // Client display settings
+  displayShowMaterials?: boolean;
+  displayShowLabor?: boolean;
+  displayShowProfitMargin?: boolean;
+  clientLineItems?: Array<{ name: string; amount: number }>;
 }
 
 // ─── Colors ─────────────────────────────────────────────────────────────────
 
-const ORANGE   = rgb(0.976, 0.451, 0.086);
-const BLACK    = rgb(0.08,  0.08,  0.08);
-const GRAY     = rgb(0.48,  0.48,  0.48);
-const LGRAY    = rgb(0.80,  0.80,  0.80);
-const ALT_ROW  = rgb(0.967, 0.967, 0.967);
-const ORANGE_BG = rgb(1.0,  0.96,  0.91);
-const RED_BG   = rgb(1.0,   0.92,  0.92);
-const RED_TEXT = rgb(0.75,  0.10,  0.10);
-const GREEN_BG = rgb(0.90,  1.0,   0.92);
+const ORANGE    = rgb(0.976, 0.451, 0.086);
+const BLACK     = rgb(0.08,  0.08,  0.08);
+const GRAY      = rgb(0.48,  0.48,  0.48);
+const LGRAY     = rgb(0.80,  0.80,  0.80);
+const ALT_ROW   = rgb(0.967, 0.967, 0.967);
+const ORANGE_BG = rgb(1.0,   0.96,  0.91);
+const RED_BG    = rgb(1.0,   0.92,  0.92);
+const RED_TEXT  = rgb(0.75,  0.10,  0.10);
+const GREEN_BG  = rgb(0.90,  1.0,   0.92);
 const GREEN_TEXT = rgb(0.08, 0.55,  0.18);
-const YEL_BG   = rgb(1.0,   0.97,  0.88);
-const YEL_TEXT = rgb(0.65,  0.45,  0.02);
+const YEL_BG    = rgb(1.0,   0.97,  0.88);
+const YEL_TEXT  = rgb(0.65,  0.45,  0.02);
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 
 const PW = 612;
 const PH = 792;
 const M  = 54;
-const RX = PW - M;   // 558
-const CW = RX - M;   // 504
+const RX = PW - M;
+const CW = RX - M;
 
-// 2-column invoice table: Description | Amount
-const TC_D   = M;        // description left
-const TC_A_R = RX;       // amount right-align x
+const TC_D   = M;
+const TC_A_R = RX;
 
 const ROW_H = 20;
 
@@ -178,12 +183,11 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   y -= 20;
   page.drawText("INVOICE", { x: M, y, font: bold, size: 28, color: ORANGE });
 
-  // Number + dates stacked right
   tr(data.invoiceNumber, RX, y + 12, bold, 10, BLACK);
   tr(`Issued: ${data.date}`, RX, y - 2, reg, 9, GRAY);
   if (data.dueDate) {
-    const isOverdue = data.status !== "paid" && isDatePast(data.dueDate);
-    tr(`Due: ${data.dueDate}`, RX, y - 15, reg, 9, isOverdue ? RED_TEXT : GRAY);
+    const isOvd = data.status !== "paid" && isDatePast(data.dueDate);
+    tr(`Due: ${data.dueDate}`, RX, y - 15, reg, 9, isOvd ? RED_TEXT : GRAY);
   }
   if (data.paymentTermsLabel) {
     tr(data.paymentTermsLabel, RX, y - 28, reg, 9, GRAY);
@@ -191,7 +195,6 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
 
   y -= 18;
 
-  // Overdue badge (if applicable)
   if (data.status !== "paid" && data.dueDate && isDatePast(data.dueDate)) {
     y -= 14;
     pill("⚠  OVERDUE", M, y, RED_BG, RED_TEXT, bold, 9);
@@ -206,7 +209,6 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   const COL2      = M + Math.round(CW * 0.48);
   const BLOCK_TOP = y - 14;
 
-  // Left: BILL TO
   page.drawText("BILL TO", { x: M, y: BLOCK_TOP, font: bold, size: 8, color: GRAY });
   let ly = BLOCK_TOP - 16;
   if (data.client) {
@@ -219,7 +221,6 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
     page.drawText("No client linked", { x: M, y: ly, font: reg, size: 9.5, color: GRAY }); ly -= 13;
   }
 
-  // Right: JOB
   page.drawText("JOB", { x: COL2, y: BLOCK_TOP, font: bold, size: 8, color: GRAY });
   let ry2 = BLOCK_TOP - 16;
   const maxJobW = RX - COL2;
@@ -235,7 +236,6 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   // ── Line items table ──────────────────────────────────────────────────────
   y -= 16;
 
-  // Header row
   page.drawRectangle({ x: M, y: y - 5, width: CW, height: 20, color: ALT_ROW });
   page.drawText("DESCRIPTION", { x: TC_D + 2, y, font: bold, size: 7.5, color: GRAY });
   tr("AMOUNT", TC_A_R - 2, y, bold, 7.5, GRAY);
@@ -255,8 +255,29 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
     rowIdx++;
   }
 
-  drawInvRow("Materials",    fmtTotal(data.materialsTotal));
-  drawInvRow("Labor",        fmtTotal(data.laborTotal));
+  // Determine what to show in the client-facing PDF
+  const clientLineItems = data.clientLineItems ?? [];
+  const hasClientView = clientLineItems.length > 0 || data.displayShowMaterials || data.displayShowLabor || data.displayShowProfitMargin;
+
+  if (hasClientView) {
+    // Show contractor-configured client line items
+    for (const item of clientLineItems) {
+      drawInvRow(item.name, fmtTotal(item.amount));
+    }
+    if (data.displayShowMaterials) {
+      drawInvRow("Materials", fmtTotal(data.materialsTotal));
+    }
+    if (data.displayShowLabor) {
+      drawInvRow("Labor", fmtTotal(data.laborTotal));
+    }
+    if (data.displayShowProfitMargin && data.profitMarginPct != null) {
+      drawInvRow(`Profit / Margin (${data.profitMarginPct}%)`, "");
+    }
+  } else {
+    // Legacy: show Materials + Labor rows
+    drawInvRow("Materials", fmtTotal(data.materialsTotal));
+    drawInvRow("Labor",     fmtTotal(data.laborTotal));
+  }
 
   const validAddons = data.addons.filter((a) => a.name && a.amount !== 0);
   if (validAddons.length > 0) {
@@ -292,7 +313,7 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
     y -= 22;
   }
 
-  // Pay online link (if unpaid/sent)
+  // Pay online link
   if (data.invoiceId && data.status !== "paid") {
     y -= 4;
     const payUrl = `sightline.one/pay/${data.invoiceId}`;
@@ -363,8 +384,6 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
 function isDatePast(dueDateStr: string): boolean {
-  // dueDateStr is a display string like "April 15, 2026"
-  // We just check if today > due date
   try {
     return new Date() > new Date(dueDateStr);
   } catch {

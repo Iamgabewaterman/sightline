@@ -30,7 +30,16 @@ export async function getInvoiceForJob(jobId: string): Promise<Invoice | null> {
 export async function createInvoice(
   jobId: string,
   totalAmount: number,
-  opts?: { clientId?: string | null; paymentTerms?: PaymentTerms; notes?: string }
+  opts?: {
+    clientId?: string | null;
+    paymentTerms?: PaymentTerms;
+    notes?: string;
+    displayShowMaterials?: boolean;
+    displayShowLabor?: boolean;
+    displayShowItemizedMaterials?: boolean;
+    displayShowProfitMargin?: boolean;
+    clientLineItems?: Array<{ name: string; amount: number }>;
+  }
 ): Promise<{ invoice?: Invoice; error?: string }> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,6 +59,11 @@ export async function createInvoice(
       payment_terms: terms,
       due_date,
       notes: opts?.notes ?? null,
+      display_show_materials: opts?.displayShowMaterials ?? false,
+      display_show_labor: opts?.displayShowLabor ?? false,
+      display_show_itemized_materials: opts?.displayShowItemizedMaterials ?? false,
+      display_show_profit_margin: opts?.displayShowProfitMargin ?? false,
+      client_line_items: opts?.clientLineItems ?? [],
     })
     .select()
     .single<Invoice>();
@@ -60,7 +74,16 @@ export async function createInvoice(
 
 export async function updateInvoice(
   invoiceId: string,
-  fields: { payment_terms?: PaymentTerms; notes?: string | null; total_amount?: number }
+  fields: {
+    payment_terms?: PaymentTerms;
+    notes?: string | null;
+    total_amount?: number;
+    display_show_materials?: boolean;
+    display_show_labor?: boolean;
+    display_show_itemized_materials?: boolean;
+    display_show_profit_margin?: boolean;
+    client_line_items?: Array<{ name: string; amount: number }>;
+  }
 ): Promise<{ invoice?: Invoice; error?: string }> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -145,12 +168,10 @@ export async function getInvoiceDashboardStats(userId: string): Promise<{
   const outstanding = (unpaid ?? []).reduce((s, i) => s + Number(i.total_amount), 0);
   const paidThisMonth = (paid ?? []).reduce((s, i) => s + Number(i.total_amount), 0);
 
-  // Find overdue: due_date is set and is past today
   const overdueRaw = (unpaid ?? []).filter(
     (i) => i.due_date && i.due_date < today
   );
 
-  // Fetch job names for overdue invoices
   let overdueInvoices: OverdueInvoice[] = [];
   if (overdueRaw.length > 0) {
     const jobIds = overdueRaw.map((i) => i.job_id);
