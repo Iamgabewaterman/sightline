@@ -164,7 +164,7 @@ export default async function LandingPage() {
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs sm:max-w-none">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-xs sm:max-w-none">
           <Link
             href="/signup"
             className="w-full sm:w-auto bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-orange-400 transition-colors active:scale-95 text-center"
