@@ -8,6 +8,7 @@ export interface ImportResult {
   imported: number;
   skipped: number;
   errors: string[];
+  contacts_created?: number;
 }
 
 // ── Normalizers ──────────────────────────────────────────────────────────────
@@ -258,4 +259,111 @@ export async function importExpenses(rows: ExpenseRow[]): Promise<ImportResult> 
   }
 
   return { imported, skipped, errors };
+}
+
+// ── Labor Import ──────────────────────────────────────────────────────────────
+
+export interface LaborRow {
+  crew_name: string;
+  trade?: string;
+  hourly_rate?: string;
+  hours: string;
+  job_name: string;
+  date?: string;
+}
+
+export async function importLabor(rows: LaborRow[]): Promise<ImportResult> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: 0, errors: ["Not authenticated"] };
+
+  // Fetch existing contacts for name-based matching
+  const { data: existingContacts } = await supabase
+    .from("contacts")
+    .select("id, name, hourly_rate, trade")
+    .eq("user_id", user.id);
+  const contactMap = new Map(
+    (existingContacts ?? []).map((c) => [c.name.toLowerCase(), c])
+  );
+
+  // Fetch jobs for name matching
+  const { data: jobs } = await supabase
+    .from("jobs").select("id, name").eq("user_id", user.id);
+  const jobMap = new Map((jobs ?? []).map((j) => [j.name.toLowerCase(), j.id]));
+
+  // Fetch existing labor logs for dedup (crew_name + job_id + date)
+  const { data: existingLogs } = await supabase
+    .from("labor_logs")
+    .select("crew_name, job_id, created_at");
+  const existingLogKeys = new Set(
+    (existingLogs ?? []).map((l) => {
+      const date = l.created_at ? (l.created_at as string).slice(0, 10) : "";
+      return `${(l.crew_name as string).toLowerCase()}|${l.job_id}|${date}`;
+    })
+  );
+
+  let imported = 0, skipped = 0, contacts_created = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const crewName = row.crew_name?.trim();
+    const hours = parseFloat(row.hours);
+
+    if (!crewName) { errors.push(`Row ${i + 1}: Crew name is required`); continue; }
+    if (isNaN(hours) || hours <= 0) { errors.push(`Row ${i + 1}: Hours must be a positive number`); continue; }
+    if (!row.job_name?.trim()) { errors.push(`Row ${i + 1}: Job name is required`); continue; }
+
+    const jobId = jobMap.get(row.job_name.trim().toLowerCase());
+    if (!jobId) { errors.push(`Row ${i + 1}: Job "${row.job_name}" not found — import jobs first`); continue; }
+
+    const rowDate = row.date ? new Date(row.date) : new Date();
+    const dateStr = isNaN(rowDate.getTime()) ? new Date().toISOString().slice(0, 10) : rowDate.toISOString().slice(0, 10);
+
+    // Dedup: skip if identical entry already exists
+    const logKey = `${crewName.toLowerCase()}|${jobId}|${dateStr}`;
+    if (existingLogKeys.has(logKey)) { skipped++; continue; }
+
+    // Determine rate: CSV value → existing contact rate → 0
+    const csvRate = parseFloat((row.hourly_rate ?? "").replace(/[$,\s]/g, ""));
+    const existingContact = contactMap.get(crewName.toLowerCase());
+    const rate = !isNaN(csvRate) && csvRate > 0
+      ? csvRate
+      : (existingContact?.hourly_rate ? Number(existingContact.hourly_rate) : 0);
+
+    const trade = row.trade?.trim() || existingContact?.trade || null;
+
+    // Create contact if not already in contacts
+    if (!existingContact) {
+      const { error: contactErr } = await supabase.from("contacts").insert({
+        user_id: user.id,
+        name: crewName,
+        trade,
+        hourly_rate: rate > 0 ? rate : null,
+        is_subcontractor: false,
+      });
+      if (!contactErr) {
+        contacts_created++;
+        contactMap.set(crewName.toLowerCase(), { id: "", name: crewName, hourly_rate: rate, trade });
+      }
+    }
+
+    const { error } = await supabase.from("labor_logs").insert({
+      job_id: jobId,
+      crew_name: crewName,
+      hours,
+      rate,
+      trade,
+      created_at: new Date(dateStr + "T12:00:00Z").toISOString(),
+    });
+
+    if (error) {
+      errors.push(`Row ${i + 1}: ${error.message}`);
+    } else {
+      imported++;
+      existingLogKeys.add(logKey);
+    }
+  }
+
+  return { imported, skipped, errors, contacts_created };
 }

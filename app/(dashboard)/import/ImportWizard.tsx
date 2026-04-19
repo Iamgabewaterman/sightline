@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import {
-  importClients, importJobs, importExpenses,
-  ClientRow, JobRow, ExpenseRow, ImportResult,
+  importClients, importJobs, importExpenses, importLabor,
+  ClientRow, JobRow, ExpenseRow, LaborRow, ImportResult,
 } from "@/app/actions/import";
 
 // ── CSV Parser ────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type ImportType = "clients" | "jobs" | "expenses";
+type ImportType = "clients" | "jobs" | "expenses" | "labor";
 type Step = 1 | 2 | 3 | 4 | 5;
 
 interface FieldDef {
@@ -81,6 +81,14 @@ const FIELDS: Record<ImportType, FieldDef[]> = {
     { key: "category",    label: "Category",             required: false, hint: "materials / labor / equipment / vehicle / subcontractor / permits / insurance / other" },
     { key: "job_name",    label: "Job Name",             required: false, hint: "Must match an existing job" },
   ],
+  labor: [
+    { key: "crew_name",   label: "Crew Member Name", required: true },
+    { key: "trade",       label: "Trade",            required: false, hint: "e.g. framing, electrical, plumbing" },
+    { key: "hourly_rate", label: "Hourly Rate",      required: false, hint: "e.g. 45.00 — uses saved rate if blank" },
+    { key: "hours",       label: "Hours Worked",     required: true,  hint: "e.g. 8" },
+    { key: "job_name",    label: "Job Name",         required: true,  hint: "Must match an existing job" },
+    { key: "date",        label: "Date",             required: false, hint: "YYYY-MM-DD" },
+  ],
 };
 
 // Auto-map CSV column → Sightline field
@@ -91,14 +99,18 @@ const ALIASES: Record<string, string[]> = {
   email:       ["email","email address","e-mail","contact email"],
   address:     ["address","billing address","street address","location","job address","job site"],
   notes:       ["notes","memo","description","comments","note","remarks"],
-  types:       ["type","types","job type","trade","trades","category","work type"],
+  types:       ["type","types","job type","category","work type"],
   status:      ["status","job status","state","stage"],
   client_name: ["client","client name","customer","customer name","contact"],
-  description: ["description","name","vendor","merchant","payee","expense","item","line item","memo"],
+  description: ["description","vendor","merchant","payee","expense","item","line item","memo"],
   amount:      ["amount","total","price","cost","sum","charge","balance","invoice total","expense amount"],
-  date:        ["date","transaction date","invoice date","expense date","created","created date","posted date"],
-  category:    ["category","type","expense type","expense category","account","account type"],
+  date:        ["date","transaction date","invoice date","expense date","created","created date","posted date","work date"],
+  category:    ["category","expense type","expense category","account","account type"],
   job_name:    ["job","job name","project","project name","work order"],
+  crew_name:   ["crew_name","crew name","crew member","employee","worker","person","name","full name"],
+  trade:       ["trade","trades","specialty","skill"],
+  hourly_rate: ["hourly_rate","hourly rate","rate","pay rate","wage","wages","hourly","rate/hr","$/hr"],
+  hours:       ["hours","hours_worked","hours worked","time","duration","hrs"],
 };
 
 function autoDetect(csvColumns: string[]): Record<string, string> {
@@ -154,6 +166,7 @@ const TYPE_CONFIG: Record<ImportType, { label: string; desc: string; template: s
   clients:  { label: "Clients",  desc: "Import your client contact list", template: "/templates/clients-template.csv",  example: "Name, Company, Phone, Email, Address" },
   jobs:     { label: "Jobs",     desc: "Import job history or active jobs", template: "/templates/jobs-template.csv",   example: "Job Name, Type, Address, Status" },
   expenses: { label: "Expenses", desc: "Import receipts and expense transactions", template: "/templates/expenses-template.csv", example: "Description, Amount, Date, Category" },
+  labor:    { label: "Labor & Crew", desc: "Import crew hours and employee records", template: "/templates/labor-template.csv", example: "Crew Name, Trade, Rate, Hours, Job" },
 };
 
 function StepIndicator({ current }: { current: Step }) {
@@ -227,6 +240,8 @@ export default function ImportWizard() {
       res = await importClients(validRows as unknown as ClientRow[]);
     } else if (importType === "jobs") {
       res = await importJobs(validRows as unknown as JobRow[]);
+    } else if (importType === "labor") {
+      res = await importLabor(validRows as unknown as LaborRow[]);
     } else {
       res = await importExpenses(validRows as unknown as ExpenseRow[]);
     }
@@ -476,9 +491,20 @@ export default function ImportWizard() {
               </div>
             )}
 
-            <p className="text-gray-500 text-sm mb-4">
-              Duplicates will be detected and skipped automatically during import.
-            </p>
+            {importType === "labor" ? (
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-4">
+                <p className="text-orange-300 text-sm font-semibold mb-1">How deduplication works for labor</p>
+                <ul className="text-gray-400 text-sm flex flex-col gap-1">
+                  <li>• New crew members will be added to your Contacts with their trade and rate</li>
+                  <li>• Existing contacts are matched by name — no duplicate records created</li>
+                  <li>• Duplicate entries (same person + job + date) will be skipped</li>
+                </ul>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm mb-4">
+                Duplicates will be detected and skipped automatically during import.
+              </p>
+            )}
 
             {validRows.length === 0 ? (
               <button onClick={() => setStep(3)}
@@ -515,6 +541,12 @@ export default function ImportWizard() {
                   <span className="text-gray-300 text-base">Skipped (duplicates)</span>
                   <span className="text-yellow-400 font-bold text-xl">{result.skipped}</span>
                 </div>
+                {importType === "labor" && (result.contacts_created ?? 0) > 0 && (
+                  <div className="flex justify-between items-center py-3 border-b border-[#2a2a2a]">
+                    <span className="text-gray-300 text-base">New contacts created</span>
+                    <span className="text-orange-400 font-bold text-xl">{result.contacts_created}</span>
+                  </div>
+                )}
                 {result.errors.length > 0 && (
                   <div className="flex justify-between items-center py-3">
                     <span className="text-gray-300 text-base">Failed</span>

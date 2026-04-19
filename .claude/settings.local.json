@@ -21,7 +21,23 @@
       "Bash(grep:*)",
       "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)/jobs\" -type f)",
       "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)\" -name \"*.tsx\")",
-      "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)/calculator\" -type f)"
+      "Bash(find \"/c/Users/gabew/sightline/app/\\(dashboard\\)/calculator\" -type f)",
+      "Bash(ls \"C:/Users/gabew/sightline/app/\\(dashboard\\)\")",
+      "Bash(ls -la \"/c/Users/gabew/sightline/app/\\(dashboard\\)/\")",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__claude_ai_Vercel__get_deployment_build_logs",
+      "Bash(wc -l \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\\\\\\(dashboard\\)\\\\calculator\\\\CalculatorClient.tsx\")",
+      "Bash(find /c/Users/gabew/sightline -type f \\\\\\(-name *migration* -o -name *schema* \\\\\\) ! -path */node_modules/* ! -path */.next/*)",
+      "Bash(find /c/Users/gabew/sightline/app -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\) ! -path */node_modules/* ! -path */.next/*)",
+      "Bash(head:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''''dependencies'''',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(grep -n \"JOB_TYPES\\\\|VALID_TYPES\\\\|job_types\\\\|selectedTypes\\\\|toggleType\" /c/Users/gabew/sightline/app/\\\\\\(dashboard\\\\\\)/jobs/[id]/page.tsx)",
+      "Bash(find /c/Users/gabew/sightline -type f \\\\\\(-name *.tsx -o -name *.ts -o -name *.js -o -name *.json -o -name .env* \\\\\\))",
+      "Bash(grep -n \"selectedTypes\\\\|types\\\\b\" /c/Users/gabew/sightline/app/\\\\\\(dashboard\\\\\\)/jobs/[id]/edit/EditJobForm.tsx)",
+      "Bash(awk '/case \"customer.subscription.created\":/,/break;/' /c/Users/gabew/sightline/app/api/stripe/webhook/route.ts)",
+      "Bash(npx tsc *)"
     ]
   }
 }
