@@ -241,9 +241,16 @@ export default function MileageClient({
 
         {/* Drive list */}
         {drives.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-16 text-center">
-            <p className="text-gray-500 text-base mb-2">No drives yet</p>
-            <p className="text-gray-600 text-sm">Hit Start Drive before your next trip.</p>
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-16 flex flex-col items-center gap-3">
+            <p className="text-gray-500 text-base">No drives logged yet</p>
+            <button
+              onClick={handleStartDrive}
+              disabled={starting || !!activeDrive}
+              className="bg-orange-500 text-white font-bold text-base px-6 py-3 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+            >
+              {starting ? "Getting GPS..." : "Start tracking drives"}
+            </button>
+            {gpsError && <p className="text-red-400 text-xs px-5 text-center">{gpsError}</p>}
           </div>
         ) : (
           <div className="flex flex-col gap-6">

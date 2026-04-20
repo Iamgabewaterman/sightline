@@ -716,8 +716,14 @@ export default function MaterialsSection({
 
       {/* Materials list */}
       {materials.length === 0 ? (
-        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-10 text-center">
+        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-10 flex flex-col items-center gap-3">
           <p className="text-gray-500 text-sm">No materials logged yet</p>
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-orange-500 text-white font-bold text-base px-6 py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            Add your first material
+          </button>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

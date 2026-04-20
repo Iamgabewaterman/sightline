@@ -23,6 +23,9 @@ export default function ProfitBar() {
   const profitBudget = totalQuote - materialBudget - laborBudget;
   const profitRemaining = totalQuote - totalActual;
 
+  const totalBudget = materialBudget + laborBudget;
+  const spentPct = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
+
   const materialZonePct = (materialBudget / totalQuote) * 100;
   const laborZonePct = (laborBudget / totalQuote) * 100;
 
@@ -110,6 +113,13 @@ export default function ProfitBar() {
           Profit
         </span>
       </div>
+
+      {/* Plain English summary */}
+      <p className={`text-sm mt-3 ${isOverBudget ? "text-yellow-400" : isOverQuote ? "text-red-400" : "text-gray-400"}`}>
+        {hasData
+          ? `You've used $${Math.round(totalActual).toLocaleString()} of your $${Math.round(totalBudget).toLocaleString()} budget — ${spentPct}% spent`
+          : `Your budget is $${Math.round(totalBudget).toLocaleString()} — no costs logged yet`}
+      </p>
 
       {/* Stats */}
       <div className="mt-3 flex flex-col gap-2 border-t border-[#2a2a2a] pt-3">

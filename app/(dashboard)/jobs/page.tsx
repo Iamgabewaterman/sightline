@@ -188,6 +188,10 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Overview</p>
+          <p className="text-gray-600 text-xs">Updated just now</p>
+        </div>
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
             <p className="text-orange-500 text-3xl font-black leading-none mb-1">{activeCount ?? 0}</p>

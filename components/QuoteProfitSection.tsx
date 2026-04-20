@@ -768,7 +768,7 @@ export default function QuoteProfitSection({
                 </div>
                 <input
                   type="range"
-                  min={5}
+                  min={0}
                   max={50}
                   step={1}
                   value={margin}
@@ -779,9 +779,19 @@ export default function QuoteProfitSection({
                   className="range-slider w-full"
                 />
                 <div className="flex justify-between text-gray-600 text-xs mt-1">
-                  <span>5%</span>
+                  <span>0%</span>
                   <span>50%</span>
                 </div>
+                {margin === 0 && (
+                  <p className="text-red-400 text-xs mt-2 font-semibold">
+                    No profit margin — you will break even on this job at best.
+                  </p>
+                )}
+                {margin > 0 && margin < 10 && (
+                  <p className="text-yellow-400 text-xs mt-2 font-semibold">
+                    Low margin — consider your overhead costs.
+                  </p>
+                )}
               </div>
 
               {/* ── Add-On Line Items ── */}

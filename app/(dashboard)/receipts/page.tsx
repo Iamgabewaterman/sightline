@@ -126,10 +126,14 @@ export default async function ReceiptsMasterPage({
 
         {/* Receipt list */}
         {sorted.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-16 text-center">
-            <p className="text-gray-500 text-sm">
-              No receipts yet — add them from any job page.
-            </p>
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-16 flex flex-col items-center gap-3">
+            <p className="text-gray-500 text-sm">No receipts scanned yet</p>
+            <Link
+              href="/jobs"
+              className="bg-orange-500 text-white font-bold text-base px-6 py-3 rounded-xl active:scale-95 transition-transform"
+            >
+              Scan your first receipt
+            </Link>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

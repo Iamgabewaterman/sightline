@@ -80,10 +80,18 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
 
         {/* List */}
         {filtered.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-14 text-center">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-14 flex flex-col items-center gap-3">
             <p className="text-gray-500 text-sm">
-              {clients.length === 0 ? "No clients yet. Tap + Add to create your first." : "No matches."}
+              {clients.length === 0 ? "No clients yet" : "No matches."}
             </p>
+            {clients.length === 0 && (
+              <button
+                onClick={openSheet}
+                className="bg-orange-500 text-white font-bold text-base px-6 py-3 rounded-xl active:scale-95 transition-transform"
+              >
+                Add your first client
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
