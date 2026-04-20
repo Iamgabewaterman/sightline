@@ -14,37 +14,65 @@ export async function createConnectOnboardingLink(): Promise<{ url?: string; err
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: bp } = await supabase
-    .from("business_profiles")
-    .select("stripe_account_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  let accountId = bp?.stripe_account_id as string | null;
-
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      metadata: { supabase_user_id: user.id },
-    });
-    accountId = account.id;
-
-    await supabase
+  try {
+    const { data: bp } = await supabase
       .from("business_profiles")
-      .upsert(
-        { user_id: user.id, stripe_account_id: accountId, stripe_onboarded: false },
-        { onConflict: "user_id" }
-      );
+      .select("stripe_account_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let accountId = bp?.stripe_account_id as string | null;
+
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        metadata: { supabase_user_id: user.id },
+      });
+      accountId = account.id;
+
+      await supabase
+        .from("business_profiles")
+        .upsert(
+          { user_id: user.id, stripe_account_id: accountId, stripe_onboarded: false },
+          { onConflict: "user_id" }
+        );
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${origin()}/api/stripe/connect/refresh?account=${accountId}`,
+      return_url: `${origin()}/account?connect=success`,
+      type: "account_onboarding",
+    });
+
+    return { url: accountLink.url };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to start bank connection";
+    return { error: msg };
   }
+}
 
-  const accountLink = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: `${origin()}/api/stripe/connect/refresh?account=${accountId}`,
-    return_url: `${origin()}/account?connect=success`,
-    type: "account_onboarding",
-  });
+export async function createManagePayoutsLink(): Promise<{ url?: string; error?: string }> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
 
-  return { url: accountLink.url };
+  try {
+    const { data: bp } = await supabase
+      .from("business_profiles")
+      .select("stripe_account_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const accountId = bp?.stripe_account_id as string | null;
+    if (!accountId) return { error: "No connected account found" };
+
+    const loginLink = await stripe.accounts.createLoginLink(accountId);
+    return { url: loginLink.url };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to open payout dashboard";
+    return { error: msg };
+  }
 }
 
 export async function verifyConnectAccount(): Promise<{ onboarded: boolean; accountId: string | null }> {

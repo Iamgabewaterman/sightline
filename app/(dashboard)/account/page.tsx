@@ -23,11 +23,12 @@ export default async function AccountPage({
   // Fetch connect status
   const { data: bp } = await supabase
     .from("business_profiles")
-    .select("stripe_onboarded")
+    .select("stripe_onboarded, stripe_account_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
   const onboarded = bp?.stripe_onboarded ?? false;
+  const hasAccountId = !!(bp?.stripe_account_id);
 
   const rowClass =
     "flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform";
@@ -49,7 +50,7 @@ export default async function AccountPage({
         {/* Payouts */}
         <div>
           <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2 px-1">Payouts</p>
-          <ConnectBankButton onboarded={onboarded} />
+          <ConnectBankButton onboarded={onboarded} hasAccountId={hasAccountId} />
         </div>
 
         {/* Links */}
