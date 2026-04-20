@@ -261,17 +261,7 @@ export default function ImportWizard() {
   const fields = importType ? FIELDS[importType] : [];
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-24">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/jobs" className="text-gray-400 text-2xl min-w-[48px] min-h-[48px] flex items-center justify-center active:scale-95">←</Link>
-          <div>
-            <h1 className="text-3xl font-bold text-white">Data Import</h1>
-            <p className="text-gray-500 text-sm">Migrate from QuickBooks, Buildertrend, or any spreadsheet</p>
-          </div>
-        </div>
-
+    <div className="max-w-2xl mx-auto">
         <StepIndicator current={step} />
 
         {/* ── STEP 1: Pick type ── */}
@@ -576,7 +566,6 @@ export default function ImportWizard() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

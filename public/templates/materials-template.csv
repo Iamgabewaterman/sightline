@@ -1,0 +1,4 @@
+name,unit,quantity_ordered,quantity_used,unit_cost,length_ft,job_name,trade,notes
+2x4x8 Stud,ea,50,48,4.25,,Kitchen Remodel,framing,
+1/2" Drywall,sheet,20,18,12.50,,Kitchen Remodel,drywall,Fire-rated
+3/4" Plywood,sheet,10,,32.00,96,Roof Replacement,roofing,

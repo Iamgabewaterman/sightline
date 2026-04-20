@@ -1,0 +1,4 @@
+name,trade,phone,email,hourly_rate,is_subcontractor,notes
+John Smith,framing,555-867-5309,john@email.com,45.00,no,Lead framer
+Maria Garcia,electrical,555-234-5678,maria@electric.com,65.00,yes,Licensed electrician
+Bob Johnson,plumbing,555-111-2222,,55.00,no,
