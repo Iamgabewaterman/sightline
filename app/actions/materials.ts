@@ -4,6 +4,92 @@ import { createClient } from "@/lib/supabase/server";
 import { parseAddress } from "@/lib/address-parser";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Contributes a material price to the regional_materials crowdsource table.
+ *
+ * Location is always sourced from the user's business profile — never the job
+ * address, and never a hardcoded fallback. If the profile has no parseable zip
+ * code we skip the write entirely so the dataset stays clean.
+ *
+ * Dedup rule: once a (material_name, zip_code) pair has 3+ rows we stop
+ * inserting and instead update the most-recent row to the new running average,
+ * capping table growth while keeping the price accurate over time.
+ */
+async function contributeRegionalPrice(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string,
+  unitCost: number,
+  unit: string,
+  lengthFt: number | null,
+) {
+  try {
+    // 1. Location comes from business profile, never job address
+    const { data: bp } = await supabase
+      .from("business_profiles")
+      .select("address")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const { zip } = parseAddress(bp?.address);
+
+    // 2. No zip = no usable location — skip rather than pollute the dataset
+    if (!zip) return;
+
+    // Re-parse to get city+state alongside the zip
+    const { city, state } = parseAddress(bp?.address);
+
+    // 3. Count existing rows for this (material_name, zip_code) pair
+    const { count } = await supabase
+      .from("regional_materials")
+      .select("*", { count: "exact", head: true })
+      .eq("material_name", name)
+      .eq("zip_code", zip)
+      .not("unit_cost", "is", null);
+
+    const existingCount = count ?? 0;
+
+    if (existingCount < 3) {
+      // Fewer than 3 samples — add a new individual data point
+      await supabase.from("regional_materials").insert({
+        material_name: name,
+        unit,
+        unit_cost: unitCost,
+        zip_code: zip,
+        city,
+        state,
+        user_id: userId,
+        length_ft: lengthFt,
+      });
+    } else {
+      // 3+ samples already exist — compute running average and update the
+      // most recent row instead of growing the table indefinitely
+      const { data: allRows } = await supabase
+        .from("regional_materials")
+        .select("id, unit_cost")
+        .eq("material_name", name)
+        .eq("zip_code", zip)
+        .not("unit_cost", "is", null)
+        .order("recorded_at", { ascending: false });
+
+      if (!allRows?.length) return;
+
+      const oldSum = allRows.reduce((s, r) => s + Number(r.unit_cost), 0);
+      const newAvg = Math.round(((oldSum + unitCost) / (allRows.length + 1)) * 100) / 100;
+
+      // Update the most recent row to the new running average and refresh its
+      // timestamp so it stays within the 90-day active window
+      await supabase
+        .from("regional_materials")
+        .update({ unit_cost: newAvg, recorded_at: new Date().toISOString() })
+        .eq("id", allRows[0].id);
+    }
+  } catch {
+    // Regional write is non-critical — never let it surface to the user
+  }
+}
 
 export async function addMaterial(jobId: string, formData: FormData) {
   const supabase = createClient();
@@ -37,26 +123,9 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   if (error) return { error: error.message };
 
-  // Fire-and-forget: record price data for regional intelligence
+  // Fire-and-forget: contribute price to regional crowdsource dataset
   if (unit_cost !== null && user) {
-    supabase
-      .from("jobs")
-      .select("address")
-      .eq("id", jobId)
-      .single()
-      .then(({ data: job }) => {
-        const { zip, city, state } = parseAddress(job?.address);
-        supabase.from("regional_materials").insert({
-          material_name: name,
-          length_ft,
-          unit,
-          unit_cost,
-          zip_code: zip,
-          city,
-          state,
-          user_id: user.id,
-        });
-      });
+    void contributeRegionalPrice(supabase, user.id, name, unit_cost, unit, length_ft);
   }
 
   // Check if materials spend has exceeded the estimate budget (fire once)
@@ -129,8 +198,32 @@ export async function updateMaterial(
   }
 ) {
   const supabase = createClient();
+
+  // Fetch current material name + unit before updating (needed for regional write)
+  const { data: existing } = await supabase
+    .from("materials")
+    .select("name, unit, length_ft")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("materials").update(fields).eq("id", id);
   if (error) return { error: error.message };
+
+  // Contribute updated price to regional dataset if unit_cost changed
+  if (fields.unit_cost != null && existing?.name) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      void contributeRegionalPrice(
+        supabase,
+        user.id,
+        existing.name,
+        fields.unit_cost,
+        existing.unit ?? "",
+        fields.length_ft ?? existing.length_ft ?? null,
+      );
+    }
+  }
+
   return { success: true };
 }
 
