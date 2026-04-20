@@ -206,6 +206,41 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* Daily Toolkit */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <Link href="/calculator" className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 flex flex-col gap-3 active:scale-95 transition-transform active:border-orange-500/40">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2"/>
+                <line x1="8" y1="6" x2="16" y2="6"/>
+                <line x1="8" y1="10" x2="10" y2="10"/>
+                <line x1="14" y1="10" x2="16" y2="10"/>
+                <line x1="8" y1="14" x2="10" y2="14"/>
+                <line x1="14" y1="14" x2="16" y2="14"/>
+                <line x1="8" y1="18" x2="10" y2="18"/>
+                <line x1="14" y1="18" x2="16" y2="18"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white font-semibold text-base leading-tight">Calculator</p>
+              <p className="text-gray-500 text-xs mt-0.5">Materials & takeoff</p>
+            </div>
+          </Link>
+          <Link href="/import" className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 flex flex-col gap-3 active:scale-95 transition-transform active:border-orange-500/40">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white font-semibold text-base leading-tight">Data Import</p>
+              <p className="text-gray-500 text-xs mt-0.5">QuickBooks & CSV</p>
+            </div>
+          </Link>
+        </div>
+
         {/* Invoices */}
         {(outstanding > 0 || paidThisMonth > 0 || overdueInvoices.length > 0) && (
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-8">
