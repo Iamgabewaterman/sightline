@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
+import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 
-// ── Oregon baseline prices (zip 97xxx) ────────────────────────────────────
-const P = {
+// ── Oregon reference prices (used as baseline ratios only) ────────────────
+const P_OR = {
   stud2x4: 4.80, stud2x4pre: 5.20, stud2x6: 8.50, stud2x6pre: 9.10,
   framing2x8: 11.20, framing2x10: 14.50, framing2x12: 18.00,
   post4x4: 12.00, post4x6: 18.00, post6x6: 28.00,
@@ -119,8 +120,25 @@ function chip(active: boolean) {
 function n(v: string) { return parseFloat(v) || 0; }
 function ceil(v: number) { return Math.ceil(v); }
 
+function pricingTierLabel(pricing: RegionalCalcPricing, locationSource: string | null): string {
+  const rep = pricing.drywall;
+  if (rep.isBaseline) return "Built-in estimates";
+  const l = rep.label.toLowerCase();
+  if (l.includes("national")) return "National average pricing";
+  if (l.includes("state")) return `${locationSource ?? "State"} average pricing`;
+  return `${locationSource} pricing`;
+}
+
 // ── Main Component ────────────────────────────────────────────────────────
-export default function CalculatorClient({ jobs }: { jobs: { id: string; name: string }[] }) {
+export default function CalculatorClient({
+  jobs,
+  pricing,
+  locationSource,
+}: {
+  jobs: { id: string; name: string }[];
+  pricing: RegionalCalcPricing;
+  locationSource: string | null;
+}) {
   const [step, setStep]           = useState<1|2|3|4|5>(1);
   const [trade, setTrade]         = useState<TradeId | null>(null);
   const [sub, setSub]             = useState<string | null>(null);
@@ -183,6 +201,39 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
   const [saved,            setSaved]            = useState(false);
   const [saveError,        setSaveError]        = useState("");
   const [saveMode,         setSaveMode]         = useState<"job" | "shopping">("job");
+
+  // Build price table: regional data overrides Oregon baseline where available
+  const P = {
+    ...P_OR,
+    // Drywall (regional: $/sheet 4x8)
+    dw12:     pricing.drywall.value,
+    dw14:     pricing.drywall.value,
+    dw12x12:  pricing.drywall.value * (P_OR.dw12x12  / P_OR.dw12),
+    dwTypeX:  pricing.drywall.value * (P_OR.dwTypeX  / P_OR.dw12),
+    dwMold:   pricing.drywall.value * (P_OR.dwMold   / P_OR.dw12),
+    dwPrimer: pricing.drywall.value * (P_OR.dwPrimer / P_OR.dw12),
+    // Framing studs (regional: $/2x4 stud)
+    stud2x4:    pricing.framingStud.value,
+    stud2x4pre: pricing.framingStud.value * (P_OR.stud2x4pre / P_OR.stud2x4),
+    stud2x6:    pricing.framingStud.value * (P_OR.stud2x6    / P_OR.stud2x4),
+    stud2x6pre: pricing.framingStud.value * (P_OR.stud2x6pre / P_OR.stud2x4),
+    // Roofing (regional: $/square 100sqft)
+    archShingles: pricing.roofing.value,
+    tab3Shingles: pricing.roofing.value * (P_OR.tab3Shingles / P_OR.archShingles),
+    // Tile (regional: $/sqft ceramic)
+    ceramic12:   pricing.tile.value,
+    porcelain12: pricing.tile.value * (P_OR.porcelain12 / P_OR.ceramic12),
+    porcelain24: pricing.tile.value * (P_OR.porcelain24 / P_OR.ceramic12),
+    mosaic:      pricing.tile.value * (P_OR.mosaic      / P_OR.ceramic12),
+    // Flooring (regional: $/sqft LVP)
+    lvp:      pricing.flooring.value,
+    hardwood: pricing.flooring.value * (P_OR.hardwood / P_OR.lvp),
+    laminate: pricing.flooring.value * (P_OR.laminate / P_OR.lvp),
+    // Paint (regional: $/gallon interior)
+    intPaint: pricing.paint.value,
+    extPaint: pricing.paint.value * (P_OR.extPaint / P_OR.intPaint),
+    primer:   pricing.paint.value * (P_OR.primer   / P_OR.intPaint),
+  };
 
   function reset() {
     setStep(1); setTrade(null); setSub(null); setResult(null);
@@ -1041,9 +1092,26 @@ export default function CalculatorClient({ jobs }: { jobs: { id: string; name: s
             )}
 
             {/* Line items */}
+            {locationSource === null && !pricing.drywall.isBaseline && (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                <p className="text-yellow-300 text-sm">
+                  National average pricing — <a href="/settings" className="underline font-semibold">add your location in Settings</a> for local rates
+                </p>
+              </div>
+            )}
+            {locationSource === null && pricing.drywall.isBaseline && (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                <p className="text-yellow-300 text-sm">
+                  Built-in estimates — <a href="/settings" className="underline font-semibold">add your location in Settings</a> for local rates. Log materials on jobs to build regional data.
+                </p>
+              </div>
+            )}
+
             <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden">
               <div className="px-5 py-3 border-b border-[#2a2a2a]">
-                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Materials — Oregon Pricing</p>
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                  Materials — {pricingTierLabel(pricing, locationSource)}
+                </p>
               </div>
               {result.map((item, i) => (
                 <div key={i} className={`px-5 py-4 flex items-center justify-between gap-3 ${i < result.length - 1 ? "border-b border-[#2a2a2a]" : ""}`}>
