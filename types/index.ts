@@ -47,6 +47,7 @@ export interface Job {
   total_days: number | null;
   paused_at: string | null;
   total_paused_days: number;
+  estimated_completion_date: string | null;
   portal_token: string | null;
   portal_enabled: boolean;
   job_lat: number | null;

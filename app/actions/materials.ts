@@ -64,11 +64,12 @@ async function contributeRegionalPrice(
         length_ft: lengthFt,
       });
     } else {
-      // 3+ samples already exist — compute running average and update the
-      // most recent row instead of growing the table indefinitely
+      // 3+ samples already exist — compute running average across all rows,
+      // then update the user's most-recent row (RLS: can only update own rows).
+      // If this user has no row yet, INSERT instead (first contribution beats seed data).
       const { data: allRows } = await supabase
         .from("regional_materials")
-        .select("id, unit_cost")
+        .select("id, unit_cost, user_id")
         .eq("material_name", name)
         .eq("zip_code", zip)
         .not("unit_cost", "is", null)
@@ -79,12 +80,28 @@ async function contributeRegionalPrice(
       const oldSum = allRows.reduce((s, r) => s + Number(r.unit_cost), 0);
       const newAvg = Math.round(((oldSum + unitCost) / (allRows.length + 1)) * 100) / 100;
 
-      // Update the most recent row to the new running average and refresh its
-      // timestamp so it stays within the 90-day active window
-      await supabase
-        .from("regional_materials")
-        .update({ unit_cost: newAvg, recorded_at: new Date().toISOString() })
-        .eq("id", allRows[0].id);
+      // Find the most recent row owned by this user
+      const ownRow = allRows.find((r) => r.user_id === userId);
+
+      if (ownRow) {
+        // Update the user's own row — RLS allows this
+        await supabase
+          .from("regional_materials")
+          .update({ unit_cost: newAvg, recorded_at: new Date().toISOString() })
+          .eq("id", ownRow.id);
+      } else {
+        // No user-owned row yet — insert a new one with the running average
+        await supabase.from("regional_materials").insert({
+          material_name: name,
+          unit,
+          unit_cost: newAvg,
+          zip_code: zip,
+          city,
+          state,
+          user_id: userId,
+          length_ft: lengthFt,
+        });
+      }
     }
   } catch {
     // Regional write is non-critical — never let it surface to the user

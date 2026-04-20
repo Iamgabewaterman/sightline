@@ -213,7 +213,6 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         name,
         trade: pick(row, "trade", "specialty", "skill") || null,
         phone: pick(row, "phone", "mobile", "cell") || null,
-        email: pick(row, "email") || null,
         hourly_rate: rate,
         is_subcontractor: isSub,
         notes: pick(row, "notes", "comments") || null,

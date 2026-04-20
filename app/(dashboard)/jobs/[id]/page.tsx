@@ -343,6 +343,9 @@ export default async function JobDetailPage({
             </div>
             <DetailRow label="Address" value={job.address} />
             <DetailRow label="Created" value={formatDate(job.created_at)} />
+            {job.estimated_completion_date && (
+              <DetailRow label="Est. Completion" value={formatDate(job.estimated_completion_date)} />
+            )}
             {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
             {job.lockbox_code && <LockboxCode code={job.lockbox_code} />}
           </div>

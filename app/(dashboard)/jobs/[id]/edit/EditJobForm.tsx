@@ -250,6 +250,19 @@ export default function EditJobForm({ job }: { job: Job }) {
             />
           </div>
 
+          {/* Estimated Completion Date */}
+          <div className="flex flex-col gap-2">
+            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+              Estimated Completion <span className="text-gray-500 normal-case">(optional)</span>
+            </label>
+            <input
+              name="estimated_completion_date"
+              type="date"
+              defaultValue={job.estimated_completion_date ?? ""}
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 focus:outline-none focus:border-orange-500 transition-colors"
+            />
+          </div>
+
           {/* Error */}
           {status === "error" && (
             <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">

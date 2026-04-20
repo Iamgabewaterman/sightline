@@ -84,8 +84,6 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    console.log("[middleware] user:", user.id, "profile:", JSON.stringify(profile), "profileError:", profileError?.message ?? null);
-
     // ── Onboarding redirect (owners only, once) ───────────────────────────────
     if (
       profile &&
