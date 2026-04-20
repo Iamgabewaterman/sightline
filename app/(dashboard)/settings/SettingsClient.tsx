@@ -25,6 +25,33 @@ function Section({ title, children }: SectionProps) {
   );
 }
 
+function CollapsibleSection({ title, children }: SectionProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-5 active:opacity-70 transition-opacity"
+      >
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">{title}</p>
+        <svg
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          className={`transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 flex flex-col gap-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const inputClass =
   "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500 w-full";
 
@@ -146,7 +173,7 @@ export default function SettingsClient({
         {profile && <TeamSection profile={profile} members={members} />}
 
         {/* Notifications */}
-        <Section title="Notifications">
+        <CollapsibleSection title="Notifications">
           {notifSaving && <p className="text-gray-500 text-xs -mt-2">Saving…</p>}
           {notifToast && <p className="text-green-400 text-xs -mt-2">Saved</p>}
           {notifPrefs ? (
@@ -178,88 +205,95 @@ export default function SettingsClient({
           ) : (
             <p className="text-gray-600 text-sm">Loading…</p>
           )}
-        </Section>
+        </CollapsibleSection>
 
-        {/* Email */}
-        <Section title="Change Email">
-          <p className="text-gray-500 text-sm -mt-1">
-            Current: <span className="text-white">{currentEmail}</span>
-          </p>
-          <form onSubmit={handleEmail} className="flex flex-col gap-3">
-            <input
-              name="email"
-              type="email"
-              required
-              placeholder="New email address"
-              autoComplete="email"
-              className={inputClass}
-            />
-            {emailMsg && (
-              <p
-                className={`text-sm rounded-xl px-4 py-3 border ${
-                  emailMsg.ok
-                    ? "text-green-400 bg-green-950 border-green-800"
-                    : "text-red-400 bg-red-950 border-red-800"
-                }`}
+        {/* Account & Security (Email + Password combined) */}
+        <CollapsibleSection title="Account &amp; Security">
+          {/* Change Email */}
+          <div className="flex flex-col gap-3">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Change Email</p>
+            <p className="text-gray-500 text-sm -mt-1">
+              Current: <span className="text-white">{currentEmail}</span>
+            </p>
+            <form onSubmit={handleEmail} className="flex flex-col gap-3">
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="New email address"
+                autoComplete="email"
+                className={inputClass}
+              />
+              {emailMsg && (
+                <p
+                  className={`text-sm rounded-xl px-4 py-3 border ${
+                    emailMsg.ok
+                      ? "text-green-400 bg-green-950 border-green-800"
+                      : "text-red-400 bg-red-950 border-red-800"
+                  }`}
+                >
+                  {emailMsg.text}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={emailSaving}
+                className="bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
               >
-                {emailMsg.text}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={emailSaving}
-              className="bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
-            >
-              {emailSaving ? "Saving..." : "Update Email"}
-            </button>
-          </form>
-        </Section>
+                {emailSaving ? "Saving..." : "Update Email"}
+              </button>
+            </form>
+          </div>
 
-        {/* Password */}
-        <Section title="Change Password">
-          <form onSubmit={handlePassword} className="flex flex-col gap-3">
-            <input
-              name="password"
-              type="password"
-              required
-              placeholder="New password (min 8 characters)"
-              autoComplete="new-password"
-              className={inputClass}
-            />
-            <input
-              name="confirm"
-              type="password"
-              required
-              placeholder="Confirm new password"
-              autoComplete="new-password"
-              className={inputClass}
-            />
-            {pwMsg && (
-              <p
-                className={`text-sm rounded-xl px-4 py-3 border ${
-                  pwMsg.ok
-                    ? "text-green-400 bg-green-950 border-green-800"
-                    : "text-red-400 bg-red-950 border-red-800"
-                }`}
+          <div className="border-t border-[#2a2a2a]" />
+
+          {/* Change Password */}
+          <div className="flex flex-col gap-3">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Change Password</p>
+            <form onSubmit={handlePassword} className="flex flex-col gap-3">
+              <input
+                name="password"
+                type="password"
+                required
+                placeholder="New password (min 8 characters)"
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <input
+                name="confirm"
+                type="password"
+                required
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              {pwMsg && (
+                <p
+                  className={`text-sm rounded-xl px-4 py-3 border ${
+                    pwMsg.ok
+                      ? "text-green-400 bg-green-950 border-green-800"
+                      : "text-red-400 bg-red-950 border-red-800"
+                  }`}
+                >
+                  {pwMsg.text}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={pwSaving}
+                className="bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
               >
-                {pwMsg.text}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={pwSaving}
-              className="bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+                {pwSaving ? "Saving..." : "Update Password"}
+              </button>
+            </form>
+            <a
+              href="/login"
+              className="text-orange-500 text-sm font-medium text-center -mt-1"
             >
-              {pwSaving ? "Saving..." : "Update Password"}
-            </button>
-          </form>
-          <a
-            href="/login"
-            className="text-orange-500 text-sm font-medium text-center -mt-1"
-          >
-            Forgot your password? Reset via email →
-          </a>
-        </Section>
+              Forgot your password? Reset via email →
+            </a>
+          </div>
+        </CollapsibleSection>
 
         {/* Contact & Support */}
         <Section title="Contact &amp; Support">
