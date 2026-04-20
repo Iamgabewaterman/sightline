@@ -51,40 +51,50 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
-  const isSubscribePage = pathname.startsWith("/subscribe");
-  const isApiRoute = pathname.startsWith("/api");
-  const isAuthCallback = pathname.startsWith("/auth");
-  const isPayRoute       = pathname.startsWith("/pay");
-  const isPortalRoute    = pathname.startsWith("/portal");
-  const isSignRoute      = pathname.startsWith("/sign");
-  const isOnboardingRoute = pathname.startsWith("/onboarding");
-  const isLandingPage    = pathname === "/";
-  const isDemoRoute      = pathname.startsWith("/demo");
 
-  // Not logged in → send to login (landing page and demo are public)
-  if (!user && !isAuthPage && !isAuthCallback && !isPayRoute && !isPortalRoute && !isSignRoute && !isLandingPage && !isDemoRoute) {
+  // ── Public routes — never redirect regardless of auth or subscription ────
+  // This must be checked before any auth or subscription logic to prevent loops.
+  const isPublicRoute =
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/subscribe") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/pay") ||
+    pathname.startsWith("/portal") ||
+    pathname.startsWith("/sign") ||
+    pathname.startsWith("/demo");
+
+  if (isPublicRoute) {
+    // Logged-in users visiting auth pages or landing → send to dashboard
+    if (user && (pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
+      return NextResponse.redirect(new URL("/jobs", request.url));
+    }
+    return supabaseResponse;
+  }
+
+  const isOnboardingRoute = pathname.startsWith("/onboarding");
+
+  // Not logged in → send to login
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Logged-in users visiting auth pages or the landing page → send to dashboard
-  if (user && (isAuthPage || isLandingPage)) {
-    return NextResponse.redirect(new URL("/jobs", request.url));
-  }
-
-  if (user && !isAuthPage && !isApiRoute && !isAuthCallback && !isPayRoute && !isPortalRoute && !isSignRoute && !isDemoRoute) {
+  // Logged-in user on a protected route — check profile and subscription
+  {
     // Use service-role client so RLS never blocks the profile read in Edge Runtime
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    const { data: profile, error: profileError } = await admin
+    const { data: profile } = await admin
       .from("profiles")
       .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete")
       .eq("id", user.id)
       .maybeSingle();
 
-    // ── Onboarding redirect (owners only, once) ───────────────────────────────
+    // ── Onboarding redirect (owners only, once) ──────────────────────────────
     if (
       profile &&
       !profile.onboarding_complete &&
@@ -94,24 +104,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
-    // ── Field member restrictions ────────────────────────────────────────────
+    // ── Field member restrictions ─────────────────────────────────────────────
     if (profile?.role === "field_member") {
       const blocked = OWNER_ONLY_ROUTES.some((r) => pathname.startsWith(r));
-
-      // Check financials route exceptions
       const wantsFinancials = pathname.startsWith("/tax") || pathname.startsWith("/mileage") || pathname.startsWith("/receipts");
       if (wantsFinancials && profile.can_see_financials) {
         // allowed
       } else if (blocked) {
         return NextResponse.redirect(new URL("/jobs", request.url));
       }
-
       // Field members skip Stripe subscription check — they're free
       return supabaseResponse;
     }
 
     // ── Owner subscription enforcement ───────────────────────────────────────
-    if (!isSubscribePage && !profile?.is_lifetime) {
+    if (!profile?.is_lifetime) {
       const trialEndsAt = new Date(user.created_at);
       trialEndsAt.setDate(trialEndsAt.getDate() + 30);
       const onTrial = new Date() < trialEndsAt;
