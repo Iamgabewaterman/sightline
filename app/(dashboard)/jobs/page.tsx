@@ -9,6 +9,8 @@ import { computeInsights } from "@/lib/insights";
 import InsightsSection from "@/components/InsightsSection";
 import InfoTooltip from "@/components/InfoTooltip";
 
+export const dynamic = "force-dynamic";
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -24,7 +26,6 @@ export default async function DashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Check role before running queries
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -34,10 +35,8 @@ export default async function DashboardPage() {
   const isFieldMember = profile?.role === "field_member";
 
   if (isFieldMember) {
-    // Field member home: show today's assignments + assigned jobs list
     const todayAssignments = await getTodayAssignments();
 
-    // Get week assignments for jobs list
     const weekStart = (() => {
       const d = new Date();
       const day = d.getDay();
@@ -65,7 +64,6 @@ export default async function DashboardPage() {
           <h1 className="text-3xl font-bold text-white mb-1">My Schedule</h1>
           <p className="text-gray-500 text-sm mb-6">{todayLabel()}</p>
 
-          {/* TODAY'S ASSIGNMENTS */}
           <div className="mb-8">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Today</p>
             {todayAssignments.length === 0 ? (
@@ -99,7 +97,6 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* THIS WEEK */}
           {weekAssignments && weekAssignments.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -115,7 +112,6 @@ export default async function DashboardPage() {
                   .map((a) => {
                     const assignedDate = (a as { assigned_date: string }).assigned_date;
                     const d = new Date(assignedDate + "T00:00:00");
-                    const dayLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
                     return (
                       <div key={(a as { id: string }).id} className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-3 flex items-center gap-4">
                         <div className="text-center w-10 shrink-0">
@@ -143,33 +139,55 @@ export default async function DashboardPage() {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
+  const monthStartISO = monthStart.toISOString();
 
   const [
     { count: activeCount },
     { data: monthEstimates },
     { data: userJobIds },
     { data: recentJobs },
+    { data: completedThisMonth },
     invoiceStats,
     insightsData,
   ] = await Promise.all([
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("user_id", user!.id).eq("status", "active"),
-    supabase.from("estimates").select("final_quote").eq("user_id", user!.id).gte("created_at", monthStart.toISOString()),
+    supabase.from("estimates").select("final_quote").eq("user_id", user!.id).gte("created_at", monthStartISO),
     supabase.from("jobs").select("id").eq("user_id", user!.id),
     supabase.from("jobs").select("id, name, status, types, address, updated_at").eq("user_id", user!.id).order("updated_at", { ascending: false }).returns<Job[]>(),
+    supabase.from("jobs").select("id").eq("user_id", user!.id).eq("status", "completed").gte("completed_date", monthStartISO),
     getInvoiceDashboardStats(user!.id),
     computeInsights(user!.id),
   ]);
 
-  const jobIds = userJobIds?.map((j) => j.id) ?? [];
-  const { data: monthMaterials } = jobIds.length > 0
-    ? await supabase.from("materials").select("quantity_used, unit_cost").in("job_id", jobIds).gte("created_at", monthStart.toISOString())
-    : { data: [] };
+  // Monthly profit: paid invoices on jobs completed this month - materials - labor
+  const completedIds = (completedThisMonth ?? []).map((j) => j.id);
+
+  const [
+    { data: paidInvoicesThisMonth },
+    { data: completedMaterials },
+    { data: completedLabor },
+  ] = await Promise.all([
+    completedIds.length > 0
+      ? supabase.from("invoices").select("total_amount").in("job_id", completedIds).eq("status", "paid")
+      : Promise.resolve({ data: [] }),
+    completedIds.length > 0
+      ? supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").in("job_id", completedIds)
+      : Promise.resolve({ data: [] }),
+    completedIds.length > 0
+      ? supabase.from("labor_logs").select("hours, rate").in("job_id", completedIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const monthRevenuePaid = (paidInvoicesThisMonth ?? []).reduce((s, inv) => s + Number(inv.total_amount), 0);
+  const monthMaterialCost = (completedMaterials ?? []).reduce((s, m) => {
+    if (m.unit_cost === null) return s;
+    const qty = m.quantity_used ?? m.quantity_ordered;
+    return s + Number(qty) * Number(m.unit_cost);
+  }, 0);
+  const monthLaborCost = (completedLabor ?? []).reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
+  const monthlyProfit = monthRevenuePaid - monthMaterialCost - monthLaborCost;
 
   const monthlyRevenue = (monthEstimates ?? []).reduce((sum, e) => sum + Number(e.final_quote), 0);
-  const monthlyMaterials = (monthMaterials ?? []).reduce((sum, m) => {
-    if (m.quantity_used !== null && m.unit_cost !== null) return sum + Number(m.quantity_used) * Number(m.unit_cost);
-    return sum;
-  }, 0);
 
   const { outstanding, paidThisMonth, overdueInvoices } = invoiceStats;
   const allJobs = recentJobs ?? [];
@@ -187,67 +205,49 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Stats */}
+        {/* Primary Stats — Monthly Profit + Estimated Revenue */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Overview</p>
           <p className="text-gray-600 text-xs">Updated just now</p>
         </div>
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
-            <p className="text-orange-500 text-3xl font-black leading-none mb-1">{activeCount ?? 0}</p>
-            <p className="text-gray-400 text-xs uppercase tracking-wider">Active</p>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-5 text-center">
+            {completedIds.length > 0 ? (
+              <p className={`text-3xl font-black leading-none mb-1 ${monthlyProfit >= 0 ? "text-orange-500" : "text-red-400"}`}>
+                {fmt$(monthlyProfit)}
+              </p>
+            ) : (
+              <>
+                <p className="text-orange-500 text-3xl font-black leading-none mb-1">$0</p>
+                <p className="text-gray-600 text-[10px] leading-tight mt-1">Complete a job to see monthly profit</p>
+              </>
+            )}
+            <p className="text-gray-400 text-xs uppercase tracking-wider mt-1 flex items-center justify-center gap-1">
+              This Month
+              <InfoTooltip text="Net profit from jobs completed this calendar month: paid invoices minus material and labor costs." />
+            </p>
           </div>
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
-            <p className="text-orange-500 text-xl font-black leading-none mb-1">{fmt$(monthlyRevenue)}</p>
-            <p className="text-gray-400 text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-5 text-center">
+            <p className="text-orange-500 text-3xl font-black leading-none mb-1">{fmt$(monthlyRevenue)}</p>
+            <p className="text-gray-400 text-xs uppercase tracking-wider mt-1 flex items-center justify-center gap-1">
               Rev. Est.
               <InfoTooltip text="Estimated from saved quotes on active jobs. Add a quote to a job to see your projected revenue." />
             </p>
           </div>
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-4 text-center">
-            <p className="text-orange-500 text-xl font-black leading-none mb-1">{fmt$(monthlyMaterials)}</p>
-            <p className="text-gray-400 text-xs uppercase tracking-wider">Mat. Spend</p>
-          </div>
         </div>
 
-        {/* Daily Toolkit */}
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          <Link href="/calculator" className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 flex flex-col gap-3 active:scale-95 transition-transform active:border-orange-500/40">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="4" y="2" width="16" height="20" rx="2"/>
-                <line x1="8" y1="6" x2="16" y2="6"/>
-                <line x1="8" y1="10" x2="10" y2="10"/>
-                <line x1="14" y1="10" x2="16" y2="10"/>
-                <line x1="8" y1="14" x2="10" y2="14"/>
-                <line x1="14" y1="14" x2="16" y2="14"/>
-                <line x1="8" y1="18" x2="10" y2="18"/>
-                <line x1="14" y1="18" x2="16" y2="18"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-base leading-tight">Calculator</p>
-              <p className="text-gray-500 text-xs mt-0.5">Materials & takeoff</p>
-            </div>
-          </Link>
-          <Link href="/import" className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 flex flex-col gap-3 active:scale-95 transition-transform active:border-orange-500/40">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-base leading-tight">Data Import</p>
-              <p className="text-gray-500 text-xs mt-0.5">QuickBooks & CSV</p>
-            </div>
-          </Link>
+        {/* Active Jobs pill */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-full px-5 py-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
+            <span className="text-orange-500 font-bold text-sm">{activeCount ?? 0}</span>
+            <span className="text-gray-500 text-xs uppercase tracking-wider">Active Jobs</span>
+          </div>
         </div>
 
         {/* Invoices */}
         {(outstanding > 0 || paidThisMonth > 0 || overdueInvoices.length > 0) && (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-8">
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-6">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoices</p>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
@@ -280,6 +280,55 @@ export default async function DashboardPage() {
           cards={insightsData.cards}
           completedJobCount={insightsData.completedJobCount}
         />
+
+        {/* Quick-action shortcuts */}
+        <div className="flex justify-center gap-8 mb-8">
+          <Link href="/calculator" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+            <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2"/>
+                <line x1="8" y1="6" x2="16" y2="6"/>
+                <line x1="8" y1="10" x2="10" y2="10"/>
+                <line x1="14" y1="10" x2="16" y2="10"/>
+                <line x1="8" y1="14" x2="10" y2="14"/>
+                <line x1="14" y1="14" x2="16" y2="14"/>
+                <line x1="8" y1="18" x2="10" y2="18"/>
+                <line x1="14" y1="18" x2="16" y2="18"/>
+              </svg>
+            </div>
+            <span className="text-gray-400 text-xs font-semibold">Calculator</span>
+          </Link>
+          <Link href="/import" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+            <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <span className="text-gray-400 text-xs font-semibold">Import</span>
+          </Link>
+          <Link href="/mileage" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+            <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4l3 3"/>
+              </svg>
+            </div>
+            <span className="text-gray-400 text-xs font-semibold">Mileage</span>
+          </Link>
+          <Link href="/receipts" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+            <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="9" y1="13" x2="15" y2="13"/>
+                <line x1="9" y1="17" x2="15" y2="17"/>
+              </svg>
+            </div>
+            <span className="text-gray-400 text-xs font-semibold">Receipts</span>
+          </Link>
+        </div>
 
         {/* Recent Jobs */}
         <div className="flex items-center justify-between mb-4">

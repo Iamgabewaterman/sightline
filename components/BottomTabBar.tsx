@@ -56,16 +56,15 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
-  { label: "Mileage Tracker",  href: "/mileage" },
-  { label: "People & Crews",   href: "/people" },
-  { label: "Calendar",         href: "/calendar" },
-  { label: "Clients",          href: "/clients" },
-  { label: "Profitability",    href: "/profit" },
-  { label: "Receipts",         href: "/receipts" },
-  { label: "Templates",        href: "/templates" },
-  { label: "Portfolio",        href: "/portfolio" },
-  { label: "Tax Report",       href: "/tax" },
-  { label: "QuickBooks Import",href: "/import" },
+  { label: "Mileage Tracker", href: "/mileage" },
+  { label: "People & Crews",  href: "/people" },
+  { label: "Calendar",        href: "/calendar" },
+  { label: "Clients",         href: "/clients" },
+  { label: "Profitability",   href: "/profit" },
+  { label: "Receipts",        href: "/receipts" },
+  { label: "Templates",       href: "/templates" },
+  { label: "Portfolio",       href: "/portfolio" },
+  { label: "Tax Report",      href: "/tax" },
 ];
 
 export default function BottomTabBar() {
