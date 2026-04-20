@@ -12,7 +12,7 @@ export default function InsightsSection({
 }) {
   const [selected, setSelected] = useState<InsightCard | null>(null);
 
-  if (completedJobCount < 3) {
+  if (completedJobCount < 1) {
     return (
       <div className="mb-8">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
@@ -22,24 +22,14 @@ export default function InsightsSection({
           <div className="flex items-center gap-3 mb-3">
             <span className="text-2xl">📊</span>
             <div>
-              <p className="text-white font-semibold">Insights unlock at 3 completed jobs</p>
-              <p className="text-gray-500 text-sm">
-                {completedJobCount === 0
-                  ? "Complete your first job to start building your data."
-                  : `${completedJobCount} of 3 jobs completed.`}
-              </p>
+              <p className="text-white font-semibold">Insights unlock after your first completed job</p>
+              <p className="text-gray-500 text-sm">Complete your first job to start building your data.</p>
             </div>
           </div>
-          {/* Progress bar */}
           <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-orange-500 rounded-full transition-all"
-              style={{ width: `${Math.min((completedJobCount / 3) * 100, 100)}%` }}
-            />
+            <div className="h-full bg-orange-500 rounded-full" style={{ width: "0%" }} />
           </div>
-          <p className="text-gray-600 text-xs mt-2">
-            {3 - completedJobCount} more completed job{3 - completedJobCount !== 1 ? "s" : ""} needed
-          </p>
+          <p className="text-gray-600 text-xs mt-2">1 completed job needed</p>
         </div>
       </div>
     );
@@ -52,6 +42,9 @@ export default function InsightsSection({
       <div className="mb-8">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
           AI Insights
+        </p>
+        <p className="text-gray-500 text-xs mb-3">
+          Insights improve with every completed job. The more you track, the more accurate your projections become.
         </p>
         {/* Horizontal scroll row */}
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: "none" }}>

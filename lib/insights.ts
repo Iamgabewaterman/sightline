@@ -89,7 +89,7 @@ export async function computeInsights(userId: string): Promise<{
   const completedIds = completed.map((j) => j.id);
   const completedJobCount = completed.length;
 
-  if (completedJobCount < 3) return { cards: [], completedJobCount };
+  if (completedJobCount < 1) return { cards: [], completedJobCount };
 
   // Fetch supporting data in parallel
   const [

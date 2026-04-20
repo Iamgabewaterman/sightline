@@ -30,7 +30,7 @@ export default function JobMaterialsWrapper({
 
   return (
     <>
-      {completedJobCount >= 3 && (
+      {completedJobCount >= 1 && (
         <EstimationSuggestions
           jobId={jobId}
           jobTypes={jobTypes}

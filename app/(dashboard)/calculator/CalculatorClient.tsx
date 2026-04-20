@@ -1124,11 +1124,16 @@ export default function CalculatorClient({
                   </span>
                 </div>
               ))}
-              <div className="px-5 py-4 bg-[#141414] flex justify-between items-center">
-                <span className="text-white font-bold text-base">Total Materials</span>
-                <span className="text-orange-500 font-black text-2xl">
-                  ${totalCost.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </span>
+              <div className="px-5 py-4 bg-[#141414]">
+                <div className="flex justify-between items-center">
+                  <span className="text-white font-bold text-base">Estimated Range</span>
+                  <span className="text-orange-500 font-black text-xl">
+                    ${Math.round(totalCost * 0.90).toLocaleString("en-US")} — ${Math.round(totalCost * 1.15).toLocaleString("en-US")}
+                  </span>
+                </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  Estimates based on regional averages — your actual costs may vary 10-20%. Track your first few jobs to personalize these numbers.
+                </p>
               </div>
             </div>
 

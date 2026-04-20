@@ -33,7 +33,7 @@ export default function EstimationSuggestions({
   const [error, setError] = useState("");
   const [applied, setApplied] = useState(false);
 
-  if (completedJobCount < 3) return null;
+  if (completedJobCount < 1) return null;
 
   async function handleExpand() {
     if (suggestions !== null) {
@@ -123,6 +123,9 @@ export default function EstimationSuggestions({
 
       {expanded && (
         <div className="mt-2 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden">
+          <p className="text-gray-600 text-xs px-5 pt-3 pb-1">
+            This estimate will get more accurate as Sightline learns your crew speed and local material costs.
+          </p>
           {loading && (
             <p className="text-gray-500 text-sm px-5 py-6 text-center animate-pulse">
               Analyzing past jobs...
