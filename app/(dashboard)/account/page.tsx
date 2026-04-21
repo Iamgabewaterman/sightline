@@ -9,14 +9,14 @@ import { verifyConnectAccount } from "@/app/actions/stripe-connect";
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: { connect?: string };
+  searchParams: { connect?: string; connected?: string };
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   // If returning from Stripe Connect onboarding, re-verify
-  if (searchParams.connect === "success") {
+  if (searchParams.connected === "true") {
     await verifyConnectAccount();
   }
 

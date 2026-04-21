@@ -1089,7 +1089,7 @@ export default function InvoiceSection({
       {!stripeConnected && (
         <div className="mt-4 flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-yellow-300 text-sm">Bank not connected — <a href="/account" className="underline font-semibold">Connect your bank →</a> before sharing a payment link.</p>
+          <p className="text-yellow-300 text-sm">Connect your bank account first to receive payments — <a href="/account" className="underline font-semibold">go to Account to set up payouts →</a></p>
         </div>
       )}
 

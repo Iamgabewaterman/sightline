@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createConnectOnboardingLink, createManagePayoutsLink } from "@/app/actions/stripe-connect";
+import { createManagePayoutsLink } from "@/app/actions/stripe-connect";
 
 interface Props {
   onboarded: boolean;
@@ -16,12 +16,13 @@ export default function ConnectBankButton({ onboarded, hasAccountId }: Props) {
     setLoading(true);
     setError("");
     try {
-      const res = await createConnectOnboardingLink();
-      if (res.error) {
-        setError(res.error);
+      const res = await fetch("/api/stripe/connect/onboard", { method: "POST" });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
         return;
       }
-      window.location.href = res.url!;
+      window.location.href = data.url;
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

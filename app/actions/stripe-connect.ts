@@ -2,6 +2,7 @@
 
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-02-25.clover",
@@ -15,7 +16,8 @@ export async function createConnectOnboardingLink(): Promise<{ url?: string; err
   if (!user) return { error: "Not authenticated" };
 
   try {
-    const { data: bp } = await supabase
+    const admin = createAdminClient();
+    const { data: bp } = await admin
       .from("business_profiles")
       .select("stripe_account_id")
       .eq("user_id", user.id)
@@ -26,11 +28,15 @@ export async function createConnectOnboardingLink(): Promise<{ url?: string; err
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
         metadata: { supabase_user_id: user.id },
       });
       accountId = account.id;
 
-      await supabase
+      await admin
         .from("business_profiles")
         .upsert(
           { user_id: user.id, stripe_account_id: accountId, stripe_onboarded: false },
@@ -41,7 +47,7 @@ export async function createConnectOnboardingLink(): Promise<{ url?: string; err
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${origin()}/api/stripe/connect/refresh?account=${accountId}`,
-      return_url: `${origin()}/account?connect=success`,
+      return_url: `${origin()}/account?connected=true`,
       type: "account_onboarding",
     });
 
