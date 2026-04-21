@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { sendContactEmail } from "@/app/actions/contact";
 
-const PHONE = "(503) 555-0190";
+const PHONE = "(503) 550-1603";
 const EMAIL = "gabew595@gmail.com";
 
 interface Props {

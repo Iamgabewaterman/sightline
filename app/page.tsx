@@ -183,8 +183,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Social proof ── */}
-      <section className="py-20 px-5 border-t border-[#1a1a1a]">
+      {/* ── Social proof / Features ── */}
+      <section id="features" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-4">
             Built for contractors like you
@@ -193,7 +193,7 @@ export default async function LandingPage() {
             From solo operators to crews of ten — Sightline fits the way you work.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {TESTIMONIALS.map(({ quote, name, trade, city }) => (
               <div
                 key={name}
