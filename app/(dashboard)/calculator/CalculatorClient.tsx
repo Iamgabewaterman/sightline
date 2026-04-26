@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
+import { fetchHistoricalCostRange } from "@/app/actions/insights";
+import type { HistoricalCostRange } from "@/lib/insights";
 
 // ── Oregon reference prices (used as baseline ratios only) ────────────────
 const P_OR = {
@@ -202,6 +204,9 @@ export default function CalculatorClient({
   const [saveError,        setSaveError]        = useState("");
   const [saveMode,         setSaveMode]         = useState<"job" | "shopping">("job");
 
+  // Historical range for adaptive estimate band
+  const [histRange, setHistRange] = useState<HistoricalCostRange | null>(null);
+
   // Build price table: regional data overrides Oregon baseline where available
   const P = {
     ...P_OR,
@@ -234,6 +239,22 @@ export default function CalculatorClient({
     extPaint: pricing.paint.value * (P_OR.extPaint / P_OR.intPaint),
     primer:   pricing.paint.value * (P_OR.primer   / P_OR.intPaint),
   };
+
+  // Map calculator trade IDs to job type strings for history lookup
+  const TRADE_JOB_TYPE: Partial<Record<TradeId, string>> = {
+    framing: "framing", roofing: "roofing", concrete: "concrete",
+    drywall: "drywall", tile: "tile", paint: "paint",
+    plumbing: "plumbing", electrical: "electrical", decking: "decks_patios",
+  };
+
+  // Fetch historical range when results are ready
+  useEffect(() => {
+    if (step !== 5 || !trade) { setHistRange(null); return; }
+    const jobType = TRADE_JOB_TYPE[trade];
+    if (!jobType) { setHistRange(null); return; }
+    fetchHistoricalCostRange([jobType], null).then(setHistRange);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, trade]);
 
   function reset() {
     setStep(1); setTrade(null); setSub(null); setResult(null);
@@ -1124,17 +1145,40 @@ export default function CalculatorClient({
                   </span>
                 </div>
               ))}
-              <div className="px-5 py-4 bg-[#141414]">
-                <div className="flex justify-between items-center">
-                  <span className="text-white font-bold text-base">Estimated Range</span>
-                  <span className="text-orange-500 font-black text-xl">
-                    ${Math.round(totalCost * 0.90).toLocaleString("en-US")} — ${Math.round(totalCost * 1.15).toLocaleString("en-US")}
-                  </span>
-                </div>
-                <p className="text-gray-600 text-xs mt-2">
-                  Estimates based on regional averages — your actual costs may vary 10-20%. Track your first few jobs to personalize these numbers.
-                </p>
-              </div>
+              {(() => {
+                // Adaptive range: narrows as contractor builds job history
+                const jobCount = histRange?.jobCount ?? 0;
+                const rangePct = jobCount === 0 ? 25 : jobCount <= 3 ? 15 : jobCount <= 9 ? 10 : 5;
+                const weight   = jobCount === 0 ? 0  : jobCount <= 3 ? 0.25 : jobCount <= 9 ? 0.5 : 0.70;
+                const f = rangePct / 100;
+
+                // Blend historical material avg with regional estimate
+                const histAvg = histRange?.historicalMaterialAvg ?? 0;
+                const center = histAvg > 0
+                  ? Math.round(histAvg * weight + totalCost * (1 - weight))
+                  : totalCost;
+
+                const rangeMin = Math.round(center * (1 - f));
+                const rangeMax = Math.round(center * (1 + f));
+
+                return (
+                  <div className="px-5 py-4 bg-[#141414]">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-white font-bold text-base">Estimated Range</span>
+                        <span className="text-gray-600 text-xs ml-2">±{rangePct}%</span>
+                      </div>
+                      <span className="text-orange-500 font-black text-xl">
+                        ${rangeMin.toLocaleString("en-US")} — ${rangeMax.toLocaleString("en-US")}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 text-xs mt-2">
+                      Based on {jobCount} job{jobCount !== 1 ? "s" : ""} in your history
+                      {histRange?.jobType ? ` (${histRange.jobType})` : ""} — range narrows as you track more work
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Add to job */}

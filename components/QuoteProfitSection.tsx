@@ -724,31 +724,60 @@ export default function QuoteProfitSection({
               </div>
 
               {/* Historical cost range banner */}
-              {historicalRange && (
-                <div className="mb-6 bg-[#1a1a1a] border border-orange-500/20 rounded-xl px-4 py-3">
-                  <p className="text-orange-400 text-xs font-semibold uppercase tracking-wider mb-1.5">
-                    📊 Based on your last {historicalRange.jobCount} similar {historicalRange.jobType} job{historicalRange.jobCount !== 1 ? "s" : ""}
-                  </p>
-                  <div className="flex gap-4">
-                    {historicalRange.materialMax > 0 && (
-                      <div>
-                        <p className="text-gray-500 text-xs">Materials</p>
-                        <p className="text-white text-sm font-semibold">
-                          {fmt(historicalRange.materialMin)}–{fmt(historicalRange.materialMax)}
-                        </p>
-                      </div>
-                    )}
-                    {historicalRange.laborMax > 0 && (
-                      <div>
-                        <p className="text-gray-500 text-xs">Labor</p>
-                        <p className="text-white text-sm font-semibold">
-                          {fmt(historicalRange.laborMin)}–{fmt(historicalRange.laborMax)}
-                        </p>
-                      </div>
-                    )}
+              {historicalRange && (() => {
+                // Blend contractor's history with current estimate
+                // Weight shifts toward history as job count grows
+                const w = historicalRange.jobCount === 0 ? 0
+                  : historicalRange.jobCount <= 3 ? 0.25
+                  : historicalRange.jobCount <= 9 ? 0.50
+                  : 0.70;
+                const f = historicalRange.rangePct / 100;
+
+                const matCenter = historicalRange.historicalMaterialAvg > 0
+                  ? Math.round(historicalRange.historicalMaterialAvg * w + materialsTotal * (1 - w))
+                  : materialsTotal;
+                const labCenter = historicalRange.historicalLaborAvg > 0
+                  ? Math.round(historicalRange.historicalLaborAvg * w + laborTotal * (1 - w))
+                  : laborTotal;
+
+                const matMin = Math.round(matCenter * (1 - f));
+                const matMax = Math.round(matCenter * (1 + f));
+                const labMin = Math.round(labCenter * (1 - f));
+                const labMax = Math.round(labCenter * (1 + f));
+
+                const hasMatRange = matCenter > 0;
+                const hasLabRange = labCenter > 0;
+
+                return (
+                  <div className="mb-6 bg-[#1a1a1a] border border-orange-500/20 rounded-xl px-4 py-3">
+                    <p className="text-orange-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                      📊 Estimate Range · ±{historicalRange.rangePct}%
+                    </p>
+                    <div className="flex gap-4 mb-2">
+                      {hasMatRange && (
+                        <div>
+                          <p className="text-gray-500 text-xs">Materials</p>
+                          <p className="text-white text-sm font-semibold">
+                            {fmt(matMin)}–{fmt(matMax)}
+                          </p>
+                        </div>
+                      )}
+                      {hasLabRange && (
+                        <div>
+                          <p className="text-gray-500 text-xs">Labor</p>
+                          <p className="text-white text-sm font-semibold">
+                            {fmt(labMin)}–{fmt(labMax)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-gray-600 text-xs leading-snug">
+                      Based on {historicalRange.jobCount} job{historicalRange.jobCount !== 1 ? "s" : ""} in your history
+                      {historicalRange.jobCount > 0 ? ` (${historicalRange.jobType})` : ""} — range narrows as you track more work
+                    </p>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* No data warning */}
               {!hasData && (

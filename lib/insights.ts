@@ -435,13 +435,34 @@ export async function computeInsights(userId: string): Promise<{
 }
 
 // ── Historical cost range for quote builder ───────────────────────────────
+
+// Range width narrows as the contractor builds more job history
+export function getRangePct(jobCount: number): number {
+  if (jobCount === 0)  return 25;
+  if (jobCount <= 3)   return 15;
+  if (jobCount <= 9)   return 10;
+  return 5;
+}
+
+// Weight given to the contractor's own historical average vs regional pricing
+export function getHistoricalWeight(jobCount: number): number {
+  if (jobCount === 0)  return 0;
+  if (jobCount <= 3)   return 0.25;
+  if (jobCount <= 9)   return 0.50;
+  return 0.70;
+}
+
 export interface HistoricalCostRange {
   jobCount: number;
+  jobType: string;
+  rangePct: number;               // ± percentage applied to center
+  historicalMaterialAvg: number;  // contractor's mean material cost (0 if no history)
+  historicalLaborAvg: number;     // contractor's mean labor cost (0 if no history)
+  // Convenience min/max: center-based (center = historicalAvg when history exists)
   materialMin: number;
   materialMax: number;
   laborMin: number;
   laborMax: number;
-  jobType: string;
 }
 
 export async function getHistoricalCostRange(
@@ -460,18 +481,36 @@ export async function getHistoricalCostRange(
     .eq("status", "completed")
     .overlaps("types", jobTypes);
 
-  if (!similarJobs || similarJobs.length === 0) return null;
+  const allSimilar = similarJobs ?? [];
 
   // Filter by sqft range if applicable
   const filtered = sqft
-    ? similarJobs.filter((j) => {
-        if (!j.calculated_sqft) return true; // include jobs without sqft
-        const diff = Math.abs(j.calculated_sqft - sqft) / sqft;
-        return diff <= 0.3;
+    ? allSimilar.filter((j) => {
+        if (!j.calculated_sqft) return true;
+        return Math.abs(j.calculated_sqft - sqft) / sqft <= 0.3;
       })
-    : similarJobs;
+    : allSimilar;
 
-  if (filtered.length < 2) return null;
+  const jobCount = filtered.length;
+  const rangePct = getRangePct(jobCount);
+  const sharedType =
+    jobTypes.find((t) => allSimilar.some((j) => (j.types as string[]).includes(t))) ??
+    jobTypes[0];
+
+  // No completed jobs yet — return base result for display (shows ±25% motivation message)
+  if (jobCount === 0) {
+    return {
+      jobCount: 0,
+      jobType: sharedType,
+      rangePct,
+      historicalMaterialAvg: 0,
+      historicalLaborAvg: 0,
+      materialMin: 0,
+      materialMax: 0,
+      laborMin: 0,
+      laborMax: 0,
+    };
+  }
 
   const jobIds = filtered.map((j) => j.id);
 
@@ -493,7 +532,7 @@ export async function getHistoricalCostRange(
     actualLabByJob.set(l.job_id, (actualLabByJob.get(l.job_id) ?? 0) + Number(l.hours) * Number(l.rate));
   }
 
-  // Prefer actual costs; fall back to quoted if no actuals logged
+  // Prefer actual costs; fall back to quoted totals if no actuals logged
   const matCosts: number[] = [];
   const labCosts: number[] = [];
 
@@ -509,18 +548,25 @@ export async function getHistoricalCostRange(
     if (lab != null && lab > 0) labCosts.push(lab);
   }
 
-  if (matCosts.length === 0 && labCosts.length === 0) return null;
+  // Mean of historical costs
+  const historicalMaterialAvg = matCosts.length > 0
+    ? matCosts.reduce((s, v) => s + v, 0) / matCosts.length
+    : 0;
+  const historicalLaborAvg = labCosts.length > 0
+    ? labCosts.reduce((s, v) => s + v, 0) / labCosts.length
+    : 0;
 
-  const sharedType = jobTypes.find((t) =>
-    similarJobs.some((j) => (j.types as string[]).includes(t))
-  ) ?? jobTypes[0];
-
+  // Center-based min/max (caller can blend center with regional before applying ±rangePct)
+  const f = rangePct / 100;
   return {
-    jobCount: filtered.length,
-    materialMin: Math.min(...(matCosts.length ? matCosts : [0])),
-    materialMax: Math.max(...(matCosts.length ? matCosts : [0])),
-    laborMin: Math.min(...(labCosts.length ? labCosts : [0])),
-    laborMax: Math.max(...(labCosts.length ? labCosts : [0])),
+    jobCount,
     jobType: sharedType,
+    rangePct,
+    historicalMaterialAvg,
+    historicalLaborAvg,
+    materialMin: historicalMaterialAvg > 0 ? Math.round(historicalMaterialAvg * (1 - f)) : 0,
+    materialMax: historicalMaterialAvg > 0 ? Math.round(historicalMaterialAvg * (1 + f)) : 0,
+    laborMin:    historicalLaborAvg    > 0 ? Math.round(historicalLaborAvg    * (1 - f)) : 0,
+    laborMax:    historicalLaborAvg    > 0 ? Math.round(historicalLaborAvg    * (1 + f)) : 0,
   };
 }
