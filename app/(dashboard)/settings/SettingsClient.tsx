@@ -326,6 +326,13 @@ export default function SettingsClient({
             ))}
           </div>
         </Section>
+
+        {/* Legal */}
+        <div className="flex items-center justify-center gap-6 pt-2">
+          <a href="/privacy" className="text-gray-600 text-xs hover:text-gray-400 transition-colors">Privacy Policy</a>
+          <span className="text-gray-700 text-xs">·</span>
+          <a href="/terms" className="text-gray-600 text-xs hover:text-gray-400 transition-colors">Terms of Service</a>
+        </div>
       </div>
     </div>
   );
