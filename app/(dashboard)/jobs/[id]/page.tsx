@@ -23,6 +23,7 @@ import TradeCostBreakdown from "@/components/TradeCostBreakdown";
 import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
 import SubcontractorsSection from "@/components/SubcontractorsSection";
+import JobStickyDashboard from "@/components/JobStickyDashboard";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -169,6 +170,8 @@ export default async function JobDetailPage({
     0
   );
 
+  const initialReceiptTotal = (receipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+
   const initialSubCost = (subLogs ?? []).reduce((s, l) => {
     const amt = l.invoice_received && l.invoice_amount != null
       ? Number(l.invoice_amount)
@@ -268,9 +271,13 @@ export default async function JobDetailPage({
           initialMaterialCost={initialMaterialCost}
           initialLaborCost={initialLaborCost}
           initialSubCost={initialSubCost}
+          initialReceiptTotal={initialReceiptTotal}
           initialQuoteData={initialQuoteData}
           initialChangeOrders={changeOrders ?? []}
         >
+          {/* Sticky dashboard — profitability bar + stat chips + quick-add */}
+          <JobStickyDashboard />
+
           {/* Job Status */}
           <div className="mb-4">
             <JobStatus
@@ -371,7 +378,7 @@ export default async function JobDetailPage({
           />
 
           {/* Materials + AI suggestions (wrapped together for state sharing) */}
-          <div className="mt-8">
+          <div id="section-materials" className="mt-8">
             <JobMaterialsWrapper
               jobId={job.id}
               jobName={job.name}
@@ -383,13 +390,17 @@ export default async function JobDetailPage({
           </div>
 
           {/* Labor */}
-          <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} jobTypes={job.types as string[]} />
+          <div id="section-labor">
+            <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} jobTypes={job.types as string[]} />
+          </div>
 
           {/* Subcontractors */}
           <SubcontractorsSection jobId={job.id} initialLogs={subLogs ?? []} />
 
           {/* Receipts */}
-          <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
+          <div id="section-receipts">
+            <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
+          </div>
 
           {/* Photos */}
           <PhotoSection

@@ -102,7 +102,7 @@ export default function LaborSection({
 }) {
   const { role, can_see_financials } = useRole();
   const [logs, setLogs] = useState<LaborLog[]>(initialLogs);
-  const { setActualLaborCost } = useJobCost();
+  const { setActualLaborCost, openLaborForm, setOpenLaborForm } = useJobCost();
 
   useEffect(() => {
     const cost = logs.reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
@@ -110,6 +110,13 @@ export default function LaborSection({
   }, [logs, setActualLaborCost]);
 
   const [showForm, setShowForm] = useState(false);
+
+  // Open form when triggered from quick-add bar
+  useEffect(() => {
+    if (!openLaborForm) return;
+    setOpenLaborForm(false);
+    setShowForm(true);
+  }, [openLaborForm, setOpenLaborForm]);
   const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");

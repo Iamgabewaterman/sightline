@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteReceipt, updateReceiptCategory } from "@/app/actions/receipts";
 import { ExpenseCategory } from "@/types";
@@ -48,7 +48,21 @@ export default function ReceiptsSection({
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
-  const { setActualMaterialCost } = useJobCost();
+  const { setActualMaterialCost, setActualReceiptTotal, highlightReceiptScan, setHighlightReceiptScan } = useJobCost();
+  const [scanHighlighted, setScanHighlighted] = useState(false);
+
+  // Keep receipt total in context in sync
+  useEffect(() => {
+    setActualReceiptTotal(receipts.reduce((s, r) => s + (r.amount ?? 0), 0));
+  }, [receipts, setActualReceiptTotal]);
+
+  // Pulse scan buttons when triggered from quick-add bar
+  useEffect(() => {
+    if (!highlightReceiptScan) return;
+    setHighlightReceiptScan(false);
+    setScanHighlighted(true);
+    setTimeout(() => setScanHighlighted(false), 1500);
+  }, [highlightReceiptScan, setHighlightReceiptScan]);
 
   function getPublicUrl(path: string) {
     return supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
@@ -167,11 +181,11 @@ export default function ReceiptsSection({
       </div>
 
       {/* Upload buttons */}
-      <div className="flex gap-3 mb-5">
+      <div className={`flex gap-3 mb-5 rounded-xl transition-all duration-300 ${scanHighlighted ? "ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0F0F0F]" : ""}`}>
         <button
           onClick={() => cameraRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className={`flex-1 flex items-center justify-center gap-2 border text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-all disabled:opacity-50 ${scanHighlighted ? "bg-orange-500/10 border-orange-500/50" : "bg-[#1A1A1A] border-[#2a2a2a]"}`}
         >
           <span className="text-xl">📷</span>
           {uploading ? "Scanning..." : "Take Photo"}
@@ -179,7 +193,7 @@ export default function ReceiptsSection({
         <button
           onClick={() => libraryRef.current?.click()}
           disabled={uploading}
-          className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          className={`flex-1 flex items-center justify-center gap-2 border text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-all disabled:opacity-50 ${scanHighlighted ? "bg-orange-500/10 border-orange-500/50" : "bg-[#1A1A1A] border-[#2a2a2a]"}`}
         >
           <span className="text-xl">🖼️</span>
           {uploading ? "Scanning..." : "Library"}

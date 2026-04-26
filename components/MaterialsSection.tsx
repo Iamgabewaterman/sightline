@@ -485,7 +485,7 @@ export default function MaterialsSection({
   onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
   const [materials,  setMaterials]  = useState<Material[]>(initialMaterials);
-  const { setActualMaterialCost } = useJobCost();
+  const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
 
   useEffect(() => {
     const cost = materials.reduce((sum, m) => {
@@ -497,6 +497,13 @@ export default function MaterialsSection({
   }, [materials, setActualMaterialCost]);
 
   const [showForm,      setShowForm]      = useState(false);
+
+  // Open form when triggered from quick-add bar
+  useEffect(() => {
+    if (!openMaterialForm) return;
+    setOpenMaterialForm(false);
+    setShowForm(true);
+  }, [openMaterialForm, setOpenMaterialForm]);
   const [showShopping,  setShowShopping]  = useState(false);
   const [showImport,    setShowImport]    = useState(false);
   const [saving,     setSaving]     = useState(false);
