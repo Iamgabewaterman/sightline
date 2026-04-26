@@ -7,12 +7,19 @@ import { join } from "path";
 // file data, and end-of-central-directory record by hand.
 
 const TEMPLATES = [
-  { name: "clients-template.csv",   file: "clients-template.csv" },
-  { name: "jobs-template.csv",      file: "jobs-template.csv" },
-  { name: "materials-template.csv", file: "materials-template.csv" },
-  { name: "labor-template.csv",     file: "labor-template.csv" },
-  { name: "invoices-template.csv",  file: "invoices-template.csv" },
-  { name: "contacts-template.csv",  file: "contacts-template.csv" },
+  // Sightline native templates
+  { name: "sightline/clients-template.csv",   file: "clients-template.csv" },
+  { name: "sightline/jobs-template.csv",      file: "jobs-template.csv" },
+  { name: "sightline/materials-template.csv", file: "materials-template.csv" },
+  { name: "sightline/labor-template.csv",     file: "labor-template.csv" },
+  { name: "sightline/invoices-template.csv",  file: "invoices-template.csv" },
+  { name: "sightline/contacts-template.csv",  file: "contacts-template.csv" },
+  // Platform-specific export templates
+  { name: "platforms/quickbooks-customers.csv",   file: "quickbooks-customers.csv" },
+  { name: "platforms/quickbooks-expenses.csv",    file: "quickbooks-expenses.csv" },
+  { name: "platforms/jobber-clients.csv",         file: "jobber-clients.csv" },
+  { name: "platforms/jobber-jobs.csv",            file: "jobber-jobs.csv" },
+  { name: "platforms/leap-opportunities.csv",     file: "leap-opportunities.csv" },
 ];
 
 function crc32(buf: Buffer): number {

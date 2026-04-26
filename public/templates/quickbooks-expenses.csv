@@ -1,0 +1,4 @@
+Transaction Type,Date,Num,Name,Memo,Account,Split,Debit,Credit,Class
+Bill,01/15/2024,1042,Home Depot,2x4 lumber for framing,Materials,,850.00,,Smith Roofing Job
+Bill,01/16/2024,1043,Sherwin Williams,Exterior paint,Materials,,320.00,,Doe Repaint
+Check,01/17/2024,,BP Gas Station,Fuel,Vehicle,,65.00,,

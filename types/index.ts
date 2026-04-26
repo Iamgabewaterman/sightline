@@ -53,6 +53,7 @@ export interface Job {
   job_lat: number | null;
   job_lng: number | null;
   job_number: string | null;
+  insurance_claim: boolean;
   created_at: string;
   updated_at: string;
 }

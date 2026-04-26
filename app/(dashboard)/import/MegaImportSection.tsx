@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { parseCSV } from "@/lib/parse-csv";
 import { detectFileType, MegaImportType } from "@/lib/detect-file-type";
+import { detectPlatform, PlatformName } from "@/lib/detect-platform";
 import { runMegaImport, MegaFileInput, MegaImportSummary } from "@/app/actions/mega-import";
 import { extractPdfAsRows } from "@/app/actions/pdf-import";
 
@@ -11,9 +12,23 @@ import { extractPdfAsRows } from "@/app/actions/pdf-import";
 interface ParsedFile {
   fileName: string;
   detectedType: MegaImportType;
+  platform: PlatformName;
+  platformConfidence: "high" | "low";
   rows: Record<string, string>[];
   headers: string[];
 }
+
+const PLATFORM_LABELS: Record<PlatformName, string> = {
+  QuickBooks: "QuickBooks",
+  Jobber: "Jobber",
+  Leap: "Leap CRM",
+  JobNimbus: "JobNimbus",
+  AccuLynx: "AccuLynx",
+  ServiceTitan: "ServiceTitan",
+  Buildertrend: "Buildertrend",
+  HouzzPro: "Houzz Pro",
+  generic: "",
+};
 
 type Step = "upload" | "preview" | "importing" | "done";
 
@@ -117,13 +132,15 @@ export default function MegaImportSection() {
         for (const { name, data } of csvFiles) {
           const { headers, rows } = parseCSV(data);
           if (rows.length === 0) continue;
-          parsed.push({ fileName: name, detectedType: detectFileType(headers), rows, headers });
+          const pd = detectPlatform(headers);
+          parsed.push({ fileName: name, detectedType: detectFileType(headers), platform: pd.platform, platformConfidence: pd.confidence, rows, headers });
         }
       } else if (file.name.endsWith(".csv")) {
         const text = await file.text();
         const { headers, rows } = parseCSV(text);
         if (rows.length === 0) continue;
-        parsed.push({ fileName: file.name, detectedType: detectFileType(headers), rows, headers });
+        const pd = detectPlatform(headers);
+        parsed.push({ fileName: file.name, detectedType: detectFileType(headers), platform: pd.platform, platformConfidence: pd.confidence, rows, headers });
       } else if (file.name.toLowerCase().endsWith(".pdf")) {
         const buf = await file.arrayBuffer();
         const bytes = new Uint8Array(buf);
@@ -134,7 +151,8 @@ export default function MegaImportSection() {
         const result = await extractPdfAsRows(base64);
         setPdfProcessing(false);
         if (result.error || result.rows.length === 0) continue;
-        parsed.push({ fileName: file.name, detectedType: result.detectedType, rows: result.rows, headers: result.headers });
+        const pdfPlatform = (result.platform ?? "generic") as PlatformName;
+        parsed.push({ fileName: file.name, detectedType: result.detectedType, platform: pdfPlatform, platformConfidence: "high", rows: result.rows, headers: result.headers });
       }
     }
 
@@ -165,6 +183,7 @@ export default function MegaImportSection() {
     const input: MegaFileInput[] = parsedFiles.map((f) => ({
       fileName: f.fileName,
       detectedType: getType(f),
+      platform: f.platform,
       rows: f.rows,
     }));
 
@@ -208,7 +227,7 @@ export default function MegaImportSection() {
           <span className="text-4xl">📂</span>
           <p className="text-white font-semibold text-base">Drop files here</p>
           <p className="text-gray-500 text-sm text-center px-4">
-            CSV, ZIP, or PDF — QuickBooks exports, Leap CRM, invoices, estimates
+            CSV, ZIP, or PDF — QuickBooks, Jobber, Leap, JobNimbus, AccuLynx, ServiceTitan, Buildertrend, Houzz Pro, or any spreadsheet
           </p>
           {pdfProcessing && (
             <p className="text-orange-400 text-sm animate-pulse">Extracting PDF with AI...</p>
@@ -274,7 +293,14 @@ export default function MegaImportSection() {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <p className="text-white font-semibold text-sm truncate">{f.fileName}</p>
-                    <p className="text-gray-500 text-xs">{f.rows.length} rows</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-gray-500 text-xs">{f.rows.length} rows</p>
+                      {f.platform !== "generic" && PLATFORM_LABELS[f.platform] && (
+                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${f.platformConfidence === "high" ? "bg-blue-500/20 text-blue-300" : "bg-gray-700 text-gray-400"}`}>
+                          {PLATFORM_LABELS[f.platform]}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <select
                     value={type}

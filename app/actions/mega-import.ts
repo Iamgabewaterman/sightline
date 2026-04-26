@@ -3,11 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { MegaImportType } from "@/lib/detect-file-type";
+import { normalizeCurrency, normalizeDate, normalizePhone } from "@/lib/normalize-import";
 import { JobType, JobStatus, ExpenseCategory } from "@/types";
 
 export interface MegaImportFilePreview {
   fileName: string;
   detectedType: MegaImportType;
+  platform: string;
   rowCount: number;
   headers: string[];
   sampleRows: Record<string, string>[];
@@ -29,25 +31,37 @@ export interface MegaImportSummary {
 const JOB_TYPE_MAP: Record<string, JobType> = {
   drywall: "drywall", framing: "framing", plumbing: "plumbing",
   paint: "paint", painting: "paint", trim: "trim", roofing: "roofing",
-  tile: "tile", flooring: "flooring", electrical: "electrical",
-  electric: "electrical", hvac: "hvac", concrete: "concrete",
+  tile: "tile", tiling: "tile", flooring: "flooring", hardwood: "flooring",
+  electrical: "electrical", electric: "electrical", hvac: "hvac",
+  "heating & cooling": "hvac", concrete: "concrete", flatwork: "concrete",
   landscaping: "landscaping", landscape: "landscaping",
+  deck: "decks_patios", decks: "decks_patios", patio: "decks_patios",
+  fence: "fencing", fencing: "fencing",
 };
 
 const JOB_STATUS_MAP: Record<string, JobStatus> = {
   active: "active", "in progress": "active", in_progress: "active", open: "active",
-  on_hold: "on_hold", "on hold": "on_hold", paused: "on_hold", hold: "on_hold",
+  scheduled: "active", pending: "active", started: "active",
+  on_hold: "on_hold", "on hold": "on_hold", paused: "on_hold", hold: "on_hold", waiting: "on_hold",
   completed: "completed", done: "completed", finished: "completed", closed: "completed",
+  // Jobber
+  "work requested": "active", "awaiting response": "on_hold",
+  // Leap / JobNimbus
+  sold: "active", won: "active", "install scheduled": "active", installed: "completed",
+  // AccuLynx
+  approved: "active", "in production": "active", invoiced: "completed",
+  // ServiceTitan
+  dispatched: "active", complete: "completed",
 };
 
 const CATEGORY_MAP: Record<string, ExpenseCategory> = {
-  materials: "materials", material: "materials", supplies: "materials",
-  labor: "labor", wages: "labor", payroll: "labor",
-  equipment: "equipment", tools: "equipment", rental: "equipment",
-  vehicle: "vehicle", mileage: "vehicle", gas: "vehicle", fuel: "vehicle",
-  subcontractor: "subcontractor", sub: "subcontractor",
-  permits: "permits", permit: "permits", license: "permits",
-  insurance: "insurance",
+  materials: "materials", material: "materials", supplies: "materials", "job materials": "materials",
+  labor: "labor", wages: "labor", payroll: "labor", "direct labor": "labor",
+  equipment: "equipment", tools: "equipment", rental: "equipment", "tool rental": "equipment",
+  vehicle: "vehicle", mileage: "vehicle", gas: "vehicle", fuel: "vehicle", auto: "vehicle",
+  subcontractor: "subcontractor", sub: "subcontractor", "outside services": "subcontractor",
+  permits: "permits", permit: "permits", license: "permits", fees: "permits",
+  insurance: "insurance", "workers comp": "insurance", "general liability": "insurance",
   other: "other",
 };
 
@@ -64,15 +78,25 @@ function parseCategory(raw: string): ExpenseCategory {
   return CATEGORY_MAP[raw.trim().toLowerCase()] ?? "other";
 }
 
-function parseAmount(raw: string): number | null {
-  const n = parseFloat(raw.replace(/[$,\s]/g, ""));
-  return isNaN(n) ? null : Math.round(n * 100) / 100;
+function parseBool(raw: string): boolean {
+  return ["yes", "true", "1", "x", "checked"].includes(raw.trim().toLowerCase());
 }
 
+// pick() — tries multiple column name variants (snake_case, space, camelCase, no-separator)
 function pick(row: Record<string, string>, ...keys: string[]): string {
   for (const k of keys) {
-    const val = row[k] ?? row[k.replace(/_/g, " ")] ?? row[k.replace(/_/g, "")] ?? "";
-    if (val.trim()) return val.trim();
+    const variants = [
+      k,
+      k.replace(/_/g, " "),
+      k.replace(/_/g, ""),
+      k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), // camelCase
+      k.replace(/\s+/g, "_"),
+      k.replace(/\s+/g, ""),
+    ];
+    for (const v of variants) {
+      const val = row[v] ?? row[v.toLowerCase()] ?? "";
+      if (typeof val === "string" && val.trim()) return val.trim();
+    }
   }
   return "";
 }
@@ -82,6 +106,7 @@ function pick(row: Record<string, string>, ...keys: string[]): string {
 export interface MegaFileInput {
   fileName: string;
   detectedType: MegaImportType;
+  platform?: string;
   rows: Record<string, string>[];
 }
 
@@ -129,20 +154,37 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
 
   for (const file of byType.clients) {
     for (const row of file.rows) {
-      const name = pick(row, "name", "client_name", "full_name", "contact_name");
+      const name = pick(
+        row,
+        "name", "client_name", "full_name", "contact_name",
+        // QuickBooks
+        "customer", "customer_name",
+        // Jobber
+        "client name", "billing_contact",
+        // Leap / Buildertrend
+        "homeowner", "property_owner", "lead_name",
+        // ServiceTitan
+        "account_name",
+      );
       if (!name) continue;
-      const phone = pick(row, "phone", "phone_number", "mobile", "cell");
+
+      const rawPhone = pick(row, "phone", "phone_number", "mobile", "cell", "telephone");
+      const phone = normalizePhone(rawPhone);
       const key = `${name.toLowerCase()}|${phone.toLowerCase()}`;
       if (clientKeys.has(key)) { summary.clients.skipped++; continue; }
 
       const { data: inserted, error } = await supabase.from("clients").insert({
         user_id: user.id,
         name,
-        company: pick(row, "company", "company_name", "business") || null,
+        company: pick(row, "company", "company_name", "business", "business_name") || null,
         phone: phone || null,
-        email: pick(row, "email", "email_address") || null,
-        address: pick(row, "address", "street", "location") || null,
-        notes: pick(row, "notes", "note", "comments") || null,
+        email: pick(row, "email", "email_address", "e_mail") || null,
+        address: pick(
+          row,
+          "address", "street", "location", "billing_address",
+          "shipping_address", "property_address", "site_address",
+        ) || null,
+        notes: pick(row, "notes", "note", "comments", "memo") || null,
       }).select("id, name").single();
 
       if (error) {
@@ -163,24 +205,82 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
 
   for (const file of byType.jobs) {
     for (const row of file.rows) {
-      const name = pick(row, "name", "job_name", "project", "project_name", "job");
+      const name = pick(
+        row,
+        "name", "job_name", "project", "project_name", "job",
+        // QuickBooks
+        "class", "memo",
+        // Jobber
+        "job_title", "job title",
+        // Leap
+        "opportunity",
+        // JobNimbus
+        "primary_contact", "title",
+        // AccuLynx
+        "work_order", "work order",
+        // Buildertrend
+        "project_name",
+        // Houzz
+        "houzz_project_id",
+      );
       if (!name) continue;
       if (jobNames.has(name.toLowerCase())) { summary.jobs.skipped++; continue; }
 
-      const clientName = pick(row, "client_name", "client", "customer");
+      const clientName = pick(
+        row,
+        "client_name", "client", "customer",
+        // Jobber
+        "client_name", "billing_contact",
+        // Leap
+        "homeowner", "property_owner",
+        // ServiceTitan
+        "customer",
+      );
       const clientId = clientName ? (clientMap.get(clientName.toLowerCase()) ?? null) : null;
 
-      const jobNumRaw = pick(row, "job_number", "job_num", "invoice_number", "job_id", "number", "ref", "reference");
+      // Job number — platform-specific variants
+      const jobNumRaw = pick(
+        row,
+        "job_number", "job_num", "invoice_number", "job_id", "number", "ref", "reference",
+        // Jobber
+        "job number",
+        // Leap / AccuLynx
+        "claim_number", "work_order_number",
+        // JobNimbus
+        "job_id",
+        // QB
+        "num",
+      );
+
+      // Insurance claim detection
+      const claimRaw = pick(row, "insurance_claim", "is_insurance", "claim", "claim_number", "adjuster");
+      const isInsurance = claimRaw ? parseBool(claimRaw) || !!pick(row, "claim_number", "adjuster_name", "adjuster") : false;
+
+      // Notes — append adjuster/claim info if present
+      let notesVal = pick(row, "notes", "note", "description", "comments", "memo") || null;
+      const adjuster = pick(row, "adjuster", "adjuster_name", "ins_adjuster");
+      const claimNum = pick(row, "claim_number", "claim_num");
+      if (adjuster || claimNum) {
+        const claimInfo = [adjuster && `Adjuster: ${adjuster}`, claimNum && `Claim #: ${claimNum}`].filter(Boolean).join(" | ");
+        notesVal = notesVal ? `${notesVal}\n${claimInfo}` : claimInfo;
+      }
+
+      const startDateRaw = pick(row, "start_date", "start date", "date_started", "created_date", "date_created", "date");
+      const completedDateRaw = pick(row, "completed_date", "completion_date", "date_completed", "close_date", "closed_date");
+
       const { data: inserted, error } = await supabase.from("jobs").insert({
         user_id: user.id,
         name,
-        types: parseTypes(pick(row, "types", "type", "trade", "job_type")),
-        address: pick(row, "address", "site", "location", "job_address") || "",
-        status: parseStatus(pick(row, "status", "job_status") || "active"),
-        notes: pick(row, "notes", "note", "description", "comments") || null,
+        types: parseTypes(pick(row, "types", "type", "trade", "job_type", "work_type", "scope")),
+        address: pick(row, "address", "site", "location", "job_address", "property_address", "site_address") || "",
+        status: parseStatus(pick(row, "status", "job_status", "stage", "phase") || "active"),
+        notes: notesVal,
         client_id: clientId,
         total_paused_days: 0,
         job_number: jobNumRaw || null,
+        insurance_claim: isInsurance,
+        start_date: startDateRaw ? normalizeDate(startDateRaw) : null,
+        completed_date: completedDateRaw ? normalizeDate(completedDateRaw) : null,
       }).select("id, name").single();
 
       if (error) {
@@ -201,23 +301,28 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
 
   for (const file of byType.contacts) {
     for (const row of file.rows) {
-      const name = pick(row, "name", "full_name", "contact_name", "crew_name", "worker");
+      const name = pick(
+        row,
+        "name", "full_name", "contact_name", "crew_name", "worker",
+        "employee", "technician", "subcontractor_name", "sub_name", "vendor_name",
+      );
       if (!name) continue;
       if (contactNames.has(name.toLowerCase())) { summary.contacts.skipped++; continue; }
 
-      const rateRaw = pick(row, "hourly_rate", "rate", "pay_rate", "wage");
-      const rate = parseAmount(rateRaw);
-      const subRaw = pick(row, "is_subcontractor", "subcontractor", "sub", "type");
+      const rateRaw = pick(row, "hourly_rate", "rate", "pay_rate", "wage", "billing_rate");
+      const rate = normalizeCurrency(rateRaw);
+      const subRaw = pick(row, "is_subcontractor", "subcontractor", "sub", "type", "contractor_type");
       const isSub = ["yes", "true", "1", "subcontractor", "sub"].includes(subRaw.toLowerCase());
+      const rawPhone = pick(row, "phone", "mobile", "cell", "telephone");
 
       const { data: inserted, error } = await supabase.from("contacts").insert({
         user_id: user.id,
         name,
-        trade: pick(row, "trade", "specialty", "skill") || null,
-        phone: pick(row, "phone", "mobile", "cell") || null,
+        trade: pick(row, "trade", "specialty", "skill", "business_unit", "work_type") || null,
+        phone: normalizePhone(rawPhone) || null,
         hourly_rate: rate,
         is_subcontractor: isSub,
-        notes: pick(row, "notes", "comments") || null,
+        notes: pick(row, "notes", "comments", "license", "certification") || null,
       }).select("id, name").single();
 
       if (error) {
@@ -233,16 +338,26 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
   // ── 4. Materials ─────────────────────────────────────────────────────────────
   for (const file of byType.materials) {
     for (const row of file.rows) {
-      const name = pick(row, "name", "material", "item", "description", "material_name");
-      const unit = pick(row, "unit", "unit_of_measure", "uom") || "ea";
-      const qtyRaw = pick(row, "quantity", "quantity_ordered", "qty", "amount");
+      const name = pick(
+        row,
+        "name", "material", "item", "description", "material_name",
+        // QuickBooks
+        "item_name", "item_description", "product",
+        // Jobber
+        "line_item", "product_service",
+        // ServiceTitan
+        "part_name", "part_number",
+        // Buildertrend
+        "material_description",
+      );
+      const unit = pick(row, "unit", "unit_of_measure", "uom", "unit_type") || "ea";
+      const qtyRaw = pick(row, "quantity", "quantity_ordered", "qty", "qty_ordered", "count", "units");
       const qtyOrdered = parseFloat(qtyRaw);
       if (!name || isNaN(qtyOrdered)) continue;
 
-      const jobName = pick(row, "job_name", "job", "project", "project_name");
+      const jobName = pick(row, "job_name", "job", "project", "project_name", "class");
       const jobId = jobName ? (jobMap.get(jobName.toLowerCase()) ?? null) : null;
       if (!jobId) {
-        // No job to attach to — materials must have a job
         if (jobName) {
           summary.needsReview.push({ fileName: file.fileName, reason: `Material "${name}" references job "${jobName}" which was not found` });
         } else {
@@ -251,11 +366,18 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         continue;
       }
 
-      const unitCostRaw = pick(row, "unit_cost", "cost", "price", "unit_price");
-      const unitCost = unitCostRaw ? parseAmount(unitCostRaw) : null;
-      const qtyUsedRaw = pick(row, "quantity_used", "qty_used", "used");
+      const unitCostRaw = pick(
+        row,
+        "unit_cost", "cost", "price", "unit_price", "rate",
+        // QuickBooks
+        "purchase_price", "cost_price",
+        // Buildertrend
+        "material_cost",
+      );
+      const unitCost = unitCostRaw ? normalizeCurrency(unitCostRaw) : null;
+      const qtyUsedRaw = pick(row, "quantity_used", "qty_used", "used", "qty_installed");
       const qtyUsed = qtyUsedRaw ? parseFloat(qtyUsedRaw) : null;
-      const lengthRaw = pick(row, "length_ft", "length", "cut_length");
+      const lengthRaw = pick(row, "length_ft", "length", "cut_length", "len");
       const lengthFt = lengthRaw ? parseFloat(lengthRaw) : null;
 
       const { error } = await supabase.from("materials").insert({
@@ -266,8 +388,8 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         quantity_used: isNaN(qtyUsed ?? NaN) ? null : qtyUsed,
         unit_cost: unitCost,
         length_ft: isNaN(lengthFt ?? NaN) ? null : lengthFt,
-        trade: pick(row, "trade") || null,
-        notes: pick(row, "notes", "comments") || null,
+        trade: pick(row, "trade", "category", "work_type") || null,
+        notes: pick(row, "notes", "comments", "memo") || null,
       });
 
       if (error) {
@@ -290,10 +412,39 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
 
   for (const file of byType.labor) {
     for (const row of file.rows) {
-      const crewName = pick(row, "crew_name", "name", "worker", "employee", "crew");
-      const hoursRaw = pick(row, "hours", "hours_worked", "hrs");
+      const crewName = pick(
+        row,
+        "crew_name", "name", "worker", "employee", "crew",
+        // QuickBooks Time
+        "employee_name", "source_name",
+        // Jobber
+        "assigned_to",
+        // ServiceTitan
+        "technician",
+        // Buildertrend
+        "crew_member",
+      );
+      const hoursRaw = pick(
+        row,
+        "hours", "hours_worked", "hrs",
+        // QuickBooks
+        "duration", "duration_decimal", "time_hours",
+        // Jobber
+        "total_duration",
+        // ServiceTitan
+        "time_spent",
+      );
       const hours = parseFloat(hoursRaw);
-      const jobName = pick(row, "job_name", "job", "project");
+      const jobName = pick(
+        row,
+        "job_name", "job", "project", "project_name",
+        // QuickBooks
+        "class",
+        // Jobber
+        "job_title",
+        // ServiceTitan
+        "job",
+      );
       if (!crewName || isNaN(hours) || hours <= 0) continue;
 
       const jobId = jobName ? (jobMap.get(jobName.toLowerCase()) ?? null) : null;
@@ -302,16 +453,24 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         continue;
       }
 
-      const dateRaw = pick(row, "date", "work_date", "log_date");
-      const d = dateRaw ? new Date(dateRaw) : new Date();
-      const dateStr = isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
+      const dateRaw = pick(
+        row,
+        "date", "work_date", "log_date",
+        // QuickBooks
+        "activity_date", "transaction_date",
+        // Jobber
+        "visit_date",
+        // ServiceTitan
+        "dispatch_date", "service_date",
+      );
+      const dateStr = normalizeDate(dateRaw);
 
       const logKey = `${crewName.toLowerCase()}|${jobId}|${dateStr}`;
       if (logKeys.has(logKey)) { summary.labor.skipped++; continue; }
 
-      const rateRaw = pick(row, "hourly_rate", "rate", "pay_rate");
-      const rate = parseAmount(rateRaw) ?? 0;
-      const trade = pick(row, "trade", "specialty") || null;
+      const rateRaw = pick(row, "hourly_rate", "rate", "pay_rate", "billing_rate", "wage");
+      const rate = normalizeCurrency(rateRaw) ?? 0;
+      const trade = pick(row, "trade", "specialty", "business_unit", "work_type") || null;
 
       // Auto-create contact if not already tracked
       if (!contactNames.has(crewName.toLowerCase())) {
@@ -341,16 +500,34 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
   // ── 6. Expenses ──────────────────────────────────────────────────────────────
   for (const file of byType.expenses) {
     for (const row of file.rows) {
-      const description = pick(row, "description", "vendor", "payee", "item", "expense");
+      const description = pick(
+        row,
+        "description", "vendor", "payee", "item", "expense",
+        // QuickBooks
+        "memo", "name", "account",
+        // ServiceTitan
+        "invoice_description",
+        // Buildertrend
+        "cost_code",
+      );
       if (!description) continue;
 
-      const amountRaw = pick(row, "amount", "total", "cost", "price");
-      const amount = amountRaw ? parseAmount(amountRaw) : null;
+      const amountRaw = pick(
+        row,
+        "amount", "total", "cost", "price",
+        // QuickBooks
+        "debit", "credit",
+        // ServiceTitan
+        "invoice_amount",
+        // Buildertrend
+        "actual_cost",
+      );
+      const amount = amountRaw ? normalizeCurrency(amountRaw) : null;
 
-      const categoryRaw = pick(row, "category", "type", "expense_type");
+      const categoryRaw = pick(row, "category", "type", "expense_type", "account", "split");
       const category = categoryRaw ? parseCategory(categoryRaw) : detectCategoryFromVendor(description);
 
-      const jobName = pick(row, "job_name", "job", "project");
+      const jobName = pick(row, "job_name", "job", "project", "class", "job_title");
       const jobId = jobName ? (jobMap.get(jobName.toLowerCase()) ?? null) : null;
 
       const firstJobId = jobMap.size > 0 ? Array.from(jobMap.values())[0] : null;
@@ -360,9 +537,8 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         continue;
       }
 
-      const dateRaw = pick(row, "date", "transaction_date", "receipt_date");
-      const d = dateRaw ? new Date(dateRaw) : new Date();
-      const createdAt = isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+      const dateRaw = pick(row, "date", "transaction_date", "receipt_date", "invoice_date", "service_date");
+      const createdAt = new Date(normalizeDate(dateRaw) + "T12:00:00Z").toISOString();
 
       const { error } = await supabase.from("receipts").insert({
         job_id: insertJobId,

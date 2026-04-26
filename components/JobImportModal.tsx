@@ -83,15 +83,80 @@ function detectFormat(headers: string[]): "labor" | "materials" {
 
 // ── Column mapping helpers ────────────────────────────────────────────────────
 
-const MATERIAL_NAME_COLS = ["description", "name", "item", "item name", "product", "memo", "vendor", "payee", "source name"];
-const MATERIAL_QTY_COLS  = ["qty", "quantity", "qty ordered", "amount", "count", "units"];
-const MATERIAL_COST_COLS = ["unit cost", "unit price", "price", "rate", "cost", "unit amount", "amount"];
-const MATERIAL_DATE_COLS = ["date", "transaction date", "invoice date"];
+const MATERIAL_NAME_COLS = [
+  "description", "name", "item", "item name", "product", "memo", "vendor", "payee", "source name",
+  // QuickBooks
+  "item description", "product/service", "product service",
+  // Jobber
+  "line item",
+  // ServiceTitan
+  "part name", "part number",
+  // Buildertrend
+  "material description", "cost code",
+  // AccuLynx
+  "material name",
+];
+const MATERIAL_QTY_COLS  = [
+  "qty", "quantity", "qty ordered", "amount", "count", "units",
+  // QuickBooks
+  "quantity ordered",
+  // Buildertrend
+  "qty used",
+];
+const MATERIAL_COST_COLS = [
+  "unit cost", "unit price", "price", "rate", "cost", "unit amount", "amount",
+  // QuickBooks
+  "purchase price", "cost price", "sales price",
+  // ServiceTitan
+  "unit cost",
+  // Buildertrend
+  "material cost",
+];
+const MATERIAL_DATE_COLS = [
+  "date", "transaction date", "invoice date",
+  // QuickBooks
+  "bill date",
+];
+const MATERIAL_UNIT_COLS = ["unit", "uom", "unit of measure", "unit type"];
 
-const LABOR_NAME_COLS  = ["employee", "name", "crew", "worker", "employee name", "crew member", "source name"];
-const LABOR_HOURS_COLS = ["hours", "duration", "duration (decimal)", "time (hours)", "qty", "quantity"];
-const LABOR_RATE_COLS  = ["rate", "billing rate", "hourly rate", "wage", "pay rate"];
-const LABOR_DATE_COLS  = ["date", "work date", "activity date", "transaction date"];
+const LABOR_NAME_COLS  = [
+  "employee", "name", "crew", "worker", "employee name", "crew member", "source name",
+  // QuickBooks Time
+  "employee name",
+  // Jobber
+  "assigned to",
+  // ServiceTitan
+  "technician", "technician name",
+  // Buildertrend
+  "crew member",
+];
+const LABOR_HOURS_COLS = [
+  "hours", "duration", "duration (decimal)", "time (hours)", "qty", "quantity",
+  // QuickBooks Time
+  "hours worked", "total hours",
+  // Jobber
+  "total duration",
+  // ServiceTitan
+  "time spent",
+  // Generic
+  "hrs", "time",
+];
+const LABOR_RATE_COLS  = [
+  "rate", "billing rate", "hourly rate", "wage", "pay rate",
+  // QuickBooks
+  "hourly billing rate",
+  // Jobber
+  "rate",
+];
+const LABOR_DATE_COLS  = [
+  "date", "work date", "activity date", "transaction date",
+  // QuickBooks Time
+  "activity date",
+  // Jobber
+  "visit date",
+  // ServiceTitan
+  "dispatch date", "service date",
+];
 
 function findCol(headers: string[], candidates: string[]): string | null {
   const lower = headers.map((h) => h.toLowerCase().trim());
@@ -116,6 +181,7 @@ function parseMaterialRows(
   const nameCol  = findCol(headers, MATERIAL_NAME_COLS);
   const qtyCol   = findCol(headers, MATERIAL_QTY_COLS);
   const costCol  = findCol(headers, MATERIAL_COST_COLS);
+  const unitCol  = findCol(headers, MATERIAL_UNIT_COLS);
 
   // If qtyCol and costCol point to the same column (e.g. "Amount"), prefer cost
   const effectiveQtyCol = qtyCol === costCol ? null : qtyCol;
@@ -129,11 +195,12 @@ function parseMaterialRows(
 
     const qtyRaw  = effectiveQtyCol ? r[effectiveQtyCol] : "1";
     const costRaw = costCol ? r[costCol] : "";
+    const unitRaw = unitCol ? r[unitCol]?.trim() : "";
 
     const qty_ordered = parseFloat(qtyRaw?.replace(/[,$]/g, "") ?? "1") || 1;
     const unit_cost   = parseAmount(costRaw ?? "");
 
-    rows.push({ name, qty_ordered, unit_cost, unit: "ea" });
+    rows.push({ name, qty_ordered, unit_cost, unit: unitRaw || "ea" });
   }
 
   return { rows, skipped };
