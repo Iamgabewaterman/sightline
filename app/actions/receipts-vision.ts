@@ -8,7 +8,8 @@ import { detectCategoryFromVendor } from "@/lib/expense-category";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const VISION_PROMPT = `You are analyzing a contractor's material purchase receipt.
+const VISION_PROMPT = `You are analyzing a contractor's material purchase receipt. This may be a printed receipt, handwritten receipt, or supplier invoice from stores like Home Depot, Parr Lumber, ABC Supply, Fastenal, 84 Lumber, Menards, Lowe's, Ferguson, Wesco, or any local supplier.
+
 Extract every line item visible on the receipt.
 
 Return ONLY valid JSON in this exact structure (no markdown, no explanation):
@@ -29,12 +30,17 @@ Return ONLY valid JSON in this exact structure (no markdown, no explanation):
 }
 
 Rules:
-- raw_name: copy the text exactly as printed, abbreviations and all
-- qty: number only, null if not shown
-- unit: EA, LF, SF, SQ, BDL, GAL, etc. — null if not shown
+- vendor: store name from header, logo, or return address — include full name (e.g. "Home Depot #1234")
+- date: transaction date in YYYY-MM-DD format, null if not found
+- total: the grand total paid (after tax), not subtotal
+- raw_name: copy the product description exactly as printed, abbreviations and all
+- qty: number only, null if not shown (for supplier invoices, "quantity" or "qty" column)
+- unit: EA, LF, SF, SQ, BDL, GAL, BAG, BOX, ROLL, SHEET, etc. — null if not shown
 - unit_price and line_total: numbers only, no dollar signs, null if not shown
+- For handwritten receipts: read carefully, include all legible items
+- For supplier invoices: each line item = one entry (item number + description)
 - If the image is blurry or unreadable, set image_unclear to true and items to []
-- Do not include tax lines, subtotals, or payment method lines as items`;
+- Do not include tax lines, subtotals, delivery fees, or payment method lines as items`;
 
 export async function extractReceiptItems(
   jobId: string,
@@ -157,6 +163,7 @@ export async function extractReceiptItems(
       storage_path: path,
       amount: parsed.total,
       vendor: parsed.vendor,
+      receipt_date: parsed.date ?? null,
       category: detectCategoryFromVendor(parsed.vendor),
       ocr_raw: JSON.stringify(parsed),
     })
@@ -218,13 +225,21 @@ export async function confirmReceiptItems(
   jobId: string,
   receiptId: string,
   items: ExtractedReceiptItem[],
-  vendor: string | null
+  vendor: string | null,
+  editedAmount?: number | null,
+  editedDate?: string | null
 ): Promise<{ success?: boolean; error?: string }> {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Update receipt with any user-edited values
+  const updateFields: Record<string, unknown> = { vendor };
+  if (editedAmount !== undefined) updateFields.amount = editedAmount;
+  if (editedDate !== undefined) updateFields.receipt_date = editedDate || null;
+  await supabase.from("receipts").update(updateFields).eq("id", receiptId);
 
   const checkedItems = items.filter((i) => i.checked);
   const uncheckedItems = items.filter((i) => !i.checked);

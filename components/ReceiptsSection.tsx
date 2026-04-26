@@ -21,6 +21,7 @@ import { extractReceiptItems, confirmReceiptItems } from "@/app/actions/receipts
 import { Receipt, ReceiptExtractionResult } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import ReceiptConfirmationModal from "./ReceiptConfirmationModal";
+import { useJobCost } from "@/components/JobCostContext";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -47,6 +48,7 @@ export default function ReceiptsSection({
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+  const { setActualMaterialCost } = useJobCost();
 
   function getPublicUrl(path: string) {
     return supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
@@ -94,13 +96,20 @@ export default function ReceiptsSection({
         result.result.items,
         result.result.vendor
       );
-      // Reload the receipt list
-      const { data } = await supabase
-        .from("receipts")
-        .select("*")
-        .eq("job_id", jobId)
-        .order("created_at", { ascending: false });
-      if (data) setReceipts(data as Receipt[]);
+      // Reload receipts and update profitability bar
+      const [{ data: receiptData }, { data: materialData }] = await Promise.all([
+        supabase.from("receipts").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+        supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").eq("job_id", jobId),
+      ]);
+      if (receiptData) setReceipts(receiptData as Receipt[]);
+      if (materialData) {
+        const newCost = materialData.reduce((sum, m) => {
+          if (m.unit_cost === null) return sum;
+          const qty = m.quantity_used ?? m.quantity_ordered;
+          return sum + Number(qty) * Number(m.unit_cost);
+        }, 0);
+        setActualMaterialCost(newCost);
+      }
       return;
     }
 
@@ -110,13 +119,21 @@ export default function ReceiptsSection({
 
   async function handleModalDone() {
     setExtraction(null);
-    // Reload receipts
-    const { data } = await supabase
-      .from("receipts")
-      .select("*")
-      .eq("job_id", jobId)
-      .order("created_at", { ascending: false });
-    if (data) setReceipts(data as Receipt[]);
+    // Reload receipts and materials in parallel
+    const [{ data: receiptData }, { data: materialData }] = await Promise.all([
+      supabase.from("receipts").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+      supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").eq("job_id", jobId),
+    ]);
+    if (receiptData) setReceipts(receiptData as Receipt[]);
+    // Update profitability bar with fresh material cost
+    if (materialData) {
+      const newCost = materialData.reduce((sum, m) => {
+        if (m.unit_cost === null) return sum;
+        const qty = m.quantity_used ?? m.quantity_ordered;
+        return sum + Number(qty) * Number(m.unit_cost);
+      }, 0);
+      setActualMaterialCost(newCost);
+    }
   }
 
   async function handleCategoryChange(receiptId: string, category: ExpenseCategory) {

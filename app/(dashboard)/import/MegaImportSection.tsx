@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { parseCSV } from "@/lib/parse-csv";
 import { detectFileType, MegaImportType } from "@/lib/detect-file-type";
 import { runMegaImport, MegaFileInput, MegaImportSummary } from "@/app/actions/mega-import";
+import { extractPdfAsRows } from "@/app/actions/pdf-import";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -105,9 +106,10 @@ export default function MegaImportSection() {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [pdfProcessing, setPdfProcessing] = useState(false);
+
   const processFiles = useCallback(async (fileList: FileList) => {
     const parsed: ParsedFile[] = [];
-
     for (const file of Array.from(fileList)) {
       if (file.name.endsWith(".zip")) {
         const buf = await file.arrayBuffer();
@@ -122,6 +124,17 @@ export default function MegaImportSection() {
         const { headers, rows } = parseCSV(text);
         if (rows.length === 0) continue;
         parsed.push({ fileName: file.name, detectedType: detectFileType(headers), rows, headers });
+      } else if (file.name.toLowerCase().endsWith(".pdf")) {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        for (let b = 0; b < bytes.byteLength; b++) binary += String.fromCharCode(bytes[b]);
+        const base64 = btoa(binary);
+        setPdfProcessing(true);
+        const result = await extractPdfAsRows(base64);
+        setPdfProcessing(false);
+        if (result.error || result.rows.length === 0) continue;
+        parsed.push({ fileName: file.name, detectedType: result.detectedType, rows: result.rows, headers: result.headers });
       }
     }
 
@@ -195,8 +208,11 @@ export default function MegaImportSection() {
           <span className="text-4xl">📂</span>
           <p className="text-white font-semibold text-base">Drop files here</p>
           <p className="text-gray-500 text-sm text-center px-4">
-            ZIP file or multiple CSVs — clients, jobs, materials, labor, expenses, contacts
+            CSV, ZIP, or PDF — QuickBooks exports, Leap CRM, invoices, estimates
           </p>
+          {pdfProcessing && (
+            <p className="text-orange-400 text-sm animate-pulse">Extracting PDF with AI...</p>
+          )}
           <span className="bg-orange-500 text-white font-bold text-sm px-5 py-3 rounded-xl mt-1">
             Choose Files
           </span>
@@ -205,7 +221,7 @@ export default function MegaImportSection() {
         <input
           ref={fileRef}
           type="file"
-          accept=".csv,.zip"
+          accept=".csv,.zip,.pdf"
           multiple
           className="hidden"
           onChange={handleFiles}

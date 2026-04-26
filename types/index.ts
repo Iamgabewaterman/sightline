@@ -110,6 +110,7 @@ export interface Receipt {
   storage_path: string;
   vendor: string | null;
   amount: number | null;
+  receipt_date: string | null;
   ocr_raw: string | null;
   category: ExpenseCategory | null;
   created_at: string;

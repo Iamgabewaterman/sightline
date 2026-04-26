@@ -868,8 +868,8 @@ export default function CalculatorClient({
               <div><label className={labelCls}>Roof Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div><label className={labelCls}>Or Enter Roof Sq Ft Directly</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
-                <label className={labelCls}>Pitch Factor</label>
-                <div className="flex gap-2">{[["1.0","Flat"],["1.06","4/12"],["1.12","6/12"],["1.20","8/12"],["1.30","10/12"]].map(([v,l])=><button key={v} onClick={()=>setPitch(v)} className={chip(pitch===v)}>{l}</button>)}</div>
+                <label className={labelCls}>Roof Pitch</label>
+                <div className="grid grid-cols-4 gap-2">{[["1.0","Flat"],["1.054","4:12"],["1.083","5:12"],["1.118","6:12"],["1.158","7:12"],["1.202","8:12"],["1.302","10:12"],["1.414","12:12"]].map(([v,l])=><button key={v} onClick={()=>setPitch(v)} className={chip(pitch===v)}>{l}</button>)}</div>
               </div>
               <div>
                 <label className={labelCls}>Shingle Type</label>
