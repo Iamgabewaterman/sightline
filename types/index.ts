@@ -78,6 +78,7 @@ export interface Photo {
   lng: number | null;
   taken_at: string | null;
   accuracy: number | null;
+  job_number: string | null;
 }
 
 export interface Material {

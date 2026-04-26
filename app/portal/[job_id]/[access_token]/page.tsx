@@ -195,6 +195,8 @@ export default async function PortalPage({
             url: getPhotoUrl(p.storage_path),
             category: p.category,
           }))}
+          jobNumber={job.job_number}
+          jobName={job.name}
         />
 
         {/* Crew section */}

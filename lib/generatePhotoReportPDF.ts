@@ -19,6 +19,7 @@ export interface PhotoReportDocument {
 export interface PhotoReportData {
   jobName: string;
   jobAddress: string;
+  jobNumber?: string | null;
   clientName?: string | null;
   selectedCategories: PhotoCategory[];
   photos: Photo[];
@@ -63,6 +64,7 @@ async function drawHeader(
   reg: PDFFont,
   bp: PhotoReportBusinessProfile | null | undefined,
   logoImg: { img: Awaited<ReturnType<PDFDocument["embedJpg"]>>; isPng: boolean } | null,
+  jobRef?: string | null,
 ) {
   page.drawRectangle({ x: 0, y: PAGE_H - HEADER_H, width: PAGE_W, height: HEADER_H, color: DARK });
 
@@ -82,6 +84,16 @@ async function drawHeader(
     page.drawText(headerName.toUpperCase(), {
       x: MARGIN + 16, y: PAGE_H - HEADER_H / 2 - 7,
       font: bold, size: bp?.business_name ? 15 : 17, color: WHITE,
+    });
+  }
+
+  // Job number / job name centered in header
+  if (jobRef) {
+    const refW = bold.widthOfTextAtSize(jobRef, 10);
+    page.drawText(jobRef, {
+      x: PAGE_W / 2 - refW / 2,
+      y: PAGE_H - HEADER_H / 2 - 5,
+      font: bold, size: 10, color: ORANGE,
     });
   }
 
@@ -132,7 +144,9 @@ function drawFooter(
 }
 
 export async function generatePhotoReportPDF(data: PhotoReportData): Promise<void> {
-  const { jobName, jobAddress, clientName, selectedCategories, photos, businessProfile: bp, getPublicUrl } = data;
+  const { jobName, jobAddress, jobNumber, clientName, selectedCategories, photos, businessProfile: bp, getPublicUrl } = data;
+  // Use job number if set, otherwise fall back to job name for reference display
+  const jobRef = jobNumber ? `Job #${jobNumber}` : jobName;
 
   const pdfDoc = await PDFDocument.create();
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -198,7 +212,7 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
   {
     const page = addPage();
 
-    await drawHeader(page, pdfDoc, bold, reg, bp, logoImg);
+    await drawHeader(page, pdfDoc, bold, reg, bp, logoImg, jobRef);
 
     // Contact line below header
     const contactParts: string[] = [];
@@ -227,6 +241,11 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
     y -= 16;
     page.drawText(jobName, { x: MARGIN, y, font: bold, size: 16, color: DARK });
     y -= 20;
+    // Job number prominently below job name
+    if (jobNumber) {
+      page.drawText(`Job #${jobNumber}`, { x: MARGIN, y, font: bold, size: 13, color: ORANGE });
+      y -= 20;
+    }
     if (jobAddress) {
       page.drawText(jobAddress, { x: MARGIN, y, font: reg, size: 11, color: GRAY });
       y -= 16;
@@ -271,7 +290,7 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
   const USABLE_BOTTOM = FOOTER_H + 12;
   const USABLE_H      = USABLE_TOP - USABLE_BOTTOM;
   const GAP           = 20;
-  const INFO_H        = 52;
+  const INFO_H        = 64;
   const PHOTO_H       = Math.floor((USABLE_H - GAP) / 2 - INFO_H);
 
   let currentCat: PhotoCategory | null = null;
@@ -284,7 +303,7 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
     if (selectedCategories.length > 1 && thisCat !== currentCat) {
       currentCat = thisCat;
       const sepPage = addPage();
-      await drawHeader(sepPage, pdfDoc, bold, reg, bp, logoImg);
+      await drawHeader(sepPage, pdfDoc, bold, reg, bp, logoImg, jobRef);
 
       // Centered category label
       const label = categoryLabel(thisCat).toUpperCase();
@@ -310,7 +329,7 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
     }
 
     const page = addPage();
-    await drawHeader(page, pdfDoc, bold, reg, bp, logoImg);
+    await drawHeader(page, pdfDoc, bold, reg, bp, logoImg, jobRef);
 
     for (let slot = 0; slot < pair.length; slot++) {
       const { photo, img } = pair[slot];
@@ -348,6 +367,11 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
 
       // Metadata below image
       const ts = photo.taken_at ?? photo.created_at;
+      // First line: job ref (job number or job name)
+      page.drawText(jobRef, {
+        x: MARGIN, y: infoY + 44,
+        font: bold, size: 9, color: ORANGE,
+      });
       page.drawText(fmtFull(ts), {
         x: MARGIN, y: infoY + 32,
         font: bold, size: 9, color: DARK,
@@ -375,7 +399,7 @@ export async function generatePhotoReportPDF(data: PhotoReportData): Promise<voi
   // ── SUPPORTING DOCUMENTS INDEX ─────────────────────────────────────────────
   if (data.documents && data.documents.length > 0) {
     const docsPage = addPage();
-    await drawHeader(docsPage, pdfDoc, bold, reg, bp, logoImg);
+    await drawHeader(docsPage, pdfDoc, bold, reg, bp, logoImg, jobRef);
 
     let dy = PAGE_H - HEADER_H - 48;
     docsPage.drawText("SUPPORTING DOCUMENTS", { x: MARGIN, y: dy, font: bold, size: 18, color: DARK });

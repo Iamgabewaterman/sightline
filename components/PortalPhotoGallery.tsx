@@ -16,7 +16,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   damages: "Damages",
 };
 
-export default function PortalPhotoGallery({ photos }: { photos: Photo[] }) {
+export default function PortalPhotoGallery({ photos, jobNumber, jobName }: { photos: Photo[]; jobNumber?: string | null; jobName?: string }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   const grouped = CATEGORY_ORDER.reduce<Record<string, Photo[]>>((acc, cat) => {
@@ -30,7 +30,14 @@ export default function PortalPhotoGallery({ photos }: { photos: Photo[] }) {
   return (
     <>
       <div className="mb-5">
-        <h2 className="text-white font-bold text-lg mb-3">Photos</h2>
+        <div className="flex items-baseline gap-3 mb-3">
+          <h2 className="text-white font-bold text-lg">Photos</h2>
+          {(jobNumber || jobName) && (
+            <span className="text-gray-400 text-sm font-mono">
+              {jobNumber ? `#${jobNumber}` : jobName}
+            </span>
+          )}
+        </div>
         <div className="flex flex-col gap-5">
           {CATEGORY_ORDER.filter((cat) => grouped[cat]).map((cat) => (
             <div key={cat}>

@@ -407,6 +407,7 @@ export default async function JobDetailPage({
             jobId={job.id}
             jobName={job.name}
             jobAddress={job.address}
+            jobNumber={job.job_number ?? undefined}
             clientName={jobClient?.name ?? null}
             initialPhotos={photos ?? []}
             documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}

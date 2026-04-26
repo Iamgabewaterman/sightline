@@ -51,12 +51,13 @@ interface Props {
   jobId: string;
   jobName?: string;
   jobAddress?: string;
+  jobNumber?: string | null;
   clientName?: string | null;
   initialPhotos: Photo[];
   documents?: PhotoReportDocument[] | null;
 }
 
-export default function PhotoSection({ jobId, jobName = "", jobAddress = "", clientName, initialPhotos, documents }: Props) {
+export default function PhotoSection({ jobId, jobName = "", jobAddress = "", jobNumber, clientName, initialPhotos, documents }: Props) {
   const [activeCategory,   setActiveCategory]   = useState<PhotoCategory>("before");
   const [photos,           setPhotos]           = useState<Photo[]>(initialPhotos);
   const [uploading,        setUploading]        = useState(false);
@@ -107,6 +108,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
           lat: loc?.lat ?? null,
           lng: loc?.lng ?? null,
           accuracy: loc?.accuracy ?? null,
+          job_number: jobNumber ?? null,
         };
 
         const { data: photo, error: dbError } = await supabase
@@ -161,6 +163,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
       await generatePhotoReportPDF({
         jobName,
         jobAddress,
+        jobNumber,
         clientName,
         selectedCategories: Array.from(exportCats) as PhotoCategory[],
         photos,
@@ -259,10 +262,17 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", cli
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                  {/* Time badge */}
-                  <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none">
-                    {timeLabel}
-                  </span>
+                  {/* Job number + time badges */}
+                  <div className="absolute bottom-1 left-1 flex flex-col items-start gap-0.5">
+                    {(photo.job_number ?? jobNumber) && (
+                      <span className="bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none tracking-wide">
+                        #{photo.job_number ?? jobNumber}
+                      </span>
+                    )}
+                    <span className="bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none">
+                      {timeLabel}
+                    </span>
+                  </div>
                 </button>
                 <button
                   onClick={() => setConfirmDeleteId(photo.id)}
