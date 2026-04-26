@@ -296,6 +296,7 @@ export default function QuoteProfitSection({
         jobName: job.name,
         jobAddress: job.address ?? "",
         jobTypes: job.types,
+        jobNumber: job.job_number ?? undefined,
         date: today(),
         quoteNumber: `QUO-${job.id.slice(0, 8).toUpperCase()}`,
         materialsTotal,

@@ -170,6 +170,7 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       const clientName = pick(row, "client_name", "client", "customer");
       const clientId = clientName ? (clientMap.get(clientName.toLowerCase()) ?? null) : null;
 
+      const jobNumRaw = pick(row, "job_number", "job_num", "invoice_number", "job_id", "number", "ref", "reference");
       const { data: inserted, error } = await supabase.from("jobs").insert({
         user_id: user.id,
         name,
@@ -179,6 +180,7 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         notes: pick(row, "notes", "note", "description", "comments") || null,
         client_id: clientId,
         total_paused_days: 0,
+        job_number: jobNumRaw || null,
       }).select("id, name").single();
 
       if (error) {

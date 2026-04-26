@@ -232,6 +232,7 @@ export default function InvoiceSection({
   jobId,
   jobName,
   jobAddress,
+  jobNumber,
   estimate,
   initialInvoice,
   jobClient,
@@ -241,6 +242,7 @@ export default function InvoiceSection({
   jobId: string;
   jobName: string;
   jobAddress: string;
+  jobNumber?: string;
   estimate: Pick<Estimate, "material_total" | "labor_total" | "final_quote" | "addons" | "profit_margin_pct"> | null;
   initialInvoice: Invoice | null;
   jobClient: Pick<Client, "id" | "name" | "company" | "phone" | "email" | "address"> | null;
@@ -532,6 +534,7 @@ export default function InvoiceSection({
         contractorEmail: user?.email ?? "",
         jobName,
         jobAddress,
+        jobNumber,
         date: todayStr(),
         invoiceNumber,
         invoiceId: inv.id,

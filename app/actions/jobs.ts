@@ -15,6 +15,7 @@ export async function createJob(formData: FormData) {
   const types = formData.getAll("types") as string[];
   const address = formData.get("address") as string;
   const notes = formData.get("notes") as string;
+  const job_number = formData.get("job_number") as string;
 
   if (types.length === 0) {
     return { error: "Select at least one job type." };
@@ -24,7 +25,7 @@ export async function createJob(formData: FormData) {
 
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ name, types, address, notes: notes || null, user_id: user.id, client_id: client_id || null })
+    .insert({ name, types, address, notes: notes || null, user_id: user.id, client_id: client_id || null, job_number: job_number || null })
     .select("id")
     .single();
 
@@ -73,6 +74,7 @@ export async function updateJob(id: string, formData: FormData) {
   const notes = formData.get("notes") as string;
   const lockbox_code = formData.get("lockbox_code") as string;
   const estimated_completion_date_raw = formData.get("estimated_completion_date") as string;
+  const job_number = formData.get("job_number") as string;
 
   if (types.length === 0) {
     return { error: "Select at least one job type." };
@@ -91,7 +93,7 @@ export async function updateJob(id: string, formData: FormData) {
 
   const { error } = await supabase
     .from("jobs")
-    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, estimated_completion_date, client_id: client_id || null, updated_at: new Date().toISOString(), ...coordUpdates })
+    .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, estimated_completion_date, client_id: client_id || null, job_number: job_number || null, updated_at: new Date().toISOString(), ...coordUpdates })
     .eq("id", id);
 
   if (error) {

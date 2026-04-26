@@ -165,8 +165,13 @@ export default async function PortalPage({
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-5">
             <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Project</p>
-            <h1 className="text-white font-black text-2xl leading-tight mb-1">{job.name}</h1>
-            {job.address && <p className="text-gray-400 text-sm">{job.address}</p>}
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h1 className="text-white font-black text-2xl leading-tight">{job.name}</h1>
+              {job.job_number && (
+                <span className="text-gray-500 text-sm font-medium">#{job.job_number}</span>
+              )}
+            </div>
+            {job.address && <p className="text-gray-400 text-sm mt-1">{job.address}</p>}
             {client?.name && <p className="text-gray-500 text-xs mt-1">{client.name}{client.company ? ` · ${client.company}` : ""}</p>}
           </div>
 

@@ -31,6 +31,7 @@ export interface QuotePDFData {
   jobName: string;
   jobAddress: string;
   jobTypes?: string[];
+  jobNumber?: string | null;
   date: string;
   quoteNumber?: string;
   materialsTotal: number;
@@ -214,6 +215,9 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   let ry2 = BLOCK_TOP - 16;
   const maxJobW = RX - COL2;
   page.drawText(clip(data.jobName, bold, 12, maxJobW), { x: COL2, y: ry2, font: bold, size: 12, color: BLACK }); ry2 -= 16;
+  if (data.jobNumber) {
+    page.drawText(`Job #${data.jobNumber}`, { x: COL2, y: ry2, font: reg, size: 9, color: GRAY }); ry2 -= 13;
+  }
   if (data.jobAddress) {
     page.drawText(clip(data.jobAddress, reg, 9, maxJobW), { x: COL2, y: ry2, font: reg, size: 9, color: GRAY }); ry2 -= 13;
   }

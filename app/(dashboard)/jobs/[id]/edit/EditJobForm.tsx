@@ -117,20 +117,34 @@ export default function EditJobForm({ job }: { job: Job }) {
             onChange={(id) => setClientId(id)}
           />
 
-          {/* Job Name */}
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-              Job Name
-            </label>
-            <input
-              name="name"
-              type="text"
-              required
-              defaultValue={job.name}
-              autoCapitalize="words"
-              autoCorrect="on"
-              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-            />
+          {/* Job Name + Job Number */}
+          <div className="flex gap-3 items-end">
+            <div className="flex flex-col gap-2 flex-1">
+              <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                Job Name
+              </label>
+              <input
+                name="name"
+                type="text"
+                required
+                defaultValue={job.name}
+                autoCapitalize="words"
+                autoCorrect="on"
+                className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-2 w-28">
+              <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                Job #
+              </label>
+              <input
+                name="job_number"
+                type="text"
+                defaultValue={job.job_number ?? ""}
+                placeholder="Optional"
+                className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              />
+            </div>
           </div>
 
           {/* Job Types */}

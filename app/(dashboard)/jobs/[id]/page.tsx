@@ -233,7 +233,12 @@ export default async function JobDetailPage({
             >
               ←
             </Link>
-            <h1 className="text-3xl font-bold text-white leading-tight">{job.name}</h1>
+            <div>
+              <h1 className="text-3xl font-bold text-white leading-tight">{job.name}</h1>
+              {job.job_number && (
+                <p className="text-gray-500 text-sm mt-0.5">Job #{job.job_number}</p>
+              )}
+            </div>
           </div>
           <Link
             href={`/jobs/${job.id}/edit`}
@@ -324,6 +329,7 @@ export default async function JobDetailPage({
                 jobId={job.id}
                 jobName={job.name}
                 jobAddress={job.address}
+                jobNumber={job.job_number ?? undefined}
                 estimate={estimate}
                 initialInvoice={invoice ?? null}
                 jobClient={jobClient ?? null}

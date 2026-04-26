@@ -189,7 +189,7 @@ export default function MegaImportSection() {
       <div className="bg-[#1A1A1A] border border-orange-500/30 rounded-xl p-5 mb-6">
         <div className="mb-4">
           <p className="text-orange-500 text-xs font-bold uppercase tracking-widest mb-1">Full History Import — Start Here</p>
-          <h2 className="text-white font-bold text-xl leading-tight mb-1">Import Everything at Once</h2>
+          <h2 className="text-white font-bold text-xl leading-tight mb-1">MegaPort</h2>
           <p className="text-gray-400 text-sm">
             Transfer everything from QuickBooks, spreadsheets, or your existing system in one upload. Sightline will organize it automatically.
           </p>

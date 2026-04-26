@@ -208,6 +208,7 @@ export default function GenerateQuote({ job }: Props) {
         jobName: job.name,
         jobAddress: job.address ?? "",
         jobTypes: job.types,
+        jobNumber: job.job_number ?? undefined,
         date: today(),
         quoteNumber,
         materialsTotal,

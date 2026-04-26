@@ -52,6 +52,7 @@ export interface Job {
   portal_enabled: boolean;
   job_lat: number | null;
   job_lng: number | null;
+  job_number: string | null;
   created_at: string;
   updated_at: string;
 }
