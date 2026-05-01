@@ -372,7 +372,7 @@ export default function QuoteProfitSection({
   if (hasActual && qd) {
     if (isOverQuote) { barStatus = "Over budget"; statusColor = "text-red-400"; fillHex = "#ef4444"; }
     else if (isOverBudget) { barStatus = "Eating into margin"; statusColor = "text-yellow-400"; fillHex = "#eab308"; }
-    else { barStatus = "On track"; statusColor = "text-green-400"; fillHex = "#F97316"; }
+    else { barStatus = "On track"; statusColor = "text-green-400"; fillHex = "#22c55e"; }
   }
 
   const inputCls =

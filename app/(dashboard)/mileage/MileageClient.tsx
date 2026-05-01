@@ -152,22 +152,27 @@ export default function MileageClient({
     setDeleting(false);
   }
 
+  function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  }
+
   function exportCSV() {
-    const header = "Date,Miles,Estimated,Category,Job,Notes,Duration (min),Deduction\n";
+    const header = "Date,Start Time,End Time,Duration (min),Miles,Category,Job,IRS Rate,Deduction\n";
     const rows = drives.map((d) =>
       [
         fmtDate(d.started_at),
+        fmtTime(d.started_at),
+        d.ended_at ? fmtTime(d.ended_at) : "",
+        d.duration_minutes ?? "",
         d.miles?.toFixed(1) ?? "",
-        d.is_estimated ? "yes" : "no",
         d.category,
         d.job_name ?? "",
-        (d.notes ?? "").replace(/,/g, ";"),
-        d.duration_minutes ?? "",
+        irsRate,
         d.miles ? fmt$(Number(d.miles) * irsRate) : "",
       ].join(",")
     );
     const totalMiles = workDrives.reduce((s, d) => s + Number(d.miles ?? 0), 0);
-    const footer = `\nTotals,,,,,,,"${fmt$(totalMiles * irsRate)}"`;
+    const footer = `\nTotals,,,,,,,,"${fmt$(totalMiles * irsRate)}"`;
     const csv = header + rows.join("\n") + footer;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

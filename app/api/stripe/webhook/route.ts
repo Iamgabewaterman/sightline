@@ -196,6 +196,18 @@ export async function POST(request: NextRequest) {
       break;
     }
 
+    case "invoice.payment_succeeded": {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inv = event.data.object as any;
+      if (inv.subscription) {
+        await supabase
+          .from("subscriptions")
+          .update({ status: "active" })
+          .eq("stripe_subscription_id", inv.subscription as string);
+      }
+      break;
+    }
+
     case "invoice.payment_failed": {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const invoice = event.data.object as any;
@@ -219,6 +231,17 @@ export async function POST(request: NextRequest) {
           });
         }
       }
+      break;
+    }
+
+    case "payment_intent.succeeded": {
+      // Connect payment via Stripe — no platform action needed; milestone/invoice
+      // webhook fires separately via checkout.session.completed
+      break;
+    }
+
+    case "payment_intent.payment_failed": {
+      // No platform action; client-side Stripe handles user-facing error
       break;
     }
   }
