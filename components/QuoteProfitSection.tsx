@@ -358,6 +358,7 @@ export default function QuoteProfitSection({
   const totalActual = actualMaterialCost + actualLaborCost + actualSubCost;
   const profitBudget = qd ? totalQuote - qd.materialBudget - qd.laborBudget : 0;
   const profitRemaining = totalQuote - totalActual;
+  const actualMarginPct = totalQuote > 0 ? (profitRemaining / totalQuote) * 100 : 0;
   const matZonePct = qd && totalQuote > 0 ? (qd.materialBudget / totalQuote) * 100 : 0;
   const labZonePct = qd && totalQuote > 0 ? (qd.laborBudget / totalQuote) * 100 : 0;
   const fillPct = qd && totalQuote > 0 ? Math.min((totalActual / totalQuote) * 100, 100) : 0;
@@ -371,7 +372,7 @@ export default function QuoteProfitSection({
   if (hasActual && qd) {
     if (isOverQuote) { barStatus = "Over budget"; statusColor = "text-red-400"; fillHex = "#ef4444"; }
     else if (isOverBudget) { barStatus = "Eating into margin"; statusColor = "text-yellow-400"; fillHex = "#eab308"; }
-    else { barStatus = "On track"; statusColor = "text-orange-500"; fillHex = "#F97316"; }
+    else { barStatus = "On track"; statusColor = "text-green-400"; fillHex = "#F97316"; }
   }
 
   const inputCls =
@@ -422,7 +423,7 @@ export default function QuoteProfitSection({
             </div>
           </div>
 
-          {/* Bar */}
+          {/* Progress bar */}
           <div className="relative h-7 bg-[#242424] rounded-xl overflow-hidden">
             <div
               className="absolute top-0 bottom-0 bg-[#2a2a2a]"
@@ -454,107 +455,126 @@ export default function QuoteProfitSection({
             </span>
             <span
               className="absolute text-gray-500 text-xs"
-              style={{
-                left: `${matZonePct + labZonePct / 2}%`,
-                transform: "translateX(-50%)",
-              }}
+              style={{ left: `${matZonePct + labZonePct / 2}%`, transform: "translateX(-50%)" }}
             >
               Labor
             </span>
             <span
               className="absolute text-gray-500 text-xs"
-              style={{
-                left: `${matZonePct + labZonePct + (100 - matZonePct - labZonePct) / 2}%`,
-                transform: "translateX(-50%)",
-              }}
+              style={{ left: `${matZonePct + labZonePct + (100 - matZonePct - labZonePct) / 2}%`, transform: "translateX(-50%)" }}
             >
               Profit
             </span>
           </div>
 
-          {/* Stats */}
-          <div className="mt-3 flex flex-col gap-2 border-t border-[#2a2a2a] pt-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Materials logged</span>
-              <span>
-                <span
-                  className={`font-semibold ${
-                    isOverQuote ? "text-red-400" : isOverBudget ? "text-yellow-400" : "text-orange-500"
-                  }`}
-                >
-                  ${Math.round(actualMaterialCost).toLocaleString()}
-                </span>
-                <span className="text-gray-500">
-                  {" "}/ ${Math.round(qd!.materialBudget).toLocaleString()} est.
-                </span>
-              </span>
+          {/* Cost report table */}
+          <div className="mt-4 border border-[#2a2a2a] rounded-xl overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] bg-[#111] px-3 py-2 gap-x-3">
+              <span className="text-gray-600 text-[10px] font-bold uppercase tracking-wider">Category</span>
+              <span className="text-gray-600 text-[10px] font-bold uppercase tracking-wider text-right w-[72px]">Quoted</span>
+              <span className="text-gray-600 text-[10px] font-bold uppercase tracking-wider text-right w-[72px]">Actual</span>
+              <span className="text-gray-600 text-[10px] font-bold uppercase tracking-wider text-right w-[52px]">Status</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Labor logged</span>
-              <span>
-                <span
-                  className={`font-semibold ${
-                    isOverQuote ? "text-red-400" : isOverBudget ? "text-yellow-400" : "text-white"
-                  }`}
-                >
-                  ${Math.round(actualLaborCost).toLocaleString()}
-                </span>
-                <span className="text-gray-500">
-                  {" "}/ ${Math.round(qd!.laborBudget).toLocaleString()} est.
-                </span>
-              </span>
-            </div>
-            <div className="flex justify-between text-sm border-t border-[#2a2a2a] pt-2">
-              <span className="text-gray-400">Total spent</span>
-              <span className="text-white font-semibold">
-                ${Math.round(totalActual).toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Base quote</span>
-              <span className="text-white font-semibold">
-                ${Math.round(qd!.finalQuote + qAddonsTotal).toLocaleString()}
-              </span>
-            </div>
+            {/* Materials row */}
+            {(() => {
+              const v = actualMaterialCost - qd!.materialBudget;
+              const has = actualMaterialCost > 0;
+              return (
+                <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#1e1e1e]">
+                  <span className="text-gray-300 text-sm">Materials</span>
+                  <span className="text-gray-400 text-sm text-right w-[72px]">${Math.round(qd!.materialBudget).toLocaleString()}</span>
+                  <span className={`text-sm text-right w-[72px] font-semibold ${has ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
+                    {has ? "$" + Math.round(actualMaterialCost).toLocaleString() : "—"}
+                  </span>
+                  <span className={`text-xs text-right w-[52px] font-bold ${has ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                    {has ? (v > 0 ? "Over" : "Under") : "—"}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Labor row */}
+            {(() => {
+              const v = actualLaborCost - qd!.laborBudget;
+              const has = actualLaborCost > 0;
+              return (
+                <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#1e1e1e]">
+                  <span className="text-gray-300 text-sm">Labor</span>
+                  <span className="text-gray-400 text-sm text-right w-[72px]">${Math.round(qd!.laborBudget).toLocaleString()}</span>
+                  <span className={`text-sm text-right w-[72px] font-semibold ${has ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
+                    {has ? "$" + Math.round(actualLaborCost).toLocaleString() : "—"}
+                  </span>
+                  <span className={`text-xs text-right w-[52px] font-bold ${has ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                    {has ? (v > 0 ? "Over" : "Under") : "—"}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Change orders row */}
             {changeOrders.length > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Change orders ({changeOrders.length})</span>
-                <span className={`font-semibold ${changeOrdersTotal >= 0 ? "text-orange-400" : "text-red-400"}`}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#1e1e1e]">
+                <span className="text-gray-400 text-sm">Change Orders ({changeOrders.length})</span>
+                <span className={`text-sm text-right w-[72px] font-semibold ${changeOrdersTotal >= 0 ? "text-orange-400" : "text-red-400"}`}>
                   {changeOrdersTotal >= 0 ? "+" : "−"}${Math.abs(Math.round(changeOrdersTotal)).toLocaleString()}
                 </span>
+                <span className="text-gray-600 text-sm text-right w-[72px]">—</span>
+                <span className="text-gray-600 text-xs text-right w-[52px]">—</span>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">{changeOrders.length > 0 ? "Adjusted total" : "Total quote"}</span>
-              <span className="text-white font-semibold">
-                ${Math.round(totalQuote).toLocaleString()}
-              </span>
+            {/* Total row */}
+            {(() => {
+              const v = totalActual - totalQuote;
+              return (
+                <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#2a2a2a] bg-[#111]">
+                  <span className="text-white font-bold text-sm">Total</span>
+                  <span className="text-gray-300 font-bold text-sm text-right w-[72px]">${Math.round(totalQuote).toLocaleString()}</span>
+                  <span className={`text-sm text-right w-[72px] font-bold ${hasActual ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
+                    {hasActual ? "$" + Math.round(totalActual).toLocaleString() : "—"}
+                  </span>
+                  <span className={`text-xs text-right w-[52px] font-bold ${hasActual ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                    {hasActual ? (v > 0 ? "Over" : "Under") : "—"}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-[#2a2a2a] mt-5 mb-4" />
+
+          {/* Profit remaining */}
+          <div className="flex justify-between items-start mb-1">
+            <span className="text-gray-400 text-sm font-semibold">Profit remaining</span>
+            <span className={`font-bold text-lg ${profitRemaining < 0 ? "text-red-400" : "text-orange-500"}`}>
+              {profitRemaining < 0 ? "−" : ""}${Math.abs(Math.round(profitRemaining)).toLocaleString()}
+            </span>
+          </div>
+          {profitBudget > 0 && (
+            <p className="text-gray-600 text-xs text-right mb-4">target ${Math.round(profitBudget).toLocaleString()}</p>
+          )}
+
+          {/* Three stats */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="bg-[#111] rounded-xl px-2 py-3 text-center">
+              <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">Quoted Margin</p>
+              <p className="text-white font-bold text-sm">{qd!.profitMarginPct}%</p>
             </div>
-            <div
-              className={`flex justify-between text-sm font-bold border-t border-[#2a2a2a] pt-2 ${
-                profitRemaining < 0 ? "text-red-400" : "text-orange-500"
-              }`}
-            >
-              <span>Profit remaining</span>
-              <span>
-                {profitRemaining < 0 ? "⚠ -" : ""}$
-                {Math.abs(Math.round(profitRemaining)).toLocaleString()}
-                {profitRemaining < 0 && (
-                  <span className="text-xs font-normal text-red-400 ml-1">over budget</span>
-                )}
-              </span>
+            <div className="bg-[#111] rounded-xl px-2 py-3 text-center">
+              <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">Actual Margin</p>
+              <p className={`font-bold text-sm ${!hasActual ? "text-gray-600" : actualMarginPct < 0 ? "text-red-400" : actualMarginPct >= qd!.profitMarginPct ? "text-green-400" : "text-yellow-400"}`}>
+                {hasActual ? actualMarginPct.toFixed(1) + "%" : "—"}
+              </p>
             </div>
-            {profitBudget > 0 && (
-              <div className="flex justify-between text-xs text-gray-600">
-                <span>Target profit</span>
-                <span>${Math.round(profitBudget).toLocaleString()}</span>
-              </div>
-            )}
+            <div className="bg-[#111] rounded-xl px-2 py-3 text-center">
+              <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider mb-1.5">Actual Profit</p>
+              <p className={`font-bold text-sm ${!hasActual ? "text-gray-600" : profitRemaining < 0 ? "text-red-400" : "text-orange-500"}`}>
+                {hasActual ? (profitRemaining < 0 ? "−" : "") + "$" + Math.abs(Math.round(profitRemaining)).toLocaleString() : "—"}
+              </p>
+            </div>
           </div>
 
           {/* Signed info */}
           {isSigned && localSignedByName && (
-            <div className="mt-3 pt-3 border-t border-[#2a2a2a] flex items-center justify-between">
+            <div className="pt-3 border-t border-[#2a2a2a] flex items-center justify-between">
               <div>
                 <p className="text-green-400 text-xs font-semibold">
                   Signed by {localSignedByName}
@@ -575,9 +595,9 @@ export default function QuoteProfitSection({
             </div>
           )}
 
-          {/* Send for Signature button */}
+          {/* Resend Signature Link */}
           {!isSigned && quoteData && localEstimateId && (
-            <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+            <div className="pt-4 border-t border-[#2a2a2a]">
               {sigError && (
                 <p className="text-red-400 text-xs mb-2">{sigError}</p>
               )}

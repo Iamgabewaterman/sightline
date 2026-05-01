@@ -18,12 +18,9 @@ import InvoiceSection from "@/components/InvoiceSection";
 import PunchListWidget from "@/components/PunchListWidget";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
-import CostReport from "@/components/CostReport";
-import TradeCostBreakdown from "@/components/TradeCostBreakdown";
 import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
 import SubcontractorsSection from "@/components/SubcontractorsSection";
-import JobStickyDashboard from "@/components/JobStickyDashboard";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -275,9 +272,6 @@ export default async function JobDetailPage({
           initialQuoteData={initialQuoteData}
           initialChangeOrders={changeOrders ?? []}
         >
-          {/* Sticky dashboard — profitability bar + stat chips + quick-add */}
-          <JobStickyDashboard />
-
           {/* Job Status */}
           <div className="mb-4">
             <JobStatus
@@ -295,23 +289,6 @@ export default async function JobDetailPage({
               quoteStatus={estimate?.quote_status ?? "draft"}
               signedAt={estimate?.signed_at ?? null}
               signedByName={estimate?.signed_by_name ?? null}
-            />
-          </div>
-
-          {/* Cost Report */}
-          <div className="mb-4">
-            <CostReport
-              estimate={estimate ?? null}
-              materials={materials ?? []}
-              laborLogs={laborLogs ?? []}
-              clockSessionsLaborTotal={clockSessionsLaborTotal}
-              changeOrdersTotal={(changeOrders ?? []).reduce((s, o) => s + Number(o.amount), 0)}
-              subsTotal={initialSubCost}
-            />
-            <TradeCostBreakdown
-              jobTypes={job.types as string[]}
-              materials={materials ?? []}
-              laborLogs={laborLogs ?? []}
             />
           </div>
 
