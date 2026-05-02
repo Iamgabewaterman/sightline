@@ -540,7 +540,6 @@ export default function MaterialsSection({
     setFormError("");
 
     const formData = new FormData(e.currentTarget);
-    // Override with controlled values (name from autocomplete, length from selector)
     formData.set("name", nameVal);
     if (effectiveLengthFt !== null) {
       formData.set("length_ft", effectiveLengthFt.toString());
@@ -551,17 +550,39 @@ export default function MaterialsSection({
 
     if (result.error) {
       setFormError(result.error);
-    } else if (result.material) {
-      setMaterials((prev) => [result.material as Material, ...prev]);
-      formRef.current?.reset();
-      setNameVal("");
-      setLengthPreset("");
-      setCustomLength("");
-      setQtyOrdered("");
-      setUnitCost("");
-      setAddTrade("");
-      setShowForm(false);
+      setSaving(false);
+      return;
     }
+
+    // Optimistic: add the returned row immediately so the UI responds instantly
+    if (result.material) {
+      setMaterials((prev) => [result.material as Material, ...prev]);
+    }
+
+    // Refetch from DB to confirm persistence and get canonical server state
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: fresh, error: fetchErr } = await supabase
+        .from("materials")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+      if (!fetchErr && fresh) {
+        setMaterials(fresh as Material[]);
+      }
+    } catch {
+      // refetch is best-effort; optimistic result stays
+    }
+
+    formRef.current?.reset();
+    setNameVal("");
+    setLengthPreset("");
+    setCustomLength("");
+    setQtyOrdered("");
+    setUnitCost("");
+    setAddTrade("");
+    setShowForm(false);
     setSaving(false);
   }
 
@@ -582,9 +603,25 @@ export default function MaterialsSection({
     if (source.length_ft !== null) fd.set("length_ft", source.length_ft.toString());
     if (source.notes) fd.set("notes", source.notes);
     const result = await addMaterial(jobId, fd);
-    if (result.material) {
-      // Open in edit mode immediately by marking it
-      setMaterials((prev) => [{ ...(result.material as Material), _openEdit: true } as Material, ...prev]);
+    if (result.error || !result.material) return;
+
+    const newId = (result.material as Material).id;
+    setMaterials((prev) => [{ ...(result.material as Material), _openEdit: true } as Material, ...prev]);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: fresh, error: fetchErr } = await supabase
+        .from("materials")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+      if (!fetchErr && fresh) {
+        setMaterials((fresh as Material[]).map((m) =>
+          m.id === newId ? { ...m, _openEdit: true } as Material : m
+        ));
+      }
+    } catch {
+      // keep optimistic
     }
   }
 

@@ -138,7 +138,15 @@ export async function addMaterial(jobId: string, formData: FormData) {
     .select()
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[addMaterial] Supabase insert error:", error.code, error.message, error.details);
+    return { error: error.message };
+  }
+
+  if (!data) {
+    console.error("[addMaterial] Insert returned no data — possible RLS block on SELECT after INSERT");
+    return { error: "Material was not saved. Please try again." };
+  }
 
   // Fire-and-forget: contribute price to regional crowdsource dataset
   if (unit_cost !== null && user) {
