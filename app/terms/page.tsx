@@ -134,10 +134,10 @@ export default function TermsPage() {
             ←
           </Link>
           <Image
-            src="/new-logo.png.png"
+            src="/icons/brand-logo.png"
             alt="Sightline"
-            width={1408}
-            height={768}
+            width={240}
+            height={130}
             className="h-7 w-auto"
           />
         </div>

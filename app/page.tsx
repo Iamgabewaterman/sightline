@@ -65,10 +65,10 @@ export default async function LandingPage() {
           {/* Logo */}
           <div className="flex items-center">
             <Image
-              src="/new-logo.png.png"
+              src="/icons/brand-logo.png"
               alt="Sightline"
-              width={1408}
-              height={768}
+              width={240}
+              height={130}
               className="h-9 w-auto"
               priority
             />
@@ -298,10 +298,10 @@ export default async function LandingPage() {
       <section className="py-20 px-5 border-t border-[#1a1a1a] text-center">
         <div className="max-w-lg mx-auto">
           <Image
-            src="/new-logo.png.png"
+            src="/icons/brand-logo.png"
             alt="Sightline"
-            width={1408}
-            height={768}
+            width={240}
+            height={130}
             className="h-14 w-auto"
           />
           <h2 className="text-3xl sm:text-4xl font-black text-white mt-6 mb-3">

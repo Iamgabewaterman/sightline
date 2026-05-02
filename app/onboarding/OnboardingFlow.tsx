@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { upsertBusinessProfile } from "@/app/actions/business-profile";
 import { createJob } from "@/app/actions/jobs";
 import { completeOnboarding } from "@/app/actions/onboarding";
@@ -105,25 +106,6 @@ function Field({
   );
 }
 
-// ── Sightline logo mark ───────────────────────────────────────────────────────
-
-function SightlineLogo({ size = 64 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 512 512" width={size} height={size} style={{ borderRadius: "22%" }}>
-      <rect width="512" height="512" fill="#0F0F0F" />
-      <polygon
-        points="106,418 406,418 256,118"
-        fill="none"
-        stroke="white"
-        strokeWidth="44"
-        strokeLinejoin="miter"
-      />
-      <rect x="106" y="48" width="300" height="70" rx="10" fill="#0F0F0F" stroke="white" strokeWidth="12" />
-      <path d="M 160 108 Q 256 62 352 108" fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" />
-      <ellipse cx="256" cy="83" rx="28" ry="15" fill="#F97316" />
-    </svg>
-  );
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -224,7 +206,7 @@ export default function OnboardingFlow({ inviteCode }: { inviteCode: string }) {
         className="fixed inset-0 z-[100] bg-[#0F0F0F] flex flex-col items-center justify-center px-6 text-center"
         onClick={() => router.push("/jobs")}
       >
-        <SightlineLogo size={72} />
+        <Image src="/icons/brand-logo.png" alt="Sightline" width={240} height={130} className="w-48 h-auto" priority />
         <h1 className="text-white font-black text-3xl mt-8 mb-3 leading-tight">
           You&rsquo;re set up.
         </h1>
