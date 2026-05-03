@@ -109,9 +109,11 @@ const TERMS_OPTIONS: { value: PaymentTerms; label: string; days: number }[] = [
 ];
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
-  unpaid: { label: "Unpaid", color: "text-red-400",    bg: "bg-red-500/20 border-red-500/40"    },
-  sent:   { label: "Sent",   color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/40" },
-  paid:   { label: "Paid",   color: "text-green-400",  bg: "bg-green-500/20 border-green-500/40"  },
+  unpaid:  { label: "Unpaid",          color: "text-red-400",    bg: "bg-red-500/20 border-red-500/40"       },
+  sent:    { label: "Sent",            color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/40" },
+  pending: { label: "Payment Pending", color: "text-blue-400",   bg: "bg-blue-500/20 border-blue-500/40"     },
+  partial: { label: "Partially Paid",  color: "text-orange-400", bg: "bg-orange-500/20 border-orange-500/40" },
+  paid:    { label: "Paid",            color: "text-green-400",  bg: "bg-green-500/20 border-green-500/40"   },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -243,7 +245,7 @@ export default function InvoiceSection({
   jobName: string;
   jobAddress: string;
   jobNumber?: string;
-  estimate: Pick<Estimate, "material_total" | "labor_total" | "final_quote" | "addons" | "profit_margin_pct"> | null;
+  estimate: Pick<Estimate, "material_total" | "labor_total" | "final_quote" | "addons" | "profit_margin_pct" | "signed_at" | "quote_status"> | null;
   initialInvoice: Invoice | null;
   jobClient: Pick<Client, "id" | "name" | "company" | "phone" | "email" | "address"> | null;
   initialMilestones?: PaymentMilestone[];
@@ -259,6 +261,20 @@ export default function InvoiceSection({
   const [isPending, startTransition] = useTransition();
   const [pdfLoading, setPdfLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // No-estimate path: manual invoice total
+  const [manualTotal, setManualTotal] = useState(
+    !estimate && initialInvoice ? initialInvoice.total_amount.toString() : ""
+  );
+
+  // Per-milestone link copy state
+  const [copiedMilestone, setCopiedMilestone] = useState<string | null>(null);
+
+  // Edit invoice panel
+  const [editingInvoice, setEditingInvoice] = useState(false);
+  const [editTermsDraft, setEditTermsDraft] = useState<PaymentTerms>("net_30");
+  const [editNotesDraft, setEditNotesDraft] = useState("");
+  const [editTotalDraft, setEditTotalDraft] = useState("");
 
   // Pre-creation form state
   const [terms, setTerms] = useState<PaymentTerms>("net_30");
@@ -305,13 +321,14 @@ export default function InvoiceSection({
 
   // Guards
   if (role === "field_member" && !can_see_financials) return null;
-  if (!estimate) return null;
 
   // Calculations
-  const addons = (estimate.addons as QuoteAddon[]) ?? [];
+  const addons = estimate ? ((estimate.addons as QuoteAddon[]) ?? []) : [];
   const addonsTotal = addons.reduce((s, a) => s + Number(a.amount), 0);
   const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
-  const grandTotal = estimate.final_quote + addonsTotal + changeOrdersTotal;
+  const grandTotal = estimate
+    ? estimate.final_quote + addonsTotal + changeOrdersTotal
+    : (invoice ? Number(invoice.total_amount) : parseFloat(manualTotal) || 0);
   const invoiceNumber = `INV-${jobId.slice(0, 8).toUpperCase()}`;
 
   // Client line items totals
@@ -375,7 +392,9 @@ export default function InvoiceSection({
   async function handleGenerate() {
     setCreating(true);
     setError("");
-    const res = await createInvoice(jobId, grandTotal, {
+    const total = estimate ? grandTotal : parseFloat(manualTotal) || 0;
+    if (total <= 0) { setError("Enter an invoice total greater than $0"); setCreating(false); return; }
+    const res = await createInvoice(jobId, total, {
       clientId: jobClient?.id ?? null,
       paymentTerms: terms,
       notes: notes.trim() || undefined,
@@ -498,11 +517,11 @@ export default function InvoiceSection({
   }
 
   async function handleDownloadPDF() {
+    if (!estimate) return; // PDF requires quote data
     setPdfLoading(true);
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!estimate) return;
       const { data: bp } = await supabase
         .from("business_profiles")
         .select("business_name,owner_name,license_number,address,phone,email,logo_path")
@@ -564,19 +583,64 @@ export default function InvoiceSection({
     }
   }
 
+  async function handleSaveEditInvoice() {
+    if (!invoice) return;
+    const fields: Parameters<typeof updateInvoice>[1] = {};
+    if (editTermsDraft !== invoice.payment_terms) fields.payment_terms = editTermsDraft;
+    if (editNotesDraft.trim() !== (invoice.notes ?? "")) fields.notes = editNotesDraft.trim() || null;
+    if (!estimate) {
+      const parsed = parseFloat(editTotalDraft);
+      if (!isNaN(parsed) && Math.abs(parsed - invoice.total_amount) > 0.001) fields.total_amount = parsed;
+    }
+    if (Object.keys(fields).length === 0) { setEditingInvoice(false); return; }
+    const res = await updateInvoice(invoice.id, fields);
+    if (res.invoice) { setInvoice(res.invoice); setEditingInvoice(false); }
+    else if (res.error) setError(res.error);
+  }
+
+  function handleCopyMilestoneLink(milestoneId: string) {
+    const url = `${window.location.origin}/pay/${invoice!.id}`;
+    function doFallback() {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand("copy"); setCopiedMilestone(milestoneId); setTimeout(() => setCopiedMilestone(null), 2500); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url)
+        .then(() => { setCopiedMilestone(milestoneId); setTimeout(() => setCopiedMilestone(null), 2500); })
+        .catch(doFallback);
+    } else {
+      doFallback();
+    }
+  }
+
+  async function handleShareMilestoneLink(label: string) {
+    const url = `${window.location.origin}/pay/${invoice!.id}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: `${label} — Payment`, url }); } catch { /* dismissed */ }
+    } else {
+      handleCopyMilestoneLink(label);
+    }
+  }
+
   // ── Shared render helpers ─────────────────────────────────────────────────
 
   function renderInternalBreakdown() {
+    if (!estimate) return null;
     return (
       <div className="mb-5 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Your Internal Breakdown</p>
         <div className="flex justify-between text-sm mb-1.5">
           <span className="text-gray-400">Materials</span>
-          <span className="text-white">{fmtNum(estimate!.material_total)}</span>
+          <span className="text-white">{fmtNum(estimate.material_total)}</span>
         </div>
         <div className="flex justify-between text-sm mb-1.5">
           <span className="text-gray-400">Labor</span>
-          <span className="text-white">{fmtNum(estimate!.labor_total)}</span>
+          <span className="text-white">{fmtNum(estimate.labor_total)}</span>
         </div>
         {addonsTotal !== 0 && (
           <div className="flex justify-between text-sm mb-1.5">
@@ -592,7 +656,7 @@ export default function InvoiceSection({
         )}
         <div className="flex justify-between text-sm mt-2 pt-2 border-t border-[#2a2a2a]">
           <span className="text-gray-300 font-semibold">Margin</span>
-          <span className="text-orange-400 font-semibold">{estimate!.profit_margin_pct}%</span>
+          <span className="text-orange-400 font-semibold">{estimate.profit_margin_pct}%</span>
         </div>
       </div>
     );
@@ -871,9 +935,10 @@ export default function InvoiceSection({
 
   if (!invoice) {
     const previewDue = calcDueDate(terms);
+    const canGenerate = estimate ? grandTotal > 0 : parseFloat(manualTotal) > 0;
     return (
       <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoice</p>
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoice & Payments</p>
 
         {!jobClient && (
           <div className="flex items-start gap-2 mb-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
@@ -882,7 +947,31 @@ export default function InvoiceSection({
           </div>
         )}
 
-        <p className="text-gray-500 text-sm mb-5">Total: <span className="text-white font-bold">{fmtNum(grandTotal)}</span></p>
+        {estimate && !estimate.signed_at && (
+          <div className="flex items-start gap-2 mb-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <p className="text-yellow-300 text-sm">Quote not signed yet. <Link href={`/jobs/${jobId}/edit`} className="underline font-semibold">Get signature →</Link></p>
+          </div>
+        )}
+
+        {/* No-estimate path: manual total entry */}
+        {!estimate ? (
+          <div className="mb-5">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Invoice Total</p>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold pointer-events-none">$</span>
+              <input
+                value={manualTotal}
+                onChange={(e) => setManualTotal(e.target.value)}
+                placeholder="0.00"
+                inputMode="decimal"
+                className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl pl-8 pr-4 py-3 text-lg font-bold focus:outline-none focus:border-orange-500"
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm mb-5">Total: <span className="text-white font-bold">{fmtNum(grandTotal)}</span></p>
+        )}
 
         {renderInternalBreakdown()}
         {renderPaymentSchedule()}
@@ -915,7 +1004,7 @@ export default function InvoiceSection({
         {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
         <button
           onClick={handleGenerate}
-          disabled={creating}
+          disabled={creating || !canGenerate}
           className="w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
         >
           {creating ? "Creating…" : "Generate Invoice"}
@@ -927,7 +1016,7 @@ export default function InvoiceSection({
   // ── Invoice exists ────────────────────────────────────────────────────────
 
   const overdue = isOverdue(invoice);
-  const cfg = STATUS_CONFIG[invoice.status];
+  const cfg = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.unpaid;
   const invDue = invoice.due_date
     ? new Date(invoice.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : null;
@@ -936,7 +1025,7 @@ export default function InvoiceSection({
     <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice</p>
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice & Payments</p>
         <div className="flex items-center gap-2">
           {overdue && (
             <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-red-500/20 border-red-500/40 text-red-400">
@@ -944,8 +1033,76 @@ export default function InvoiceSection({
             </span>
           )}
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+          <button
+            onClick={() => {
+              setEditTermsDraft(invoice.payment_terms);
+              setEditNotesDraft(invoice.notes ?? "");
+              setEditTotalDraft(invoice.total_amount.toString());
+              setEditingInvoice((v) => !v);
+            }}
+            className="text-gray-500 text-xs px-3 py-1.5 rounded-lg border border-[#2a2a2a] active:scale-95"
+          >
+            Edit
+          </button>
         </div>
       </div>
+
+      {/* Signature Required banner */}
+      {estimate && !estimate.signed_at && (
+        <div className="flex items-start gap-2 mb-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <p className="text-yellow-300 text-sm">Signature required. <Link href={`/jobs/${jobId}/edit`} className="underline font-semibold">Get client signature →</Link></p>
+        </div>
+      )}
+
+      {/* Edit Invoice panel */}
+      {editingInvoice && (
+        <div className="mb-5 bg-[#141414] border border-orange-500/30 rounded-xl px-4 py-4">
+          <p className="text-orange-400 text-xs font-semibold uppercase tracking-wider mb-3">Edit Invoice</p>
+
+          {!estimate && (
+            <div className="mb-3">
+              <p className="text-gray-500 text-xs mb-1">Invoice Total</p>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">$</span>
+                <input
+                  value={editTotalDraft}
+                  onChange={(e) => setEditTotalDraft(e.target.value)}
+                  inputMode="decimal"
+                  className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl pl-7 pr-3 py-3 text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <p className="text-gray-500 text-xs mb-1">Payment Terms</p>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {TERMS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setEditTermsDraft(opt.value)}
+                className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors active:scale-95 ${editTermsDraft === opt.value ? "bg-orange-500/20 border-orange-500/40 text-orange-400" : "bg-[#242424] border-[#2a2a2a] text-gray-400"}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-gray-500 text-xs mb-1">Notes</p>
+          <textarea
+            value={editNotesDraft}
+            onChange={(e) => setEditNotesDraft(e.target.value)}
+            rows={2}
+            className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500 resize-none mb-3"
+          />
+
+          {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={handleSaveEditInvoice} className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm active:scale-95">Save</button>
+            <button onClick={() => setEditingInvoice(false)} className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold py-3 rounded-xl text-sm active:scale-95">Cancel</button>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-1">
         <span className="text-gray-500 text-sm font-mono">{invoiceNumber}</span>
@@ -966,7 +1123,7 @@ export default function InvoiceSection({
       {/* Internal breakdown */}
       {renderInternalBreakdown()}
 
-      {/* Status selector */}
+      {/* Status selector — manual statuses only; pending/partial set by webhook */}
       <div className="flex gap-2 mb-4">
         {(["unpaid", "sent", "paid"] as InvoiceStatus[]).map((s) => {
           const c = STATUS_CONFIG[s];
@@ -1019,9 +1176,37 @@ export default function InvoiceSection({
           <div className="mb-1">
             {liveMilestones.length > 0 ? (
               liveMilestones.map((m, i) => (
-                <div key={i} className="flex justify-between text-sm py-1">
-                  <span className={m.status === "paid" ? "text-green-400" : "text-gray-400"}>{m.label}</span>
-                  <span className={`font-mono ${m.status === "paid" ? "text-green-400" : "text-gray-300"}`}>{fmtNum(m.amount)}</span>
+                <div key={i} className={`py-2 ${i < liveMilestones.length - 1 ? "border-b border-[#2a2a2a]" : ""}`}>
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className={
+                      m.status === "paid" ? "text-green-400" :
+                      m.status === "pending" ? "text-blue-400" :
+                      "text-gray-400"
+                    }>{m.label}</span>
+                    <span className={`font-mono ${m.status === "paid" ? "text-green-400" : m.status === "pending" ? "text-blue-400" : "text-gray-300"}`}>
+                      {fmtNum(m.amount)}
+                      {m.status === "paid" && m.paid_at && <span className="text-green-600 text-xs font-normal ml-1">· Paid</span>}
+                      {m.status === "pending" && <span className="text-blue-600 text-xs font-normal ml-1">· Pending</span>}
+                    </span>
+                  </div>
+                  {m.status === "unpaid" && stripeConnected && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCopyMilestoneLink(m.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-[#242424] border border-[#2a2a2a] text-gray-400 text-xs font-semibold py-2 rounded-lg active:scale-95 transition-transform"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        {copiedMilestone === m.id ? "Copied!" : "Copy Link"}
+                      </button>
+                      <button
+                        onClick={() => handleShareMilestoneLink(m.label)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold py-2 rounded-lg active:scale-95 transition-transform"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        Share
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

@@ -38,7 +38,7 @@ export interface InvoicePDFData {
   paymentTermsLabel?: string;
   dueDate?: string | null;
   notes?: string | null;
-  status?: "unpaid" | "sent" | "paid";
+  status?: "unpaid" | "sent" | "pending" | "partial" | "paid";
   paidDate?: string | null;
   // Client display settings
   displayShowMaterials?: boolean;

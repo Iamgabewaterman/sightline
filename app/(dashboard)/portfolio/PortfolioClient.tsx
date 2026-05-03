@@ -15,9 +15,11 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const INVOICE_STATUS: Record<InvoiceStatus, { label: string; classes: string }> = {
-  unpaid: { label: "Unpaid", classes: "bg-orange-500/20 text-orange-400" },
-  sent:   { label: "Sent",   classes: "bg-yellow-500/20 text-yellow-400" },
-  paid:   { label: "Paid",   classes: "bg-green-500/20 text-green-400"  },
+  unpaid:  { label: "Unpaid",          classes: "bg-orange-500/20 text-orange-400" },
+  sent:    { label: "Sent",            classes: "bg-yellow-500/20 text-yellow-400" },
+  pending: { label: "Payment Pending", classes: "bg-blue-500/20 text-blue-400"     },
+  partial: { label: "Partially Paid",  classes: "bg-orange-500/20 text-orange-400" },
+  paid:    { label: "Paid",            classes: "bg-green-500/20 text-green-400"   },
 };
 
 type JobWithEstimate = Job & {

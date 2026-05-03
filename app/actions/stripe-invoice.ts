@@ -33,7 +33,8 @@ async function getConnectedAccountId(jobId: string): Promise<string | null> {
 }
 
 export async function createInvoiceCheckoutSession(
-  invoiceId: string
+  invoiceId: string,
+  paymentMethod: "card" | "ach" = "card"
 ): Promise<{ url?: string; error?: string }> {
   const supabase = adminClient();
 
@@ -55,9 +56,11 @@ export async function createInvoiceCheckoutSession(
   const connectedAccountId = await getConnectedAccountId(invoice.job_id);
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
   const amountCents = Math.round(Number(invoice.total_amount) * 100);
+  const piMeta = { invoice_id: invoiceId, job_id: invoice.job_id };
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    ...(paymentMethod === "ach" && { payment_method_types: ["us_bank_account"] }),
     line_items: [
       {
         price_data: {
@@ -70,15 +73,13 @@ export async function createInvoiceCheckoutSession(
         quantity: 1,
       },
     ],
-    metadata: {
-      invoice_id: invoiceId,
-      job_id: invoice.job_id,
-    },
-    ...(connectedAccountId && {
-      payment_intent_data: {
+    metadata: piMeta,
+    payment_intent_data: {
+      metadata: piMeta,
+      ...(connectedAccountId && {
         transfer_data: { destination: connectedAccountId },
-      },
-    }),
+      }),
+    },
     success_url: `${origin}/pay/${invoiceId}?status=success`,
     cancel_url: `${origin}/pay/${invoiceId}?status=cancel`,
   });
@@ -87,7 +88,8 @@ export async function createInvoiceCheckoutSession(
 }
 
 export async function createMilestoneCheckoutSession(
-  milestoneId: string
+  milestoneId: string,
+  paymentMethod: "card" | "ach" = "card"
 ): Promise<{ url?: string; error?: string }> {
   const supabase = adminClient();
 
@@ -112,9 +114,15 @@ export async function createMilestoneCheckoutSession(
   const connectedAccountId = await getConnectedAccountId(inv.job_id);
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
   const amountCents = Math.round(Number(milestone.amount) * 100);
+  const piMeta = {
+    milestone_id: milestoneId,
+    invoice_id: milestone.invoice_id,
+    job_id: inv.job_id,
+  };
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    ...(paymentMethod === "ach" && { payment_method_types: ["us_bank_account"] }),
     line_items: [
       {
         price_data: {
@@ -129,16 +137,13 @@ export async function createMilestoneCheckoutSession(
         quantity: 1,
       },
     ],
-    metadata: {
-      milestone_id: milestoneId,
-      invoice_id: milestone.invoice_id,
-      job_id: inv.job_id,
-    },
-    ...(connectedAccountId && {
-      payment_intent_data: {
+    metadata: piMeta,
+    payment_intent_data: {
+      metadata: piMeta,
+      ...(connectedAccountId && {
         transfer_data: { destination: connectedAccountId },
-      },
-    }),
+      }),
+    },
     success_url: `${origin}/pay/${milestone.invoice_id}?status=success`,
     cancel_url: `${origin}/pay/${milestone.invoice_id}?status=cancel`,
   });

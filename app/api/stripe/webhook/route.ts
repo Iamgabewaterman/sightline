@@ -244,6 +244,33 @@ export async function POST(request: NextRequest) {
       // No platform action; client-side Stripe handles user-facing error
       break;
     }
+
+    case "payment_intent.processing": {
+      // ACH bank transfer initiated — mark as pending until funds settle
+      const pi = event.data.object as Stripe.PaymentIntent;
+      const meta = pi.metadata ?? {};
+      if (meta.milestone_id) {
+        await supabase
+          .from("payment_milestones")
+          .update({ status: "pending" })
+          .eq("id", meta.milestone_id);
+        const { data: remaining } = await supabase
+          .from("payment_milestones")
+          .select("id, status")
+          .eq("invoice_id", meta.invoice_id);
+        const hasPaid = (remaining ?? []).some((m) => m.status === "paid");
+        await supabase
+          .from("invoices")
+          .update({ status: hasPaid ? "partial" : "pending" })
+          .eq("id", meta.invoice_id);
+      } else if (meta.invoice_id) {
+        await supabase
+          .from("invoices")
+          .update({ status: "pending" })
+          .eq("id", meta.invoice_id);
+      }
+      break;
+    }
   }
 
   return NextResponse.json({ received: true });

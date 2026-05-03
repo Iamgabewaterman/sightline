@@ -333,7 +333,7 @@ export interface JobMember {
   created_at: string;
 }
 
-export type InvoiceStatus = "unpaid" | "sent" | "paid";
+export type InvoiceStatus = "unpaid" | "sent" | "pending" | "partial" | "paid";
 
 export interface PaymentMilestone {
   id: string;
@@ -342,7 +342,7 @@ export interface PaymentMilestone {
   label: string;
   amount: number;
   due_date: string | null;
-  status: "unpaid" | "paid";
+  status: "unpaid" | "pending" | "paid";
   paid_at: string | null;
   sort_order: number;
   created_at: string;

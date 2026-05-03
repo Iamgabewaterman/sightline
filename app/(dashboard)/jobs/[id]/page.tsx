@@ -292,6 +292,21 @@ export default async function JobDetailPage({
             />
           </div>
 
+          {/* Invoice & Payments — every job */}
+          <div className="mb-4">
+            <InvoiceSection
+              jobId={job.id}
+              jobName={job.name}
+              jobAddress={job.address}
+              jobNumber={job.job_number ?? undefined}
+              estimate={estimate ?? null}
+              initialInvoice={invoice ?? null}
+              jobClient={jobClient ?? null}
+              initialMilestones={invoiceMilestones ?? []}
+              stripeConnected={stripeConnected}
+            />
+          </div>
+
           {/* Punch List widget */}
           <div className="mb-4">
             <PunchListWidget jobId={job.id} initialItems={punchListItems ?? []} />
@@ -305,23 +320,6 @@ export default async function JobDetailPage({
               initialToken={job.portal_token ?? null}
             />
           </div>
-
-          {/* Invoice — only on completed jobs with a saved quote */}
-          {job.status === "completed" && estimate && (
-            <div className="mb-4">
-              <InvoiceSection
-                jobId={job.id}
-                jobName={job.name}
-                jobAddress={job.address}
-                jobNumber={job.job_number ?? undefined}
-                estimate={estimate}
-                initialInvoice={invoice ?? null}
-                jobClient={jobClient ?? null}
-                initialMilestones={invoiceMilestones ?? []}
-                stripeConnected={stripeConnected}
-              />
-            </div>
-          )}
 
           {/* Detail cards */}
           <div className="flex flex-col gap-4">

@@ -321,7 +321,7 @@ export default async function PayPage({
                     <PayButton
                       invoiceId={invoice.id}
                       milestoneId={milestone.id}
-                      label={`Pay ${milestone.label}`}
+                      amount={Number(milestone.amount)}
                     />
                   )}
                 </div>
@@ -329,7 +329,7 @@ export default async function PayPage({
             })}
           </div>
         ) : (
-          <PayButton invoiceId={params.invoice_id} />
+          <PayButton invoiceId={params.invoice_id} amount={Number(invoice.total_amount)} />
         )}
 
         {/* Footer */}
@@ -339,7 +339,7 @@ export default async function PayPage({
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
               <path d="M7 11V7a5 5 0 0110 0v4"/>
             </svg>
-            <span>Payments processed securely by Stripe. A 2.9% + $0.30 processing fee is deducted from each payment.</span>
+            <span>Payments processed securely by Stripe. Bank transfer: $5 flat fee. Card: 2.9% + $0.30.</span>
           </div>
           <p className="text-gray-700 text-xs mt-1">Powered by Sightline</p>
         </div>
