@@ -59,7 +59,7 @@ export default function DemoImportSection() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-orange-500 text-xs font-bold uppercase tracking-widest mb-1">Zero Manual Mapping</p>
-          <h2 className="text-white font-bold text-xl">MegaPort Import</h2>
+          <h2 className="text-white font-bold text-xl">MegaPort</h2>
         </div>
       </div>
 
