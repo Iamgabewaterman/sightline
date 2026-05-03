@@ -34,12 +34,8 @@ export interface QuotePDFData {
   jobNumber?: string | null;
   date: string;
   quoteNumber?: string;
-  materialsTotal: number;
-  laborTotal: number;
-  addons: { name: string; amount: number }[];
-  profitMarginPct: number;
-  profitAmount: number;
   grandTotal: number;
+  addons: { name: string; amount: number }[];
   businessProfile?: BusinessProfileData | null;
   logoUrl?: string | null;
   client?: {
@@ -49,8 +45,12 @@ export interface QuotePDFData {
     phone?: string | null;
     email?: string | null;
   } | null;
-  lineItems?: QuoteLineItem[];
-  laborItems?: QuoteLaborItem[];
+  // Display settings (client-facing)
+  showAddress?: boolean;
+  showValidUntil?: boolean;
+  collapseToTotal?: boolean;
+  notes?: string | null;
+  clientLineItems?: { name: string; amount: number }[];
   // Signature fields (for signed/accepted quotes)
   signatureData?: string | null;
   signedByName?: string | null;
@@ -73,13 +73,6 @@ const PH = 792;   // US Letter height
 const M  = 54;    // margin (0.75 inch)
 const RX = PW - M;        // right content edge = 558
 const CW = RX - M;        // content width = 504
-
-// 5-column table: Description | Qty | Unit | Unit Cost | Total
-const TC_D   = M;           // description left
-const TC_Q_R = M + 220;     // qty right-align x
-const TC_U   = M + 228;     // unit left
-const TC_C_R = M + 422;     // unit cost right-align x
-const TC_T_R = RX;          // total right-align x (= 558)
 
 const ROW_H = 20;
 
@@ -186,7 +179,9 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   const qNum = data.quoteNumber ?? `QUO-${data.jobName.replace(/[^A-Z0-9]/gi, "").slice(0, 6).toUpperCase()}`;
   tr(qNum, RX, y + 12, bold, 10, BLACK);
   tr(`Date: ${data.date}`, RX, y - 2, reg, 9, GRAY);
-  tr("Valid for 30 days", RX, y - 15, reg, 9, GRAY);
+  if (data.showValidUntil !== false) {
+    tr("Valid for 30 days", RX, y - 15, reg, 9, GRAY);
+  }
 
   y -= 18;
   y -= 18;
@@ -218,7 +213,7 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   if (data.jobNumber) {
     page.drawText(`Job #${data.jobNumber}`, { x: COL2, y: ry2, font: reg, size: 9, color: GRAY }); ry2 -= 13;
   }
-  if (data.jobAddress) {
+  if (data.jobAddress && data.showAddress !== false) {
     page.drawText(clip(data.jobAddress, reg, 9, maxJobW), { x: COL2, y: ry2, font: reg, size: 9, color: GRAY }); ry2 -= 13;
   }
   // Job type badges
@@ -240,94 +235,55 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   hLine(y);
   y -= 1;
 
-  // ── Line items table ──────────────────────────────────────────────────────
+  // ── Client-facing line items table ───────────────────────────────────────
   y -= 16;
 
-  // Table header row
+  // Table header row (2-col: Description | Amount)
   page.drawRectangle({ x: M, y: y - 5, width: CW, height: 20, color: ALT_ROW });
-  page.drawText("DESCRIPTION", { x: TC_D + 2, y, font: bold, size: 7.5, color: GRAY });
-  tr("QTY",       TC_Q_R - 2, y, bold, 7.5, GRAY);
-  page.drawText("UNIT",       { x: TC_U,     y, font: bold, size: 7.5, color: GRAY });
-  tr("UNIT COST", TC_C_R - 2, y, bold, 7.5, GRAY);
-  tr("TOTAL",     TC_T_R - 2, y, bold, 7.5, GRAY);
+  page.drawText("DESCRIPTION", { x: M + 2, y, font: bold, size: 7.5, color: GRAY });
+  tr("AMOUNT", RX - 2, y, bold, 7.5, GRAY);
   y -= 6;
   hLine(y, 0.75, BLACK);
   y -= 3;
 
   let rowIdx = 0;
+  const maxDescW = CW - 80;
 
-  function drawItemRow(desc: string, qty: string, unit: string, cost: string, total: string) {
+  function drawClientRow(desc: string, amount: string) {
     if (rowIdx % 2 === 1) {
       page.drawRectangle({ x: M, y: y - 5, width: CW, height: ROW_H, color: ALT_ROW });
     }
-    const maxDescW = TC_Q_R - TC_D - 10;
-    page.drawText(clip(desc, reg, 9.5, maxDescW), { x: TC_D + 2, y, font: reg, size: 9.5, color: BLACK });
-    if (qty)  tr(qty,  TC_Q_R - 2, y, reg, 9.5, BLACK);
-    if (unit) page.drawText(unit, { x: TC_U, y, font: reg, size: 9.5, color: BLACK });
-    if (cost) tr(cost, TC_C_R - 2, y, reg, 9.5, BLACK);
-    tr(total, TC_T_R - 2, y, bold, 9.5, BLACK);
+    page.drawText(clip(desc, reg, 9.5, maxDescW), { x: M + 2, y, font: reg, size: 9.5, color: BLACK });
+    tr(amount, RX - 2, y, bold, 9.5, BLACK);
     y -= ROW_H;
     rowIdx++;
   }
 
-  const hasLineItems  = (data.lineItems  ?? []).length > 0;
-  const hasLaborItems = (data.laborItems ?? []).length > 0;
-
-  if (hasLineItems) {
-    for (const item of data.lineItems!) {
-      drawItemRow(item.description, item.qty.toString(), item.unit || "ea", fmtMoney(item.unitCost), fmtTotal(item.total));
-    }
-  } else if (data.materialsTotal > 0) {
-    drawItemRow("Materials", "", "", "", fmtTotal(data.materialsTotal));
-  }
-
-  if (hasLaborItems) {
-    for (const item of data.laborItems!) {
-      drawItemRow(item.description || "Labor", item.hours.toString(), "hr", `$${item.rate}/hr`, fmtTotal(item.total));
-    }
-  } else if (data.laborTotal > 0) {
-    drawItemRow("Labor", "", "", "", fmtTotal(data.laborTotal));
-  }
-
-  y -= 4;
-  hLine(y);
-  y -= 4;
-
-  // ── Subtotals (right-aligned block) ──────────────────────────────────────
-  const SUB_L = RX - 220;
-
-  function subRow(label: string, value: string, lColor = GRAY, vColor = BLACK as typeof BLACK, vBold = true) {
-    page.drawText(label, { x: SUB_L, y, font: reg, size: 9.5, color: lColor });
-    tr(value, RX - 2, y, vBold ? bold : reg, 9.5, vColor);
-    y -= 16;
-  }
-
-  if (data.materialsTotal > 0) subRow("Materials subtotal", fmtTotal(data.materialsTotal));
-  if (data.laborTotal > 0)     subRow("Labor subtotal",     fmtTotal(data.laborTotal));
-
+  const collapseToTotal = data.collapseToTotal ?? false;
+  const clientLineItems = data.clientLineItems ?? [];
   const validAddons = data.addons.filter((a) => a.name && a.amount !== 0);
-  if (validAddons.length > 0) {
-    y -= 4;
-    hLine(y, 0.4);
-    y -= 14;
-    page.drawText("ADD-ONS", { x: SUB_L, y, font: bold, size: 7.5, color: GRAY });
-    y -= 14;
+
+  if (collapseToTotal) {
+    drawClientRow("Professional Services", fmtTotal(data.grandTotal));
+  } else if (clientLineItems.length > 0) {
+    for (const item of clientLineItems) {
+      drawClientRow(item.name, fmtTotal(item.amount));
+    }
+    if (validAddons.length > 0) {
+      for (const addon of validAddons) {
+        const sign = addon.amount < 0 ? "−$" : "$";
+        drawClientRow(addon.name, sign + Math.abs(Math.round(addon.amount)).toLocaleString("en-US"));
+      }
+    }
+  } else if (validAddons.length > 0) {
     for (const addon of validAddons) {
       const sign = addon.amount < 0 ? "−$" : "$";
-      const val  = sign + Math.abs(Math.round(addon.amount)).toLocaleString("en-US");
-      subRow(addon.name, val);
+      drawClientRow(addon.name, sign + Math.abs(Math.round(addon.amount)).toLocaleString("en-US"));
     }
+  } else {
+    drawClientRow("Professional Services", fmtTotal(data.grandTotal));
   }
 
-  y -= 4;
-  hLine(y, 0.4);
-  y -= 14;
-  // Profit line in orange
-  page.drawText(`Profit (${data.profitMarginPct}% on work)`, { x: SUB_L, y, font: reg, size: 9.5, color: GRAY });
-  tr(`+${fmtTotal(data.profitAmount)}`, RX - 2, y, bold, 9.5, ORANGE);
-  y -= 16;
-
-  // Thick separator above total
   y -= 4;
   hLine(y, 1.5, BLACK);
   y -= 30;
@@ -336,6 +292,31 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
   page.drawText("TOTAL", { x: M, y: y + 6, font: bold, size: 16, color: BLACK });
   tr(fmtTotal(data.grandTotal), RX - 2, y, bold, 30, ORANGE);
   y -= 38;
+
+  // ── Notes / Terms ─────────────────────────────────────────────────────────
+  if (data.notes) {
+    y -= 8;
+    hLine(y, 0.4);
+    y -= 16;
+    page.drawText("NOTES & TERMS", { x: M, y, font: bold, size: 7.5, color: GRAY });
+    y -= 14;
+    const noteLines = data.notes.split("\n");
+    for (const line of noteLines) {
+      const chunks: string[] = [];
+      let remaining = line;
+      while (remaining.length > 0) {
+        let end = remaining.length;
+        while (end > 0 && reg.widthOfTextAtSize(remaining.slice(0, end), 9) > CW) end--;
+        chunks.push(remaining.slice(0, end));
+        remaining = remaining.slice(end);
+      }
+      for (const chunk of chunks) {
+        page.drawText(chunk, { x: M, y, font: reg, size: 9, color: BLACK });
+        y -= 13;
+      }
+    }
+    y -= 4;
+  }
 
   // ── Signature block ───────────────────────────────────────────────────────
   y -= 18;

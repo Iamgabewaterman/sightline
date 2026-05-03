@@ -50,7 +50,6 @@ function SignaturePad({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // White background
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = "#1a1a1a";
@@ -58,7 +57,6 @@ function SignaturePad({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    // Mouse events
     function onMouseDown(e: MouseEvent) {
       e.preventDefault();
       isDrawing.current = true;
@@ -79,7 +77,6 @@ function SignaturePad({
       lastPos.current = null;
     }
 
-    // Touch events
     function onTouchStart(e: TouchEvent) {
       e.preventDefault();
       isDrawing.current = true;
@@ -130,30 +127,38 @@ export default function SignaturePage({
   token,
   jobName,
   jobAddress,
+  jobNumber,
   jobTypes,
-  materialsTotal,
-  laborTotal,
-  profitMarginPct,
-  profitAmount,
+  showAddress,
+  showValidUntil,
+  collapseToTotal,
+  notes,
+  clientLineItems,
   addons,
   grandTotal,
   businessName,
   licenseNumber,
+  phone,
+  email,
   logoUrl,
 }: {
   estimateId: string;
   token: string;
   jobName: string;
   jobAddress: string;
+  jobNumber: string | null;
   jobTypes: string[];
-  materialsTotal: number;
-  laborTotal: number;
-  profitMarginPct: number;
-  profitAmount: number;
+  showAddress: boolean;
+  showValidUntil: boolean;
+  collapseToTotal: boolean;
+  notes: string | null;
+  clientLineItems: { name: string; amount: number }[];
   addons: { name: string; amount: number }[];
   grandTotal: number;
   businessName: string | null;
   licenseNumber: string | null;
+  phone: string | null;
+  email: string | null;
   logoUrl: string | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -163,8 +168,17 @@ export default function SignaturePage({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const validAddons = addons.filter((a) => a.name && a.amount !== 0);
   const displayName = businessName ?? "Your Contractor";
+  const validAddons = addons.filter((a) => a.name && a.amount !== 0);
+
+  // Determine what line items to show
+  const lineItemsToShow: { name: string; amount: number }[] = collapseToTotal
+    ? [{ name: "Professional Services", amount: grandTotal }]
+    : clientLineItems.length > 0
+    ? [...clientLineItems, ...validAddons]
+    : validAddons.length > 0
+    ? validAddons
+    : [{ name: "Professional Services", amount: grandTotal }];
 
   function clearSignature() {
     const canvas = canvasRef.current;
@@ -244,10 +258,26 @@ export default function SignaturePage({
             )}
           </div>
 
+          {(phone || email) && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              {phone && (
+                <a href={`tel:${phone}`} className="text-sm text-gray-500">{phone}</a>
+              )}
+              {email && (
+                <a href={`mailto:${email}`} className="text-sm text-gray-500">{email}</a>
+              )}
+            </div>
+          )}
+
           <div className="border-t border-gray-100 pt-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Quote for</p>
             <h1 className="text-2xl font-black text-gray-900 leading-tight">{jobName}</h1>
-            {jobAddress && <p className="text-sm text-gray-500 mt-1">{jobAddress}</p>}
+            {jobNumber && (
+              <p className="text-xs text-gray-400 mt-0.5">Job #{jobNumber}</p>
+            )}
+            {showAddress && jobAddress && (
+              <p className="text-sm text-gray-500 mt-1">{jobAddress}</p>
+            )}
             {jobTypes.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {jobTypes.map((t) => (
@@ -257,36 +287,21 @@ export default function SignaturePage({
                 ))}
               </div>
             )}
+            {showValidUntil && (
+              <p className="text-xs text-gray-400 mt-3">Valid for 30 days from issue date</p>
+            )}
           </div>
         </div>
 
         {/* Quote line items */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-4">
           <div className="px-6 py-4 flex flex-col gap-3">
-            {materialsTotal > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Materials</span>
-                <span className="text-gray-900 font-semibold">{fmt(materialsTotal)}</span>
-              </div>
-            )}
-            {laborTotal > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Labor</span>
-                <span className="text-gray-900 font-semibold">{fmt(laborTotal)}</span>
-              </div>
-            )}
-            {validAddons.map((a, i) => (
+            {lineItemsToShow.map((item, i) => (
               <div key={i} className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">{a.name}</span>
-                <span className="text-gray-900 font-semibold">
-                  {a.amount < 0 ? "−" : "+"}{fmt(Math.abs(a.amount))}
-                </span>
+                <span className="text-gray-600 font-medium">{item.name}</span>
+                <span className="text-gray-900 font-semibold">{fmt(item.amount)}</span>
               </div>
             ))}
-            <div className="flex justify-between items-center border-t border-gray-100 pt-3">
-              <span className="text-gray-500 text-sm">Profit ({profitMarginPct}%)</span>
-              <span className="text-[#F97316] font-semibold text-sm">+{fmt(profitAmount)}</span>
-            </div>
           </div>
           <div className="bg-gray-50 border-t border-gray-100 px-6 py-5 flex justify-between items-center">
             <span className="text-gray-900 font-black text-xl uppercase tracking-wide">Total</span>
@@ -294,14 +309,13 @@ export default function SignaturePage({
           </div>
         </div>
 
-        {/* Prepared by */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 mb-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Prepared by</p>
-          <p className="text-gray-900 font-semibold">{displayName}</p>
-          {licenseNumber && (
-            <p className="text-gray-500 text-sm">License # {licenseNumber}</p>
-          )}
-        </div>
+        {/* Notes / Terms */}
+        {notes && (
+          <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 mb-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes & Terms</p>
+            <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{notes}</p>
+          </div>
+        )}
 
         {/* Agreement + Signature */}
         <div className="bg-white rounded-2xl border border-gray-200 px-6 py-6 mb-4">

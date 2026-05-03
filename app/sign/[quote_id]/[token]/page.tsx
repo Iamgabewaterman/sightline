@@ -15,11 +15,11 @@ export default async function SignRoute({
 }) {
   const supabase = adminClient();
 
-  // Validate estimate + token
+  // Validate estimate + token — no internal cost fields fetched
   const { data: estimate } = await supabase
     .from("estimates")
     .select(
-      "id, user_id, job_id, material_total, labor_total, profit_margin_pct, final_quote, addons, quote_status, signed_at, signed_by_name, signature_token"
+      "id, user_id, job_id, final_quote, addons, quote_status, signed_at, signed_by_name, signature_token, quote_display_show_address, quote_display_show_valid_until, quote_display_collapse_to_total, quote_display_notes, quote_client_line_items"
     )
     .eq("id", params.quote_id)
     .eq("signature_token", params.token)
@@ -67,7 +67,7 @@ export default async function SignRoute({
   // Fetch job
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, name, address, types")
+    .select("id, name, address, types, job_number")
     .eq("id", estimate.job_id)
     .single();
 
@@ -97,15 +97,19 @@ export default async function SignRoute({
       token={params.token}
       jobName={job?.name ?? ""}
       jobAddress={job?.address ?? ""}
+      jobNumber={job?.job_number ?? null}
       jobTypes={(job?.types ?? []) as string[]}
-      materialsTotal={Number(estimate.material_total)}
-      laborTotal={Number(estimate.labor_total)}
-      profitMarginPct={Number(estimate.profit_margin_pct)}
-      profitAmount={Number(estimate.material_total + estimate.labor_total) * (Number(estimate.profit_margin_pct) / 100)}
+      showAddress={estimate.quote_display_show_address ?? true}
+      showValidUntil={estimate.quote_display_show_valid_until ?? true}
+      collapseToTotal={estimate.quote_display_collapse_to_total ?? false}
+      notes={estimate.quote_display_notes ?? null}
+      clientLineItems={(estimate.quote_client_line_items as { name: string; amount: number }[]) ?? []}
       addons={(estimate.addons as { name: string; amount: number }[]) ?? []}
       grandTotal={Number(estimate.final_quote) + addonsTotal}
       businessName={bp?.business_name ?? null}
       licenseNumber={bp?.license_number ?? null}
+      phone={bp?.phone ?? null}
+      email={bp?.email ?? null}
       logoUrl={logoUrl}
     />
   );

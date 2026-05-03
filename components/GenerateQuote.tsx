@@ -211,17 +211,11 @@ export default function GenerateQuote({ job }: Props) {
         jobNumber: job.job_number ?? undefined,
         date: today(),
         quoteNumber,
-        materialsTotal,
-        laborTotal,
-        addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
-        profitMarginPct: margin,
-        profitAmount,
         grandTotal,
+        addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
         businessProfile: bp ?? null,
         logoUrl,
         client,
-        lineItems,
-        laborItems,
       });
     } finally {
       setPdfGenerating(false);

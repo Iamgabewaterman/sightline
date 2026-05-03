@@ -397,5 +397,10 @@ export interface Estimate {
   signed_by_name: string | null;
   signed_by_ip: string | null;
   signature_data: string | null;
+  quote_display_show_address: boolean;
+  quote_display_show_valid_until: boolean;
+  quote_display_collapse_to_total: boolean;
+  quote_display_notes: string | null;
+  quote_client_line_items: Array<{ name: string; amount: number }>;
   created_at: string;
 }
