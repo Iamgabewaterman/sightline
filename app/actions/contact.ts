@@ -21,8 +21,9 @@ export async function sendContactEmail(
   }
 
   const { error } = await resend.emails.send({
-    from: "Sightline Contact <onboarding@resend.dev>",
-    to: "gabew595@gmail.com",
+    from: "Sightline Contact <sightlinesupport@gmail.com>",
+    replyTo: "sightlinesupport@gmail.com",
+    to: "sightlinesupport@gmail.com",
     subject: `Sightline inquiry from ${name.trim()}`,
     text: [
       `Name: ${name}`,
@@ -58,8 +59,9 @@ export async function sendIdeaEmail(
   if (!idea.trim()) return { error: "Please share your idea first." };
 
   const { error } = await resend.emails.send({
-    from: "Sightline Ideas <onboarding@resend.dev>",
-    to: "gabew595@gmail.com",
+    from: "Sightline Ideas <sightlinesupport@gmail.com>",
+    replyTo: "sightlinesupport@gmail.com",
+    to: "sightlinesupport@gmail.com",
     subject: "Sightline feature idea",
     text: idea.trim(),
     html: `
