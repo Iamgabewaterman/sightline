@@ -130,8 +130,8 @@ export default async function LandingPage() {
 
         {/* Subheadline */}
         <p className="text-gray-400 text-lg sm:text-xl max-w-xl leading-relaxed mb-10">
-          The job management app built by a working carpenter. Replaces QuickBooks, Buildertrend,
-          and your notebook — for{" "}
+          The job management app built by a working carpenter. Ditch the spreadsheets, the notebook,
+          and the after-hours admin — for{" "}
           <span className="text-white font-semibold">$49.99/month.</span>
         </p>
 
