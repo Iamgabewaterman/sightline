@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { MegaImportType } from "@/lib/detect-file-type";
 import { normalizeCurrency, normalizeDate, normalizePhone } from "@/lib/normalize-import";
+import { normalizeMaterialName, fuzzyFindMatch } from "@/lib/material-normalizer";
+import { writeUserMaterialHistory } from "@/app/actions/materials";
 import { JobType, JobStatus, ExpenseCategory } from "@/types";
 
 export interface MegaImportFilePreview {
@@ -18,7 +20,7 @@ export interface MegaImportFilePreview {
 export interface MegaImportSummary {
   clients:   { imported: number; skipped: number };
   jobs:      { imported: number; skipped: number };
-  materials: { imported: number; skipped: number };
+  materials: { imported: number; skipped: number; matched: number };
   labor:     { imported: number; skipped: number };
   expenses:  { imported: number; skipped: number };
   contacts:  { imported: number; skipped: number };
@@ -116,7 +118,7 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
   if (!user) {
     return {
       clients: { imported: 0, skipped: 0 }, jobs: { imported: 0, skipped: 0 },
-      materials: { imported: 0, skipped: 0 }, labor: { imported: 0, skipped: 0 },
+      materials: { imported: 0, skipped: 0, matched: 0 }, labor: { imported: 0, skipped: 0 },
       expenses: { imported: 0, skipped: 0 }, contacts: { imported: 0, skipped: 0 },
       needsReview: [], errors: ["Not authenticated"],
     };
@@ -125,7 +127,7 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
   const summary: MegaImportSummary = {
     clients:   { imported: 0, skipped: 0 },
     jobs:      { imported: 0, skipped: 0 },
-    materials: { imported: 0, skipped: 0 },
+    materials: { imported: 0, skipped: 0, matched: 0 },
     labor:     { imported: 0, skipped: 0 },
     expenses:  { imported: 0, skipped: 0 },
     contacts:  { imported: 0, skipped: 0 },
@@ -336,32 +338,39 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
   }
 
   // ── 4. Materials ─────────────────────────────────────────────────────────────
+  // Fetch user history once for fuzzy matching across all imported materials
+  const { data: historyRows } = await supabase
+    .from("user_material_history")
+    .select("id, name")
+    .eq("user_id", user.id)
+    .limit(500);
+  const historyCandidates = (historyRows ?? []).map((r) => ({
+    id: r.id as string,
+    normalizedName: normalizeMaterialName(r.name as string),
+  }));
+
   for (const file of byType.materials) {
     for (const row of file.rows) {
-      const name = pick(
+      const rawName = pick(
         row,
         "name", "material", "item", "description", "material_name",
-        // QuickBooks
         "item_name", "item_description", "product",
-        // Jobber
         "line_item", "product_service",
-        // ServiceTitan
         "part_name", "part_number",
-        // Buildertrend
         "material_description",
       );
       const unit = pick(row, "unit", "unit_of_measure", "uom", "unit_type") || "ea";
       const qtyRaw = pick(row, "quantity", "quantity_ordered", "qty", "qty_ordered", "count", "units");
       const qtyOrdered = parseFloat(qtyRaw);
-      if (!name || isNaN(qtyOrdered)) continue;
+      if (!rawName || isNaN(qtyOrdered)) continue;
 
       const jobName = pick(row, "job_name", "job", "project", "project_name", "class");
       const jobId = jobName ? (jobMap.get(jobName.toLowerCase()) ?? null) : null;
       if (!jobId) {
         if (jobName) {
-          summary.needsReview.push({ fileName: file.fileName, reason: `Material "${name}" references job "${jobName}" which was not found` });
+          summary.needsReview.push({ fileName: file.fileName, reason: `Material "${rawName}" references job "${jobName}" which was not found` });
         } else {
-          summary.needsReview.push({ fileName: file.fileName, reason: `Material "${name}" has no job name — cannot import` });
+          summary.needsReview.push({ fileName: file.fileName, reason: `Material "${rawName}" has no job name — cannot import` });
         }
         continue;
       }
@@ -369,9 +378,7 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       const unitCostRaw = pick(
         row,
         "unit_cost", "cost", "price", "unit_price", "rate",
-        // QuickBooks
         "purchase_price", "cost_price",
-        // Buildertrend
         "material_cost",
       );
       const unitCost = unitCostRaw ? normalizeCurrency(unitCostRaw) : null;
@@ -380,9 +387,15 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       const lengthRaw = pick(row, "length_ft", "length", "cut_length", "len");
       const lengthFt = lengthRaw ? parseFloat(lengthRaw) : null;
 
+      // Normalize name and check for fuzzy match in user history
+      const normalizedName = normalizeMaterialName(rawName);
+      const matchId = fuzzyFindMatch(normalizedName, historyCandidates);
+      const isMatched = matchId !== null;
+      if (isMatched) summary.materials.matched++;
+
       const { error } = await supabase.from("materials").insert({
         job_id: jobId,
-        name,
+        name: rawName,
         unit,
         quantity_ordered: qtyOrdered,
         quantity_used: isNaN(qtyUsed ?? NaN) ? null : qtyUsed,
@@ -393,9 +406,11 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       });
 
       if (error) {
-        summary.errors.push(`${file.fileName} — ${name}: ${error.message}`);
+        summary.errors.push(`${file.fileName} — ${rawName}: ${error.message}`);
       } else {
         summary.materials.imported++;
+        // Write to history with fuzzy dedup (async, non-blocking)
+        void writeUserMaterialHistory(supabase, user.id, rawName, unit, unitCost, "materials");
       }
     }
   }

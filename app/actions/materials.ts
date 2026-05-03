@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseAddress } from "@/lib/address-parser";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
+import { normalizeMaterialName, fuzzyFindMatch } from "@/lib/material-normalizer";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 export interface MaterialSuggestion {
@@ -14,10 +15,10 @@ export interface MaterialSuggestion {
 }
 
 // ── User material history ──────────────────────────────────────────────────────
-// Always writes regardless of whether user has a location set.
-// Powers personal autocomplete — the first tier before regional data.
+// Exported so receipt-vision and mega-import can also call it.
+// Fuzzy-matches against existing records to avoid duplicates.
 
-async function writeUserMaterialHistory(
+export async function writeUserMaterialHistory(
   supabase: SupabaseClient,
   userId: string,
   name: string,
@@ -26,42 +27,67 @@ async function writeUserMaterialHistory(
   category: string | null,
 ) {
   try {
-    // Try update first (most common path after first use)
-    const { data: existing } = await supabase
+    const { data: all } = await supabase
       .from("user_material_history")
-      .select("id, use_count")
+      .select("id, name, unit_cost, use_count, alternate_names")
       .eq("user_id", userId)
-      .eq("name", name)
-      .maybeSingle();
+      .limit(500);
 
-    if (existing) {
-      await supabase
-        .from("user_material_history")
-        .update({
-          unit,
-          unit_cost: unitCost,
-          category,
-          use_count: (existing.use_count ?? 1) + 1,
-          last_used_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("user_material_history").insert({
-        user_id: userId,
-        name,
+    const rows = all ?? [];
+    const normalizedNew = normalizeMaterialName(name);
+
+    // 1. Exact match (case-insensitive)
+    const exact = rows.find((r) => r.name.toLowerCase() === name.toLowerCase());
+    if (exact) {
+      await supabase.from("user_material_history").update({
         unit,
-        unit_cost: unitCost,
+        unit_cost: unitCost ?? exact.unit_cost,
         category,
+        use_count: (exact.use_count ?? 1) + 1,
         last_used_at: new Date().toISOString(),
-      });
+      }).eq("id", exact.id);
+      return;
     }
+
+    // 2. Fuzzy match on normalized names
+    const matchId = fuzzyFindMatch(
+      normalizedNew,
+      rows.map((r) => ({ id: r.id, normalizedName: normalizeMaterialName(r.name) })),
+    );
+    if (matchId) {
+      const matched = rows.find((r) => r.id === matchId)!;
+      const alts: string[] = Array.isArray(matched.alternate_names) ? matched.alternate_names : [];
+      if (!alts.includes(name) && name !== matched.name) alts.push(name);
+      await supabase.from("user_material_history").update({
+        unit,
+        unit_cost: unitCost ?? matched.unit_cost,
+        category,
+        use_count: (matched.use_count ?? 1) + 1,
+        last_used_at: new Date().toISOString(),
+        alternate_names: alts,
+        normalized_name: normalizeMaterialName(matched.name),
+      }).eq("id", matchId);
+      return;
+    }
+
+    // 3. New record
+    await supabase.from("user_material_history").insert({
+      user_id: userId,
+      name,
+      unit,
+      unit_cost: unitCost,
+      category,
+      normalized_name: normalizedNew,
+      last_used_at: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("[writeUserMaterialHistory] failed:", err);
   }
 }
 
 // ── Regional price contribution ────────────────────────────────────────────────
-// Only runs when user has a zip code in their business profile.
+// One record per material+zip. Fuzzy-matches to avoid duplicates.
+// Rolling average price, use_count tracks how many contractors have logged it.
 
 async function contributeRegionalPrice(
   supabase: SupabaseClient,
@@ -82,62 +108,72 @@ async function contributeRegionalPrice(
     if (!zip) return;
 
     const { city, state } = parseAddress(bp?.address);
+    const normalizedNew = normalizeMaterialName(name);
 
-    const { count } = await supabase
+    // Fetch existing regional records for this zip
+    const { data: zipRows } = await supabase
       .from("regional_materials")
-      .select("*", { count: "exact", head: true })
-      .eq("material_name", name)
+      .select("id, material_name, unit_cost, use_count, alternate_names")
       .eq("zip_code", zip)
-      .not("unit_cost", "is", null);
+      .not("unit_cost", "is", null)
+      .limit(300);
 
-    const existingCount = count ?? 0;
+    const rows = zipRows ?? [];
 
-    if (existingCount < 3) {
-      await supabase.from("regional_materials").insert({
-        material_name: name,
-        unit,
-        unit_cost: unitCost,
-        zip_code: zip,
-        city,
-        state,
-        user_id: userId,
-        length_ft: lengthFt,
-      });
-    } else {
-      const { data: allRows } = await supabase
-        .from("regional_materials")
-        .select("id, unit_cost, user_id")
-        .eq("material_name", name)
-        .eq("zip_code", zip)
-        .not("unit_cost", "is", null)
-        .order("recorded_at", { ascending: false });
-
-      if (!allRows?.length) return;
-
-      const oldSum = allRows.reduce((s, r) => s + Number(r.unit_cost), 0);
-      const newAvg = Math.round(((oldSum + unitCost) / (allRows.length + 1)) * 100) / 100;
-      const ownRow = allRows.find((r) => r.user_id === userId);
-
-      if (ownRow) {
-        await supabase
-          .from("regional_materials")
-          .update({ unit_cost: newAvg, recorded_at: new Date().toISOString() })
-          .eq("id", ownRow.id);
-      } else {
-        await supabase.from("regional_materials").insert({
-          material_name: name,
-          unit,
-          unit_cost: newAvg,
-          zip_code: zip,
-          city,
-          state,
-          user_id: userId,
-          length_ft: lengthFt,
-        });
-      }
+    // 1. Exact match
+    const exact = rows.find(
+      (r) => (r.material_name as string).toLowerCase() === name.toLowerCase()
+    );
+    if (exact) {
+      const count = (exact.use_count ?? 1);
+      const avg = Math.round(
+        ((Number(exact.unit_cost) * count + unitCost) / (count + 1)) * 100
+      ) / 100;
+      await supabase.from("regional_materials").update({
+        unit_cost: avg,
+        use_count: count + 1,
+        recorded_at: new Date().toISOString(),
+      }).eq("id", exact.id);
+      return;
     }
+
+    // 2. Fuzzy match
+    const matchId = fuzzyFindMatch(
+      normalizedNew,
+      rows.map((r) => ({ id: r.id as string, normalizedName: normalizeMaterialName(r.material_name as string) })),
+    );
+    if (matchId) {
+      const matched = rows.find((r) => r.id === matchId)!;
+      const count = (matched.use_count ?? 1);
+      const avg = Math.round(
+        ((Number(matched.unit_cost) * count + unitCost) / (count + 1)) * 100
+      ) / 100;
+      const alts: string[] = Array.isArray(matched.alternate_names) ? matched.alternate_names : [];
+      if (!alts.includes(name) && name !== matched.material_name) alts.push(name);
+      await supabase.from("regional_materials").update({
+        unit_cost: avg,
+        use_count: count + 1,
+        alternate_names: alts,
+        recorded_at: new Date().toISOString(),
+      }).eq("id", matchId);
+      return;
+    }
+
+    // 3. New regional record
+    await supabase.from("regional_materials").insert({
+      material_name: name,
+      unit,
+      unit_cost: unitCost,
+      zip_code: zip,
+      city,
+      state,
+      user_id: userId,
+      length_ft: lengthFt,
+      normalized_name: normalizedNew,
+      use_count: 1,
+    });
   } catch {
-    // Regional write is non-critical — never let it surface to the user
+    // Regional write is non-critical
   }
 }
 

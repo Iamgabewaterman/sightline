@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { normalize } from "@/lib/receipt-normalizer";
 import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
+import { writeUserMaterialHistory } from "@/app/actions/materials";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -244,7 +245,7 @@ export async function confirmReceiptItems(
   const checkedItems = items.filter((i) => i.checked);
   const uncheckedItems = items.filter((i) => !i.checked);
 
-  // Create material entries for checked items
+  // Create material entries for checked items + write to personal history
   if (checkedItems.length > 0) {
     const materialRows = checkedItems.map((item) => ({
       job_id: jobId,
@@ -259,6 +260,18 @@ export async function confirmReceiptItems(
 
     const { error: matError } = await supabase.from("materials").insert(materialRows);
     if (matError) return { error: matError.message };
+
+    // Write each confirmed item to user material history with fuzzy dedup
+    for (const item of checkedItems) {
+      void writeUserMaterialHistory(
+        supabase,
+        user.id,
+        item.normalized_name,
+        item.unit ?? "EA",
+        item.unit_price ?? null,
+        "materials",
+      );
+    }
   }
 
   // Update uncheck counts and auto-exclude flags

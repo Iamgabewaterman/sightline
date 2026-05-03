@@ -379,6 +379,9 @@ export default function MegaImportSection() {
               <span className="text-gray-400 text-sm">{t.label}</span>
               <div className="flex gap-3">
                 <span className="text-white font-semibold text-sm">{summary[t.key].imported} imported</span>
+                {t.key === "materials" && (summary.materials.matched ?? 0) > 0 && (
+                  <span className="text-blue-400 text-sm">{summary.materials.matched} matched</span>
+                )}
                 {summary[t.key].skipped > 0 && (
                   <span className="text-gray-600 text-sm">{summary[t.key].skipped} skipped</span>
                 )}
