@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { sendContactEmail } from "@/app/actions/contact";
 
-const PHONE = "(503) 550-1603";
-const EMAIL = "gabew595@gmail.com";
+const EMAIL = "sightlinesupport@gmail.com";
 
 interface Props {
   /** "landing" = full dark marketing card; "settings" = inline settings style */
@@ -124,18 +123,6 @@ export default function ContactForm({ variant }: Props) {
 
       {/* Direct contact details */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-        <a
-          href={`tel:${PHONE.replace(/\D/g, "")}`}
-          className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors"
-        >
-          <span className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.68A2 2 0 012 0h3a2 2 0 012 1.72c.13 1 .39 1.97.74 2.91a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.17-1.17a2 2 0 012.11-.45c.94.35 1.91.61 2.91.74A2 2 0 0122 14.92v2z"/>
-            </svg>
-          </span>
-          <span className="text-sm font-semibold">{PHONE}</span>
-        </a>
-
         <a
           href={`mailto:${EMAIL}`}
           className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors"

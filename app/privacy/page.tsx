@@ -58,7 +58,7 @@ const sections = [
       "Access, correct, or delete your personal data at any time through your account settings.",
       "Export your data using the CSV export features built into the app.",
       "Opt out of push notifications in Settings at any time.",
-      "Close your account by contacting us at gabew595@gmail.com.",
+      "Close your account by contacting us at sightlinesupport@gmail.com.",
       "California residents have additional rights under CCPA including the right to know what data we collect and the right to deletion.",
     ],
   },
@@ -79,8 +79,7 @@ const sections = [
     title: "8. Contact",
     content: [
       "Gabriel Waterman",
-      "gabew595@gmail.com",
-      "503-550-1603",
+      "sightlinesupport@gmail.com",
       "sightline.one",
     ],
   },
@@ -114,7 +113,7 @@ export default function PrivacyPage() {
           <h1 className="text-3xl font-black text-white mb-2">Privacy Policy</h1>
           <p className="text-gray-500 text-sm">Effective date: April 2026 · Last updated: April 26, 2026</p>
           <p className="text-gray-500 text-sm mt-1">
-            Sightline · <a href="https://sightline.one" className="text-orange-400 hover:text-orange-300 transition-colors">sightline.one</a> · <a href="mailto:gabew595@gmail.com" className="text-orange-400 hover:text-orange-300 transition-colors">gabew595@gmail.com</a> · 503-550-1603
+            Sightline · <a href="https://sightline.one" className="text-orange-400 hover:text-orange-300 transition-colors">sightline.one</a> · <a href="mailto:sightlinesupport@gmail.com" className="text-orange-400 hover:text-orange-300 transition-colors">sightlinesupport@gmail.com</a>
           </p>
         </div>
 
