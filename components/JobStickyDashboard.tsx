@@ -109,14 +109,14 @@ export default function JobStickyDashboard() {
     <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl px-4 py-4 mb-4">
       {/* ── Profitability bar ── */}
       <div className="mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider shrink-0">
             Profitability
           </span>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold ${barLabelColor}`}>{barLabel}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`text-xs font-bold shrink-0 ${barLabelColor}`}>{barLabel}</span>
             {profitRemaining !== null && hasActual && (
-              <span className={`text-xs font-semibold ${profitRemaining >= 0 ? "text-gray-500" : "text-red-400"}`}>
+              <span className={`text-xs font-semibold truncate ${profitRemaining >= 0 ? "text-gray-500" : "text-red-400"}`}>
                 {profitRemaining >= 0 ? `${fmt(profitRemaining)} left` : `${fmt(Math.abs(profitRemaining))} over`}
               </span>
             )}

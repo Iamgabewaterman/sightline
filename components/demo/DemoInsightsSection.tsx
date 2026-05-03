@@ -38,18 +38,21 @@ export default function DemoInsightsSection() {
       {/* Materials trend chart */}
       <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 mb-5">
         <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-4">Materials Cost — Last 3 Months</p>
-        <div className="flex items-end gap-4 h-28">
+        <div className="flex items-end gap-4" style={{ height: "96px" }}>
           {MONTHS.map((month, i) => {
-            const barH = Math.round((MAT_COSTS[i] / maxCost) * 96);
+            const barH = Math.round((MAT_COSTS[i] / maxCost) * 80);
             const isMax = MAT_COSTS[i] === maxCost;
             return (
-              <div key={month} className="flex-1 flex flex-col items-center gap-1.5">
-                <p className="text-xs font-semibold text-gray-300">${(MAT_COSTS[i] / 1000).toFixed(1)}k</p>
+              <div key={month} className="flex-1 flex flex-col items-center">
                 <div
-                  className={`w-full rounded-t-lg transition-all ${isMax ? "bg-orange-500" : "bg-[#2e2e2e]"}`}
+                  className={`relative w-full rounded-t-lg transition-all ${isMax ? "bg-orange-500" : "bg-[#2e2e2e]"}`}
                   style={{ height: `${barH}px` }}
-                />
-                <p className="text-gray-500 text-xs">{month}</p>
+                >
+                  <p className={`absolute top-1.5 left-0 right-0 text-center text-xs font-semibold leading-none ${isMax ? "text-white" : "text-gray-400"}`}>
+                    ${(MAT_COSTS[i] / 1000).toFixed(1)}k
+                  </p>
+                </div>
+                <p className="text-gray-500 text-xs mt-1.5">{month}</p>
               </div>
             );
           })}

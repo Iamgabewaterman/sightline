@@ -87,7 +87,7 @@ export default function ProfitBar() {
       </div>
 
       {/* Zone labels */}
-      <div className="relative h-5 mt-1">
+      <div className="relative h-5 mt-1 overflow-hidden">
         <span
           className="absolute text-gray-500 text-xs"
           style={{ left: `${materialZonePct / 2}%`, transform: "translateX(-50%)" }}

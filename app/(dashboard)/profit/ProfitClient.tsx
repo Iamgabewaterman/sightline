@@ -37,12 +37,18 @@ const JOB_TYPE_LABELS: Record<string, string> = {
 
 const ALL_TYPES = Object.keys(JOB_TYPE_LABELS);
 
+function fmtCompact(abs: number): string {
+  if (abs >= 1_000_000) return "$" + (abs / 1_000_000).toFixed(1) + "M";
+  if (abs >= 1_000) return "$" + (abs / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
+  return "$" + Math.round(abs).toLocaleString();
+}
+
 function fmt(n: number) {
-  return "$" + Math.round(Math.abs(n)).toLocaleString();
+  return fmtCompact(Math.abs(n));
 }
 
 function fmtSigned(n: number) {
-  return `${n < 0 ? "−" : ""}${fmt(n)}`;
+  return `${n < 0 ? "−" : ""}${fmtCompact(Math.abs(n))}`;
 }
 
 function marginColor(pct: number | null) {

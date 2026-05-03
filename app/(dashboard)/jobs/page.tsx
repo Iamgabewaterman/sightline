@@ -262,12 +262,12 @@ export default async function DashboardPage() {
             {overdueInvoices.length > 0 && (
               <div className="border-t border-[#2a2a2a] pt-3 flex flex-col gap-2">
                 {overdueInvoices.map((inv) => (
-                  <Link key={inv.id} href={`/jobs/${inv.job_id}`} className="flex items-center justify-between active:opacity-70">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/40">Overdue {inv.days_overdue}d</span>
-                      <span className="text-white text-sm font-semibold">{inv.job_name}</span>
+                  <Link key={inv.id} href={`/jobs/${inv.job_id}`} className="flex items-center justify-between gap-2 active:opacity-70">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-500/40">Overdue {inv.days_overdue}d</span>
+                      <span className="text-white text-sm font-semibold truncate">{inv.job_name}</span>
                     </div>
-                    <span className="text-red-400 font-bold text-sm">{fmt$(inv.total_amount)}</span>
+                    <span className="shrink-0 text-red-400 font-bold text-sm">{fmt$(inv.total_amount)}</span>
                   </Link>
                 ))}
               </div>
