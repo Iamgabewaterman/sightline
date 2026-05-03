@@ -276,19 +276,14 @@ export default async function LandingPage() {
       <section id="about" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">
-            Built from the jobsite up
+            Built for the people who build everything else
           </h2>
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-7 py-7 text-left">
             <p className="text-gray-300 text-base leading-relaxed">
-              Sightline was built by{" "}
-              <span className="text-white font-semibold">Gabriel Waterman</span>, a 20-year-old
-              carpenter from Tigard, Oregon working in residential construction. Tired of wasting time
-              and money juggling separate apps that don&rsquo;t talk to each other, he built the tool
-              he always wished existed.
+              Sightline was built by a carpenter who recognized a gap nobody had seriously tried to solve. Contractors are the backbone of every project, every neighborhood, and every structure people take for granted — and they deserve tools built specifically for how they actually work.
             </p>
             <p className="text-gray-400 text-base leading-relaxed mt-4">
-              Every feature in Sightline solves a real problem from a real job site. Not from a product
-              meeting. Not from a focus group. From actually swinging a hammer and running jobs.
+              Every feature exists to save time on the job and money at the end of it. Not designed in a boardroom. Not built for investors. Built for the men and women who show up every day and keep the world moving.
             </p>
           </div>
         </div>
