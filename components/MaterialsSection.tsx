@@ -20,62 +20,130 @@ interface MaterialTypeConfig {
 }
 
 const MATERIAL_TYPES: Record<string, MaterialTypeConfig> = {
-  lumber:      { label: "Lumber & Framing",       defaultUnit: "pcs",     unitOptions: ["pcs","BF","LF","each"],              showLength: true,  showSheetSize: false, showDiameter: false, placeholder: "e.g. 2x6, 2x4, LVL Beam, Treated 2x6" },
-  sheet:       { label: "Sheet Goods",             defaultUnit: "sheets",  unitOptions: ["sheets","each"],                     showLength: false, showSheetSize: true,  showDiameter: false, placeholder: "e.g. Plywood 3/4\", OSB 7/16\", Drywall 1/2\"" },
-  pipe:        { label: "Piping & Conduit",        defaultUnit: "ft",      unitOptions: ["ft","LF","each"],                    showLength: true,  showSheetSize: false, showDiameter: true,  placeholder: "e.g. PVC 4\", Copper 3/4\", EMT Conduit 1\"" },
-  roofing:     { label: "Roofing",                 defaultUnit: "squares", unitOptions: ["squares","sheets","rolls","bundles"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Architectural Shingles, Metal Roofing, Ice & Water" },
-  concrete:    { label: "Concrete & Masonry",      defaultUnit: "bags",    unitOptions: ["bags","yards","cubic yards","each"],  showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Concrete Mix 80lb, Mortar Mix, CMU Block" },
-  hardware:    { label: "Hardware & Fasteners",    defaultUnit: "box",     unitOptions: ["box","lb","each","pcs","pack"],      showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Framing Nails, Deck Screws, Joist Hanger" },
-  electrical:  { label: "Electrical",              defaultUnit: "ft",      unitOptions: ["ft","rolls","each","box"],           showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Romex 12/2, EMT Conduit, Breaker, Outlet" },
-  plumbing:    { label: "Plumbing",                defaultUnit: "each",    unitOptions: ["each","ft","LF","box"],              showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Ball Valve, P-Trap, Angle Stop, Wax Ring" },
-  insulation:  { label: "Insulation",              defaultUnit: "rolls",   unitOptions: ["rolls","bags","batts","sqft"],       showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Insulation R-13, R-19, R-30, Spray Foam" },
-  drywall:     { label: "Finishing & Drywall",     defaultUnit: "sheets",  unitOptions: ["sheets","gallons","rolls","each"],   showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Drywall 1/2\", Joint Compound, Paint, Primer" },
-  barn:        { label: "Barn & Agricultural",     defaultUnit: "pcs",     unitOptions: ["pcs","sheets","panels","ft","rolls","each"], showLength: true, showSheetSize: false, showDiameter: false, placeholder: "e.g. Sheet Metal 26ga, Cattle Panel, T-Post, Pole Barn Purlin" },
-  other:       { label: "Other",                   defaultUnit: "",        unitOptions: [],                                    showLength: false, showSheetSize: false, showDiameter: false, placeholder: "Material name" },
+  lumber:     { label: "Lumber & Framing",     defaultUnit: "pcs",     unitOptions: ["pcs","BF","LF","each"],                     showLength: true,  showSheetSize: false, showDiameter: false, placeholder: "e.g. 2x4, 2x6, LVL Beam, 4x4 Post, Treated 2x6" },
+  sheet:      { label: "Sheet Goods",           defaultUnit: "sheets",  unitOptions: ["sheets","each"],                            showLength: false, showSheetSize: true,  showDiameter: false, placeholder: 'e.g. Plywood 3/4", OSB 7/16", Drywall 1/2", Cement Board' },
+  roofing:    { label: "Roofing",               defaultUnit: "squares", unitOptions: ["squares","bundles","rolls","sheets","each"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Architectural Shingles, Felt, Ridge Cap, Flashing" },
+  concrete:   { label: "Concrete & Masonry",   defaultUnit: "bags",    unitOptions: ["bags","yards","cubic yards","each","pcs"],   showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Concrete Mix 80lb, Rebar #4, Wire Mesh, CMU Block" },
+  plumbing:   { label: "Plumbing & Piping",    defaultUnit: "ft",      unitOptions: ["ft","LF","each"],                           showLength: true,  showSheetSize: false, showDiameter: true,  placeholder: 'e.g. PVC 4", Copper 3/4", PEX 1/2", Fittings, Valves' },
+  electrical: { label: "Electrical & Conduit", defaultUnit: "ft",      unitOptions: ["ft","rolls","each","box"],                  showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Romex 12/2, EMT Conduit, Breakers, Outlets, Switches" },
+  hardware:   { label: "Hardware & Fasteners", defaultUnit: "box",     unitOptions: ["box","lb","each","pcs","pack"],             showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Framing Nails, Deck Screws, Joist Hangers, Hurricane Ties" },
+  insulation: { label: "Insulation",            defaultUnit: "rolls",   unitOptions: ["rolls","bags","batts","sqft","each"],       showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. R-13 Batt, R-19 Batt, Rigid Foam, Spray Foam, House Wrap" },
+  finishing:  { label: "Finishing",             defaultUnit: "each",    unitOptions: ["each","gallons","sheets","rolls","sqft","lf"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Paint, Primer, Caulk, Trim, Molding, Flooring, Tile, Grout" },
+  barn:       { label: "Agricultural & Barn",  defaultUnit: "pcs",     unitOptions: ["pcs","sheets","panels","ft","rolls","each"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Cattle Panels, T-Posts, Field Fence, Tin Roofing, Gate Hardware" },
+  other:      { label: "Other",                 defaultUnit: "",        unitOptions: [],                                           showLength: false, showSheetSize: false, showDiameter: false, placeholder: "Material name" },
 };
 
 const SHEET_SIZES = ["4x8", "4x10", "4x12", "5x10", "5x12", "4x9"];
 
-// Global fallback names (no prices) for when history + regional return nothing
-const GLOBAL_FALLBACK: string[] = [
-  // Lumber
-  "2x4","2x6","2x8","2x10","2x12","1x4","1x6","1x8","4x4 Post","6x6 Post",
-  "Treated 2x4","Treated 2x6","Treated 4x4","LVL Beam","Ridge Board",
-  // Sheet goods
-  "Plywood 1/2\"","Plywood 3/4\"","OSB 7/16\"","OSB 3/4\"","Drywall 1/2\"","Drywall 5/8\"",
-  "Cement Board 1/2\"","Cement Board 1/4\"","Hardie Board",
-  // Roofing
-  "Architectural Shingles","3-Tab Shingles","Metal Roofing Panel","Ice & Water Shield",
-  "Roofing Felt 30lb","Ridge Cap","Drip Edge","Ridge Vent","Underlayment",
-  // Piping
-  "PVC Pipe 4\"","PVC Pipe 3\"","PVC Pipe 2\"","PVC Pipe 1.5\"",
-  "Copper Pipe 3/4\"","Copper Pipe 1/2\"","PEX Tubing 1/2\"","PEX Tubing 3/4\"",
-  "ABS Pipe 4\"","Flex Duct 6\"","Flex Duct 8\"","EMT Conduit 1/2\"","EMT Conduit 3/4\"",
-  // Electrical
-  "Romex 12/2","Romex 14/2","Romex 10/2","Romex 6/3","THHN Wire 12ga",
-  "20A Breaker","15A Breaker","GFCI Outlet","Standard Outlet","Light Switch",
-  // Hardware
-  "Framing Nails 16d","Deck Screws 3\"","Drywall Screws 1-5/8\"","Lag Screw 1/2x3\"",
-  "Joist Hanger","Hurricane Tie","Post Base","Carriage Bolt 1/2x6\"",
-  "Concrete Anchor","Structural Screw 3\"",
-  // Concrete & masonry
-  "Concrete Mix 80lb","Quikrete 80lb","Mortar Mix","Grout","Rebar #4","Rebar #5",
-  "Wire Mesh 6x6","CMU Block 8\"","Brick","Pavers",
-  // Insulation
-  "Insulation R-13","Insulation R-19","Insulation R-21","Insulation R-30","Insulation R-38",
-  "Rigid Foam 1\"","Rigid Foam 2\"","Spray Foam Can","Vapor Barrier","House Wrap",
-  // Finishing
-  "Paint - Interior","Paint - Exterior","Primer","Joint Compound","Drywall Tape",
-  "Corner Bead","Caulk","Construction Adhesive","Spray Foam","Painter's Tape",
-  // Barn & Ag
-  "Sheet Metal 26 Gauge","Sheet Metal 29 Gauge","Corrugated Tin Roofing",
-  "Corrugated Metal Panel","Pole Barn Purlin 2x4","Pole Barn Purlin 2x6",
-  "Pole Barn Girt 2x6","Post & Beam 6x6","Post & Beam 8x8",
-  "Cattle Panel 16ft","Cattle Panel 8ft","Hog Panel","Horse Panel",
-  "T-Post 6ft","T-Post 8ft","Barbed Wire","Woven Wire Fencing",
-  "Corrugated Polycarbonate Panel","Tin Roofing Screw","Pole Barn Nail",
-  "Ridge Cap Metal","Galvanized Flashing","Metal Siding Panel",
-];
+// Per-category autocomplete fallbacks
+const CATEGORY_FALLBACKS: Record<string, string[]> = {
+  lumber: [
+    "2x4","2x6","2x8","2x10","2x12","1x4","1x6","1x8",
+    "4x4 Post","6x6 Post","8x8 Post",
+    "Treated 2x4","Treated 2x6","Treated 2x8","Treated 4x4","Treated 6x6",
+    "LVL Beam","Microlam Beam","Glulam Beam","I-Joist","Ridge Board",
+    "Top Plate","Bottom Plate","Jack Stud","King Stud","Cripple Stud",
+    "Header Board","Blocking","Ledger Board","Rim Joist",
+    "Pole Barn Post","Post & Beam 6x6","Post & Beam 8x8",
+  ],
+  sheet: [
+    'Plywood 1/2"','Plywood 3/4"','Plywood 5/8"','Plywood 1/4"',
+    'OSB 7/16"','OSB 3/4"','OSB 1/2"',
+    'Drywall 1/2"','Drywall 5/8"','Drywall 1/4"',
+    'Cement Board 1/2"','Cement Board 1/4"','Hardie Board',
+    "Sheet Metal 26 Gauge","Sheet Metal 29 Gauge",
+    "Corrugated Metal Panel","Corrugated Polycarbonate Panel",
+    "Tin Roofing Panel","Metal Siding Panel",
+    'Advantech Subfloor 3/4"','T&G Plywood 3/4"',
+  ],
+  roofing: [
+    "Architectural Shingles","3-Tab Shingles","Metal Roofing Panel","Steel Roofing Panel",
+    "Ice & Water Shield","Roofing Felt 15lb","Roofing Felt 30lb","Synthetic Underlayment",
+    "Ridge Cap Shingles","Ridge Cap Metal","Drip Edge","Drip Edge Aluminum",
+    "Step Flashing","Valley Flashing","Pipe Boot Flashing","Skylight Flashing",
+    "Ridge Vent","Soffit Vent",'Gutter 5"','Gutter 6"',"Downspout",
+    "Roofing Nails","Starter Strip","Roofing Staples",
+  ],
+  concrete: [
+    "Concrete Mix 80lb","Concrete Mix 60lb","Quikrete 80lb","Fast-Setting Concrete 50lb",
+    "Rebar #3","Rebar #4","Rebar #5","Rebar #6",
+    "Wire Mesh 6x6","Fiber Mesh","Expansion Joint",
+    'CMU Block 8"','CMU Block 6"','CMU Block 4"',"Brick","Pavers 12x12","Pavers 16x16",
+    "Mortar Mix","Type S Mortar","Type N Mortar","Sanded Grout","Unsanded Grout",
+    "Gravel Bag","Pea Gravel","Crushed Stone","Sand Bag","Mason Sand",
+    "Post Setting Mix","Anchor Bolt","J-Bolt","Concrete Sealer",
+  ],
+  plumbing: [
+    'PVC Pipe 4"','PVC Pipe 3"','PVC Pipe 2"','PVC Pipe 1.5"','PVC Pipe 1"',
+    'ABS Pipe 4"','ABS Pipe 3"','ABS Pipe 2"',
+    'Copper Pipe 3/4"','Copper Pipe 1/2"','Copper Pipe 1"',
+    'PEX Tubing 3/4"','PEX Tubing 1/2"','PEX Tubing 1"',
+    "PVC Coupling","PVC Elbow 90","PVC Elbow 45","PVC Tee","PVC Wye",
+    'Ball Valve 3/4"','Ball Valve 1/2"',"Gate Valve","Check Valve",
+    "P-Trap","S-Trap","Floor Drain","Cleanout Plug","Water Heater",
+    "Angle Stop","Wax Ring","Fill Valve","Flush Valve","Drain Pipe","Sewer Pipe",
+    "Flex Connector","Compression Fitting",
+  ],
+  electrical: [
+    "Romex 14/2","Romex 12/2","Romex 10/2","Romex 10/3","Romex 6/3","Romex 8/3",
+    "THHN Wire 12ga","THHN Wire 10ga","THHN Wire 8ga","THHN Wire 6ga",
+    'EMT Conduit 1/2"','EMT Conduit 3/4"','EMT Conduit 1"',
+    'PVC Conduit 1/2"','PVC Conduit 3/4"','PVC Conduit 1"',
+    "15A Breaker","20A Breaker","30A Breaker","50A Breaker","100A Main Breaker","GFCI Breaker",
+    "GFCI Outlet","Standard Outlet","AFCI Outlet",
+    "Single Pole Switch","3-Way Switch","Dimmer Switch",
+    "Junction Box","Outlet Box","Panel","Subpanel",
+    "Wire Nuts","Electrical Tape","Cable Clamp","Conduit Strap",
+  ],
+  hardware: [
+    "Framing Nails 16d","Framing Nails 8d","Framing Nails 10d",
+    'Deck Screws 3"','Deck Screws 2.5"','Deck Screws 1.5"',
+    'Drywall Screws 1-5/8"','Drywall Screws 3"',
+    'Lag Screw 1/2x3"','Lag Screw 1/2x6"','Lag Bolt 5/16"',
+    'Carriage Bolt 1/2x6"','Carriage Bolt 3/8x4"',
+    'Structural Screw 3"','Structural Screw 5"','GRK Screw 3"',
+    "Joist Hanger","Double Joist Hanger","Post Base","Post Cap",
+    "Hurricane Tie","Rafter Tie","Twist Strap","Ridge Strap",
+    "Wedge Anchor","Concrete Anchor","Toggle Bolt",
+    "Corner Bracket","Angle Iron","Mending Plate","T-Plate",
+    'Pocket Screw 1.5"','Pocket Screw 2.5"',
+  ],
+  insulation: [
+    "R-13 Batt Insulation","R-19 Batt Insulation","R-21 Batt Insulation",
+    "R-30 Batt Insulation","R-38 Batt Insulation",
+    "R-13 Kraft Faced","R-19 Kraft Faced","R-21 Kraft Faced",
+    'Rigid Foam 1"','Rigid Foam 2"','Rigid Foam 1.5"',
+    "Spray Foam Can","Spray Foam 2-Part Kit","Open Cell Spray Foam","Closed Cell Spray Foam",
+    "House Wrap","Tyvek House Wrap","Vapor Barrier 6mil","Vapor Barrier 10mil",
+    "Foil Faced Foam","Mineral Wool Batt R-15","Blown-In Insulation",
+  ],
+  finishing: [
+    "Paint Interior","Paint Exterior","Paint Ceiling",
+    "Primer Drywall","Primer All-Purpose",
+    "Caulk Paintable","Caulk Silicone","Construction Adhesive","Liquid Nails",
+    "Joint Compound","Lightweight Joint Compound","Drywall Tape","Corner Bead Metal",
+    "Baseboard Trim","Door Casing","Window Casing","Crown Molding","Chair Rail",
+    "Hardwood Flooring","LVP Flooring","Laminate Flooring",
+    "Tile 12x12","Tile 18x18","Tile 24x24",
+    "Sanded Grout","Unsanded Grout","Thinset Mortar","Tile Spacers",
+    "Painter's Tape","Drop Cloth","Sandpaper 120","Sandpaper 80","Roller Cover",
+  ],
+  barn: [
+    "Cattle Panel 16ft","Cattle Panel 8ft","Hog Panel","Horse Panel","Goat Panel",
+    "T-Post 6ft","T-Post 7ft","T-Post 8ft",
+    'Field Fence 48"','Field Fence 32"','Woven Wire 4ft','Woven Wire 5ft',
+    "Barbed Wire 4pt","Barbed Wire 2pt","Electric Fence Wire",
+    "Gate Hardware","Gate Hinge","Gate Latch","H-Brace Assembly","Corner Post Brace",
+    "Tin Roofing Panel","Corrugated Metal Panel","Metal Siding Panel","Ridge Cap Metal",
+    "Barn Door Hardware","Barn Door Track","Sliding Door Roller","Barn Door Handle",
+    "Pole Barn Purlin 2x4","Pole Barn Purlin 2x6","Pole Barn Girt","Treated Post 6x6",
+    "Tin Roofing Screw","Metal Roofing Screw","Pole Barn Nail",
+  ],
+  other: [],
+};
+
+// Global fallback used when category is "other" or no category fallback matches
+const GLOBAL_FALLBACK: string[] = Object.values(CATEGORY_FALLBACKS).flat();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -157,7 +225,7 @@ function CostPerLFChip({ qtyOrdered, unitCost, lengthFt }: {
 // ─── NameAutocomplete ─────────────────────────────────────────────────────────
 
 function NameAutocomplete({
-  value, onChange, onSelect, suggestions, suggestionsLoaded, onLoadSuggestions, placeholder,
+  value, onChange, onSelect, suggestions, suggestionsLoaded, onLoadSuggestions, placeholder, categoryFallback,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -166,6 +234,7 @@ function NameAutocomplete({
   suggestionsLoaded: boolean;
   onLoadSuggestions: () => void;
   placeholder: string;
+  categoryFallback?: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -176,13 +245,14 @@ function NameAutocomplete({
     const loaded = suggestions.filter((s) => s.name.toLowerCase().includes(q));
     const loadedNames = new Set(loaded.map((s) => s.name.toLowerCase()));
 
-    const globalMatches: MaterialSuggestion[] = GLOBAL_FALLBACK
+    const fallbackList = categoryFallback && categoryFallback.length > 0 ? categoryFallback : GLOBAL_FALLBACK;
+    const globalMatches: MaterialSuggestion[] = fallbackList
       .filter((n) => n.toLowerCase().includes(q) && !loadedNames.has(n.toLowerCase()))
       .slice(0, 5)
       .map((n) => ({ name: n, unit: "", unit_cost: null, source: "global" as const }));
 
     return [...loaded, ...globalMatches].slice(0, 10);
-  }, [value, suggestions]);
+  }, [value, suggestions, categoryFallback]);
 
   function handleFocus() {
     setOpen(true);
@@ -654,6 +724,7 @@ export default function MaterialsSection({
               suggestionsLoaded={suggestionsLoaded}
               onLoadSuggestions={loadSuggestions}
               placeholder={typeConfig.placeholder}
+              categoryFallback={CATEGORY_FALLBACKS[materialTypeKey]}
             />
           </div>
 
