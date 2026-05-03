@@ -131,7 +131,6 @@ export default function SignaturePage({
   jobTypes,
   showAddress,
   showValidUntil,
-  collapseToTotal,
   notes,
   clientLineItems,
   addons,
@@ -150,7 +149,6 @@ export default function SignaturePage({
   jobTypes: string[];
   showAddress: boolean;
   showValidUntil: boolean;
-  collapseToTotal: boolean;
   notes: string | null;
   clientLineItems: { name: string; amount: number }[];
   addons: { name: string; amount: number }[];
@@ -171,10 +169,8 @@ export default function SignaturePage({
   const displayName = businessName ?? "Your Contractor";
   const validAddons = addons.filter((a) => a.name && a.amount !== 0);
 
-  // Determine what line items to show
-  const lineItemsToShow: { name: string; amount: number }[] = collapseToTotal
-    ? [{ name: "Professional Services", amount: grandTotal }]
-    : clientLineItems.length > 0
+  const lineItemsToShow: { name: string; amount: number }[] =
+    clientLineItems.length > 0
     ? [...clientLineItems, ...validAddons]
     : validAddons.length > 0
     ? validAddons

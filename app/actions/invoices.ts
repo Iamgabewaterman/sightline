@@ -34,10 +34,6 @@ export async function createInvoice(
     clientId?: string | null;
     paymentTerms?: PaymentTerms;
     notes?: string;
-    displayShowMaterials?: boolean;
-    displayShowLabor?: boolean;
-    displayShowItemizedMaterials?: boolean;
-    displayShowProfitMargin?: boolean;
     clientLineItems?: Array<{ name: string; amount: number }>;
   }
 ): Promise<{ invoice?: Invoice; error?: string }> {
@@ -59,10 +55,6 @@ export async function createInvoice(
       payment_terms: terms,
       due_date,
       notes: opts?.notes ?? null,
-      display_show_materials: opts?.displayShowMaterials ?? false,
-      display_show_labor: opts?.displayShowLabor ?? false,
-      display_show_itemized_materials: opts?.displayShowItemizedMaterials ?? false,
-      display_show_profit_margin: opts?.displayShowProfitMargin ?? false,
       client_line_items: opts?.clientLineItems ?? [],
     })
     .select()
@@ -78,10 +70,6 @@ export async function updateInvoice(
     payment_terms?: PaymentTerms;
     notes?: string | null;
     total_amount?: number;
-    display_show_materials?: boolean;
-    display_show_labor?: boolean;
-    display_show_itemized_materials?: boolean;
-    display_show_profit_margin?: boolean;
     client_line_items?: Array<{ name: string; amount: number }>;
   }
 ): Promise<{ invoice?: Invoice; error?: string }> {

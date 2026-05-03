@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client, PaymentMilestone } from "@/types";
 import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions/invoices";
@@ -9,92 +9,16 @@ import { generateAndDownloadInvoicePDF } from "@/lib/generateInvoicePDF";
 import { createClient } from "@/lib/supabase/client";
 import { useJobCost } from "./JobCostContext";
 import { useRole } from "@/hooks/useRole";
-
-// ── Preset line item categories ───────────────────────────────────────────────
-
-const PRESET_CATEGORIES: { name: string; items: string[] }[] = [
-  {
-    name: "General",
-    items: [
-      "Demo & debris removal",
-      "Site preparation & cleanup",
-      "Project management & supervision",
-      "Permits & inspections",
-      "Equipment & tool rental",
-    ],
-  },
-  {
-    name: "Structural & Framing",
-    items: [
-      "Framing & structural work",
-      "Foundation work",
-      "Concrete & flatwork",
-      "Roofing & flashing",
-      "Insulation",
-    ],
-  },
-  {
-    name: "Interior",
-    items: [
-      "Drywall & patching",
-      "Interior painting",
-      "Flooring installation",
-      "Tile work",
-      "Cabinetry & millwork",
-      "Trim & finish carpentry",
-      "Door & window installation",
-    ],
-  },
-  {
-    name: "Exterior",
-    items: [
-      "Exterior painting",
-      "Siding installation",
-      "Deck & patio construction",
-      "Fencing",
-      "Gutters & drainage",
-    ],
-  },
-  {
-    name: "Mechanical",
-    items: [
-      "Plumbing rough-in & finish",
-      "Electrical rough-in & finish",
-      "HVAC installation & ducting",
-      "Water heater installation",
-    ],
-  },
-  {
-    name: "Restoration",
-    items: [
-      "Water damage remediation",
-      "Fire damage remediation",
-      "Mold remediation",
-      "Structural drying",
-      "Content pack-out & storage",
-    ],
-  },
-];
+import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
+import { upsertLineItemLabels } from "@/app/actions/line-items";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface ClientLineItemRow {
-  id: string;
-  name: string;
-  amount: string;
-}
 
 interface MilestoneRow {
   id: string;
   label: string;
   amount: string;
   dueDate: string;
-}
-
-interface SavedLineItemData {
-  id: string;
-  name: string;
-  amount: number;
 }
 
 type SplitMode = "full" | "two" | "three" | "custom";
@@ -162,11 +86,7 @@ function uid(): string {
   return Math.random().toString(36).slice(2);
 }
 
-function newRow(): ClientLineItemRow {
-  return { id: uid(), name: "", amount: "" };
-}
-
-function initClientRows(invoice: Invoice | null): ClientLineItemRow[] {
+function initClientRows(invoice: Invoice | null): LineItemRow[] {
   if (invoice?.client_line_items?.length) {
     return invoice.client_line_items.map((item) => ({
       id: uid(),
@@ -174,14 +94,7 @@ function initClientRows(invoice: Invoice | null): ClientLineItemRow[] {
       amount: item.amount ? item.amount.toString() : "",
     }));
   }
-  return [newRow()];
-}
-
-function rowsToItems(rows: ClientLineItemRow[]): Array<{ name: string; amount: number }> {
-  return rows.filter((r) => r.name.trim()).map((r) => ({
-    name: r.name.trim(),
-    amount: parseFloat(r.amount) || 0,
-  }));
+  return [newLineItemRow()];
 }
 
 function detectSplitMode(milestones: PaymentMilestone[]): SplitMode {
@@ -280,44 +193,19 @@ export default function InvoiceSection({
   const [terms, setTerms] = useState<PaymentTerms>("net_30");
   const [notes, setNotes] = useState("");
 
-  // Display settings
-  const [showMaterials, setShowMaterials] = useState(initialInvoice?.display_show_materials ?? false);
-  const [showLabor, setShowLabor] = useState(initialInvoice?.display_show_labor ?? false);
-  const [showItemizedMaterials, setShowItemizedMaterials] = useState(initialInvoice?.display_show_itemized_materials ?? false);
-  const [showProfitMargin, setShowProfitMargin] = useState(initialInvoice?.display_show_profit_margin ?? false);
-  const [clientLineItems, setClientLineItems] = useState<ClientLineItemRow[]>(() => initClientRows(initialInvoice));
+  // Client line items
+  const [clientLineItems, setClientLineItems] = useState<LineItemRow[]>(() => initClientRows(initialInvoice));
 
   // Payment schedule
   const [splitMode, setSplitMode] = useState<SplitMode>(() => detectSplitMode(initialMilestones));
   const [milestoneRows, setMilestoneRows] = useState<MilestoneRow[]>(() => initMilestoneRows(initialMilestones));
   const [liveMilestones, setLiveMilestones] = useState<PaymentMilestone[]>(initialMilestones);
 
-  // Saved line items from DB
-  const [savedLineItems, setSavedLineItems] = useState<SavedLineItemData[]>([]);
-
   // Post-creation edit state
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(initialInvoice?.notes ?? "");
   const [editingDisplay, setEditingDisplay] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
-
-  // Preset panel state
-  const [showPresetsPanel, setShowPresetsPanel] = useState(false);
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
-  const [customName, setCustomName] = useState("");
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase
-        .from("saved_line_items")
-        .select("id, name, amount")
-        .eq("user_id", user.id)
-        .order("name")
-        .then(({ data }) => { if (data) setSavedLineItems(data); });
-    });
-  }, []);
 
   // Guards
   if (role === "field_member" && !can_see_financials) return null;
@@ -362,33 +250,6 @@ export default function InvoiceSection({
     });
   }
 
-  function addPreset(name: string) {
-    setClientLineItems((prev) => [...prev, { id: uid(), name, amount: "" }]);
-    setShowPresetsPanel(false);
-  }
-
-  function updateRow(id: string, field: "name" | "amount", value: string) {
-    setClientLineItems((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
-  }
-
-  function removeRow(id: string) {
-    setClientLineItems((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      return next.length ? next : [newRow()];
-    });
-  }
-
-  function toggleCategory(name: string) {
-    setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
-  }
-
-  function addCustom() {
-    if (!customName.trim()) return;
-    setClientLineItems((prev) => [...prev, { id: uid(), name: customName.trim(), amount: "" }]);
-    setCustomName("");
-    setShowPresetsPanel(false);
-  }
-
   async function handleGenerate() {
     setCreating(true);
     setError("");
@@ -398,14 +259,13 @@ export default function InvoiceSection({
       clientId: jobClient?.id ?? null,
       paymentTerms: terms,
       notes: notes.trim() || undefined,
-      displayShowMaterials: showMaterials,
-      displayShowLabor: showLabor,
-      displayShowItemizedMaterials: showItemizedMaterials,
-      displayShowProfitMargin: showProfitMargin,
-      clientLineItems: rowsToItems(clientLineItems),
+      clientLineItems: rowsToLineItems(clientLineItems),
     });
     if (res.error) { setError(res.error); setCreating(false); return; }
     const inv = res.invoice!;
+
+    const labelNames = clientLineItems.map((r) => r.name).filter(Boolean);
+    if (labelNames.length) upsertLineItemLabels(labelNames);
 
     // Save milestones if split mode is not full
     if (splitMode !== "full" && milestoneRows.length > 0) {
@@ -446,13 +306,14 @@ export default function InvoiceSection({
   async function handleSaveDisplaySettings() {
     if (!invoice) return;
     const res = await updateInvoice(invoice.id, {
-      display_show_materials: showMaterials,
-      display_show_labor: showLabor,
-      display_show_itemized_materials: showItemizedMaterials,
-      display_show_profit_margin: showProfitMargin,
-      client_line_items: rowsToItems(clientLineItems),
+      client_line_items: rowsToLineItems(clientLineItems),
     });
-    if (res.invoice) { setInvoice(res.invoice); setEditingDisplay(false); }
+    if (res.invoice) {
+      const labelNames = clientLineItems.map((r) => r.name).filter(Boolean);
+      if (labelNames.length) upsertLineItemLabels(labelNames);
+      setInvoice(res.invoice);
+      setEditingDisplay(false);
+    }
   }
 
   async function handleSaveSchedule() {
@@ -479,13 +340,8 @@ export default function InvoiceSection({
   }
 
   function cancelDisplayEdit(inv: Invoice) {
-    setShowMaterials(inv.display_show_materials);
-    setShowLabor(inv.display_show_labor);
-    setShowItemizedMaterials(inv.display_show_itemized_materials);
-    setShowProfitMargin(inv.display_show_profit_margin);
     setClientLineItems(initClientRows(inv));
     setEditingDisplay(false);
-    setShowPresetsPanel(false);
   }
 
   function cancelScheduleEdit() {
@@ -557,9 +413,6 @@ export default function InvoiceSection({
         date: todayStr(),
         invoiceNumber,
         invoiceId: inv.id,
-        materialsTotal: estimate.material_total,
-        laborTotal: estimate.labor_total,
-        profitMarginPct: estimate.profit_margin_pct,
         addons: [...baseAddons, ...coLineItems],
         grandTotal,
         businessProfile: bp,
@@ -572,9 +425,6 @@ export default function InvoiceSection({
         notes: inv.notes,
         status: inv.status,
         paidDate,
-        displayShowMaterials: inv.display_show_materials,
-        displayShowLabor: inv.display_show_labor,
-        displayShowProfitMargin: inv.display_show_profit_margin,
         clientLineItems: inv.client_line_items,
         milestones: liveMilestones.length > 0 ? liveMilestones : undefined,
       });
@@ -779,158 +629,6 @@ export default function InvoiceSection({
     );
   }
 
-  function renderDisplaySettings() {
-    return (
-      <div className="mb-5">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Invoice Display Settings</p>
-        <p className="text-gray-500 text-xs mb-3">What the client sees on the invoice and payment page. All off by default.</p>
-        <div className="flex flex-col gap-2">
-          {(
-            [
-              { on: showMaterials,         set: setShowMaterials,         label: "Show materials total" },
-              { on: showLabor,             set: setShowLabor,             label: "Show labor total" },
-              { on: showItemizedMaterials, set: setShowItemizedMaterials, label: "Show itemized materials list" },
-              { on: showProfitMargin,      set: setShowProfitMargin,      label: "Show profit / margin" },
-            ] as const
-          ).map(({ on, set, label }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => set(!on)}
-              className="flex items-center justify-between w-full py-3 px-4 bg-[#242424] border border-[#2a2a2a] rounded-xl active:scale-95 transition-transform"
-            >
-              <span className="text-gray-300 text-sm">{label}</span>
-              <div className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${on ? "bg-orange-500" : "bg-[#3a3a3a]"}`}>
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  function renderClientLineItems() {
-    return (
-      <div className="mb-5">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
-        <p className="text-gray-500 text-xs mb-3">Build what the client sees. Total should match {fmtNum(grandTotal)}.</p>
-
-        <div className="flex flex-col gap-2 mb-3">
-          {clientLineItems.map((row) => (
-            <div key={row.id} className="flex gap-2 items-center">
-              <input
-                value={row.name}
-                onChange={(e) => updateRow(row.id, "name", e.target.value)}
-                placeholder="Line item description"
-                className="flex-1 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-orange-500 min-w-0"
-              />
-              <div className="relative flex-shrink-0">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
-                <input
-                  value={row.amount}
-                  onChange={(e) => updateRow(row.id, "amount", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className="w-24 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl pl-6 pr-3 py-3 text-sm focus:outline-none focus:border-orange-500"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => removeRow(row.id)}
-                className="text-gray-600 active:text-red-400 transition-colors p-2 rounded-xl active:scale-95 flex-shrink-0"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className={`flex justify-between items-center px-4 py-2.5 rounded-xl mb-3 text-sm ${totalMismatch ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-[#1a1a1a] border border-[#2a2a2a]"}`}>
-          <span className={totalMismatch ? "text-yellow-300" : "text-gray-500"}>
-            {totalMismatch ? "⚠ Total mismatch" : "Line items total"}
-          </span>
-          <span className={`font-bold font-mono ${totalMismatch ? "text-yellow-400" : "text-gray-300"}`}>
-            {fmtNum(clientLineItemsTotal)}
-            {totalMismatch && <span className="text-yellow-500 font-normal ml-1">≠ {fmtNum(grandTotal)}</span>}
-          </span>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setClientLineItems((prev) => [...prev, newRow()])}
-            className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform"
-          >
-            + Add Row
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPresetsPanel((p) => !p)}
-            className={`flex-1 border font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform ${showPresetsPanel ? "bg-orange-500/20 border-orange-500/40 text-orange-400" : "bg-[#242424] border-[#2a2a2a] text-orange-400"}`}
-          >
-            {showPresetsPanel ? "Hide Presets" : "Add Preset"}
-          </button>
-        </div>
-
-        {showPresetsPanel && (
-          <div className="mt-3 bg-[#141414] border border-[#2a2a2a] rounded-xl overflow-hidden">
-            {savedLineItems.length > 0 && (
-              <div className="border-b border-[#2a2a2a] px-4 py-3">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Saved</p>
-                <div className="flex flex-col gap-0.5">
-                  {savedLineItems.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => addPreset(s.name)}
-                      className="text-left text-sm text-gray-300 py-1.5 px-2 rounded-lg active:bg-orange-500/10 active:text-orange-400 transition-colors"
-                    >
-                      {s.name}
-                      {s.amount > 0 && <span className="text-gray-500 ml-1">(${s.amount.toLocaleString()})</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {PRESET_CATEGORIES.map((cat) => (
-              <div key={cat.name} className="border-b border-[#2a2a2a] last:border-0">
-                <button
-                  type="button"
-                  onClick={() => toggleCategory(cat.name)}
-                  className="w-full flex justify-between items-center px-4 py-3 text-left active:bg-[#1a1a1a] transition-colors"
-                >
-                  <span className="text-gray-300 text-sm font-semibold">{cat.name}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`text-gray-500 transition-transform ${openCategories[cat.name] ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                {openCategories[cat.name] && (
-                  <div className="px-4 pb-3 flex flex-col gap-0.5">
-                    {cat.items.map((item) => (
-                      <button key={item} type="button" onClick={() => addPreset(item)} className="text-left text-sm text-gray-400 py-1.5 px-2 rounded-lg active:bg-orange-500/10 active:text-orange-400 transition-colors">{item}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            <div className="px-4 py-3">
-              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Custom</p>
-              <div className="flex gap-2">
-                <input
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Describe the work…"
-                  onKeyDown={(e) => { if (e.key === "Enter") addCustom(); }}
-                  className="flex-1 bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500"
-                />
-                <button type="button" onClick={addCustom} className="bg-orange-500/20 border border-orange-500/30 text-orange-400 font-semibold text-sm px-4 py-2.5 rounded-xl active:scale-95 transition-transform">Add</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // ── No invoice yet (create mode) ──────────────────────────────────────────
 
   if (!invoice) {
@@ -975,8 +673,12 @@ export default function InvoiceSection({
 
         {renderInternalBreakdown()}
         {renderPaymentSchedule()}
-        {renderDisplaySettings()}
-        {renderClientLineItems()}
+
+        <div className="mb-5">
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
+          <p className="text-gray-500 text-xs mb-3">What the client sees. Total should match {fmtNum(grandTotal)}.</p>
+          <LineItemBuilder items={clientLineItems} onItemsChange={setClientLineItems} totalToMatch={grandTotal} />
+        </div>
 
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Payment Terms</p>
         <div className="grid grid-cols-2 gap-2 mb-4">
@@ -1228,8 +930,11 @@ export default function InvoiceSection({
 
         {editingDisplay ? (
           <>
-            {renderDisplaySettings()}
-            {renderClientLineItems()}
+            <div className="mb-5">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
+              <p className="text-gray-500 text-xs mb-3">What the client sees. Total should match {fmtNum(grandTotal)}.</p>
+              <LineItemBuilder items={clientLineItems} onItemsChange={setClientLineItems} totalToMatch={grandTotal} />
+            </div>
             <div className="flex gap-2 mt-1 mb-4">
               <button onClick={handleSaveDisplaySettings} className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">Save Settings</button>
               <button onClick={() => cancelDisplayEdit(invoice)} className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold py-3 rounded-xl text-sm active:scale-95 transition-transform">Cancel</button>

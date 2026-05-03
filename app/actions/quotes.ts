@@ -22,7 +22,6 @@ export async function saveJobQuote(data: {
   addons: QuoteAddon[];
   displayShowAddress?: boolean;
   displayShowValidUntil?: boolean;
-  displayCollapseToTotal?: boolean;
   displayNotes?: string | null;
   clientLineItems?: Array<{ name: string; amount: number }>;
 }) {
@@ -52,7 +51,6 @@ export async function saveJobQuote(data: {
       addons: data.addons,
       quote_display_show_address: data.displayShowAddress ?? true,
       quote_display_show_valid_until: data.displayShowValidUntil ?? true,
-      quote_display_collapse_to_total: data.displayCollapseToTotal ?? false,
       quote_display_notes: data.displayNotes ?? null,
       quote_client_line_items: data.clientLineItems ?? [],
     })

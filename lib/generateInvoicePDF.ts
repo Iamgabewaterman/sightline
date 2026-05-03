@@ -27,9 +27,6 @@ export interface InvoicePDFData {
   date: string;
   invoiceNumber: string;
   invoiceId?: string;
-  materialsTotal: number;
-  laborTotal: number;
-  profitMarginPct?: number;
   addons: { name: string; amount: number }[];
   grandTotal: number;
   businessProfile?: BusinessProfileData | null;
@@ -40,10 +37,6 @@ export interface InvoicePDFData {
   notes?: string | null;
   status?: "unpaid" | "sent" | "pending" | "partial" | "paid";
   paidDate?: string | null;
-  // Client display settings
-  displayShowMaterials?: boolean;
-  displayShowLabor?: boolean;
-  displayShowProfitMargin?: boolean;
   clientLineItems?: Array<{ name: string; amount: number }>;
   milestones?: Array<{ label: string; amount: number; due_date: string | null; status: string }>;
 }
@@ -260,28 +253,14 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
     rowIdx++;
   }
 
-  // Determine what to show in the client-facing PDF
+  // Client-facing line items — use contractor's items or default to Professional Services
   const clientLineItems = data.clientLineItems ?? [];
-  const hasClientView = clientLineItems.length > 0 || data.displayShowMaterials || data.displayShowLabor || data.displayShowProfitMargin;
-
-  if (hasClientView) {
-    // Show contractor-configured client line items
+  if (clientLineItems.length > 0) {
     for (const item of clientLineItems) {
       drawInvRow(item.name, fmtTotal(item.amount));
     }
-    if (data.displayShowMaterials) {
-      drawInvRow("Materials", fmtTotal(data.materialsTotal));
-    }
-    if (data.displayShowLabor) {
-      drawInvRow("Labor", fmtTotal(data.laborTotal));
-    }
-    if (data.displayShowProfitMargin && data.profitMarginPct != null) {
-      drawInvRow(`Profit / Margin (${data.profitMarginPct}%)`, "");
-    }
   } else {
-    // Legacy: show Materials + Labor rows
-    drawInvRow("Materials", fmtTotal(data.materialsTotal));
-    drawInvRow("Labor",     fmtTotal(data.laborTotal));
+    drawInvRow("Professional Services", fmtTotal(data.grandTotal));
   }
 
   const validAddons = data.addons.filter((a) => a.name && a.amount !== 0);

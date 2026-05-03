@@ -10,6 +10,8 @@ import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 import { useRole } from "@/hooks/useRole";
 import ChangeOrdersSection from "./ChangeOrdersSection";
+import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
+import { upsertLineItemLabels } from "@/app/actions/line-items";
 
 function fmt(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -117,9 +119,8 @@ export default function QuoteProfitSection({
   // Display settings
   const [displayShowAddress, setDisplayShowAddress] = useState(true);
   const [displayShowValidUntil, setDisplayShowValidUntil] = useState(true);
-  const [displayCollapseToTotal, setDisplayCollapseToTotal] = useState(false);
   const [displayNotes, setDisplayNotes] = useState("");
-  const [clientLineItems, setClientLineItems] = useState<{ name: string; amount: number }[]>([]);
+  const [clientLineItems, setClientLineItems] = useState<LineItemRow[]>(() => [newLineItemRow()]);
 
   // Fetched data
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -174,9 +175,13 @@ export default function QuoteProfitSection({
       if (est) {
         setDisplayShowAddress(est.quote_display_show_address ?? true);
         setDisplayShowValidUntil(est.quote_display_show_valid_until ?? true);
-        setDisplayCollapseToTotal(est.quote_display_collapse_to_total ?? false);
         setDisplayNotes(est.quote_display_notes ?? "");
-        setClientLineItems((est.quote_client_line_items as { name: string; amount: number }[]) ?? []);
+        const savedItems = (est.quote_client_line_items as { name: string; amount: number }[] | null) ?? [];
+        setClientLineItems(
+          savedItems.length > 0
+            ? savedItems.map((x) => ({ id: Math.random().toString(36).slice(2), name: x.name, amount: x.amount.toString() }))
+            : [newLineItemRow()]
+        );
       }
     }
 
@@ -329,9 +334,9 @@ export default function QuoteProfitSection({
         logoUrl,
         showAddress: displayShowAddress,
         showValidUntil: displayShowValidUntil,
-        collapseToTotal: displayCollapseToTotal,
         notes: displayNotes.trim() || null,
-        clientLineItems,
+        clientLineItems: rowsToLineItems(clientLineItems),
+
         signatureData,
         signedByName: localSignedByName,
         signedAt: localSignedAt
@@ -356,13 +361,14 @@ export default function QuoteProfitSection({
       addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
       displayShowAddress,
       displayShowValidUntil,
-      displayCollapseToTotal,
       displayNotes: displayNotes.trim() || null,
-      clientLineItems,
+      clientLineItems: rowsToLineItems(clientLineItems),
     });
     if (result?.error) {
       setSaveError(result.error);
     } else {
+      const labelNames = clientLineItems.map((r) => r.name).filter(Boolean);
+      if (labelNames.length) upsertLineItemLabels(labelNames);
       setSaved(true);
       if (result.estimateId) {
         setLocalEstimateId(result.estimateId);
@@ -995,7 +1001,6 @@ export default function QuoteProfitSection({
                   {[
                     { label: "Show job address", value: displayShowAddress, set: setDisplayShowAddress },
                     { label: "Show valid until date", value: displayShowValidUntil, set: setDisplayShowValidUntil },
-                    { label: "Collapse to single total", value: displayCollapseToTotal, set: setDisplayCollapseToTotal },
                   ].map(({ label, value, set }) => (
                     <button
                       key={label}
@@ -1011,63 +1016,18 @@ export default function QuoteProfitSection({
                   ))}
                 </div>
 
-                {/* Client line items (when not collapsed) */}
-                {!displayCollapseToTotal && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Client Line Items</p>
-                      <button
-                        type="button"
-                        onClick={() => { setClientLineItems((prev) => [...prev, { name: "", amount: 0 }]); setSaved(false); }}
-                        className="text-orange-500 font-bold text-xs px-3 py-1.5 border border-orange-500/30 rounded-lg active:scale-95 transition-transform min-h-[36px]"
-                      >
-                        + Add
-                      </button>
-                    </div>
-                    <p className="text-gray-600 text-xs mb-3 leading-snug">
-                      Optional. Add custom descriptions for the client (e.g. "Demo old drywall"). If blank, add-on items are shown.
-                    </p>
-                    {clientLineItems.length > 0 && (
-                      <div className="flex flex-col gap-2">
-                        {clientLineItems.map((item, i) => (
-                          <div key={i} className="flex gap-2">
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={(e) => {
-                                setClientLineItems((prev) => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x));
-                                setSaved(false);
-                              }}
-                              placeholder="Description"
-                              className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm px-3 rounded-lg min-h-[44px] placeholder-gray-600 focus:outline-none focus:border-orange-500"
-                            />
-                            <div className="flex items-center gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 min-h-[44px] w-28">
-                              <span className="text-gray-500 text-sm shrink-0">$</span>
-                              <input
-                                type="number"
-                                value={item.amount || ""}
-                                onChange={(e) => {
-                                  setClientLineItems((prev) => prev.map((x, idx) => idx === i ? { ...x, amount: parseFloat(e.target.value) || 0 } : x));
-                                  setSaved(false);
-                                }}
-                                placeholder="0"
-                                min="0"
-                                className="flex-1 bg-transparent text-white text-sm focus:outline-none w-full"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => { setClientLineItems((prev) => prev.filter((_, idx) => idx !== i)); setSaved(false); }}
-                              className="text-gray-500 text-xl w-11 h-11 flex items-center justify-center active:scale-95 shrink-0"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Client line items */}
+                <div className="mb-4">
+                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Client Line Items</p>
+                  <p className="text-gray-600 text-xs mb-3 leading-snug">
+                    What the client sees on the quote. If blank, add-on items are shown.
+                  </p>
+                  <LineItemBuilder
+                    items={clientLineItems}
+                    onItemsChange={(items) => { setClientLineItems(items); setSaved(false); }}
+                    totalToMatch={grandTotal}
+                  />
+                </div>
 
                 {/* Notes / Terms */}
                 <div>

@@ -362,10 +362,6 @@ export interface Invoice {
   paid_at: string | null;
   total_amount: number;
   created_at: string;
-  display_show_materials: boolean;
-  display_show_labor: boolean;
-  display_show_itemized_materials: boolean;
-  display_show_profit_margin: boolean;
   client_line_items: Array<{ name: string; amount: number }>;
 }
 

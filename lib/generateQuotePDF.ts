@@ -48,7 +48,6 @@ export interface QuotePDFData {
   // Display settings (client-facing)
   showAddress?: boolean;
   showValidUntil?: boolean;
-  collapseToTotal?: boolean;
   notes?: string | null;
   clientLineItems?: { name: string; amount: number }[];
   // Signature fields (for signed/accepted quotes)
@@ -259,21 +258,12 @@ export async function generateAndDownloadQuotePDF(data: QuotePDFData): Promise<v
     rowIdx++;
   }
 
-  const collapseToTotal = data.collapseToTotal ?? false;
   const clientLineItems = data.clientLineItems ?? [];
   const validAddons = data.addons.filter((a) => a.name && a.amount !== 0);
 
-  if (collapseToTotal) {
-    drawClientRow("Professional Services", fmtTotal(data.grandTotal));
-  } else if (clientLineItems.length > 0) {
+  if (clientLineItems.length > 0) {
     for (const item of clientLineItems) {
       drawClientRow(item.name, fmtTotal(item.amount));
-    }
-    if (validAddons.length > 0) {
-      for (const addon of validAddons) {
-        const sign = addon.amount < 0 ? "−$" : "$";
-        drawClientRow(addon.name, sign + Math.abs(Math.round(addon.amount)).toLocaleString("en-US"));
-      }
     }
   } else if (validAddons.length > 0) {
     for (const addon of validAddons) {

@@ -101,7 +101,6 @@ export default async function SignRoute({
       jobTypes={(job?.types ?? []) as string[]}
       showAddress={estimate.quote_display_show_address ?? true}
       showValidUntil={estimate.quote_display_show_valid_until ?? true}
-      collapseToTotal={estimate.quote_display_collapse_to_total ?? false}
       notes={estimate.quote_display_notes ?? null}
       clientLineItems={(estimate.quote_client_line_items as { name: string; amount: number }[]) ?? []}
       addons={(estimate.addons as { name: string; amount: number }[]) ?? []}
