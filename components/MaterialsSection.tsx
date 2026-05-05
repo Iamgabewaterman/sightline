@@ -335,6 +335,7 @@ function MaterialRow({
   );
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
+  const [showReceiptDeleteWarning, setShowReceiptDeleteWarning] = useState(false);
 
   const effectiveLengthFt: number | null =
     lengthPreset === "" ? null
@@ -358,9 +359,19 @@ function MaterialRow({
   }
 
   async function handleDelete() {
+    if (material.receipt_id) {
+      setShowReceiptDeleteWarning(true);
+      return;
+    }
     if (!confirm(`Remove "${material.name}"?`)) return;
     await deleteMaterial(material.id);
     onDelete(material.id);
+  }
+
+  async function confirmDeleteWithReceipt() {
+    await deleteMaterial(material.id);
+    onDelete(material.id);
+    setShowReceiptDeleteWarning(false);
   }
 
   const totalCost = (() => {
@@ -442,6 +453,41 @@ function MaterialRow({
         <div className="mt-2">
           <CostPerLFChip qtyOrdered={material.quantity_ordered} unitCost={material.unit_cost} lengthFt={material.length_ft} />
         </div>
+      )}
+
+      {showReceiptDeleteWarning && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setShowReceiptDeleteWarning(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <p className="text-white font-bold text-lg leading-tight">Receipt attached</p>
+            </div>
+            <p className="text-gray-400 text-sm mb-6">
+              This material has a receipt attached — deleting it will remove the material entry but keep the receipt on file in the Receipts section.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReceiptDeleteWarning(false)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteWithReceipt}
+                className="flex-1 bg-red-600 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Delete Material
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {editing && (

@@ -2,8 +2,12 @@
 
 export function normalizeCurrency(raw: string): number | null {
   if (!raw) return null;
-  // Strip currency symbols, codes, commas, spaces: "$1,234.56", "USD 1234.56", "1.234,56" (EU)
-  let cleaned = raw.trim().replace(/^[A-Z]{3}\s*/i, "").replace(/[$£€¥]/g, "").replace(/\s/g, "");
+  let cleaned = raw.trim();
+  // Accounting negative: (1,234.56) or ($1,234.56) → -1234.56
+  const isNegParen = /^\(.*\)$/.test(cleaned);
+  if (isNegParen) cleaned = cleaned.slice(1, -1);
+  // Strip currency symbols, codes, spaces
+  cleaned = cleaned.replace(/^[A-Z]{3}\s*/i, "").replace(/[$£€¥]/g, "").replace(/\s/g, "");
   // Handle European decimal format (1.234,56 → 1234.56)
   if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(cleaned)) {
     cleaned = cleaned.replace(/\./g, "").replace(",", ".");
@@ -11,7 +15,9 @@ export function normalizeCurrency(raw: string): number | null {
     cleaned = cleaned.replace(/,/g, "");
   }
   const n = parseFloat(cleaned);
-  return isNaN(n) ? null : Math.round(n * 100) / 100;
+  if (isNaN(n)) return null;
+  const result = Math.round(n * 100) / 100;
+  return isNegParen ? -Math.abs(result) : result;
 }
 
 export function normalizeDate(raw: string): string {

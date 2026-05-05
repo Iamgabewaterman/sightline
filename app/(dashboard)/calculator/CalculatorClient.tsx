@@ -749,6 +749,21 @@ export default function CalculatorClient({
           )}
         </div>
 
+        {/* Persistent banner when no business address set */}
+        {locationSource === null && (
+          <div className="bg-[#1A1A1A] border border-yellow-500/30 rounded-xl px-4 py-3 mb-5 flex items-start gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p className="text-yellow-300 text-sm">
+              Add your business address in{" "}
+              <a href="/settings" className="underline font-semibold">Settings</a>
+              {" "}for local pricing —{" "}
+              {pricing.drywall.isBaseline ? "showing built-in baseline estimates" : "showing national averages"}
+            </p>
+          </div>
+        )}
+
         {/* ── STEP 1: Trade picker ── */}
         {step === 1 && (
           <>

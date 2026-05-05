@@ -175,6 +175,12 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       const phone = normalizePhone(rawPhone);
       const key = `${name.toLowerCase()}|${phone.toLowerCase()}`;
       if (clientKeys.has(key)) { summary.clients.skipped++; continue; }
+      // Same name, different contact info — flag for manual review instead of creating a duplicate
+      if (clientMap.has(name.toLowerCase())) {
+        summary.needsReview.push({ fileName: file.fileName, reason: `Client "${name}" already exists with different contact info — review and merge manually in Sightline` });
+        summary.clients.skipped++;
+        continue;
+      }
 
       const { data: inserted, error } = await supabase.from("clients").insert({
         user_id: user.id,
@@ -240,6 +246,9 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         "customer",
       );
       const clientId = clientName ? (clientMap.get(clientName.toLowerCase()) ?? null) : null;
+      if (!clientName) {
+        summary.needsReview.push({ fileName: file.fileName, reason: `Job "${name}" imported with no client — assign a client in Sightline` });
+      }
 
       // Job number — platform-specific variants
       const jobNumRaw = pick(
@@ -439,7 +448,10 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
         summary.errors.push(`${file.fileName} — ${rawName}: ${error.message}`);
       } else {
         summary.materials.imported++;
-        // Write to history with fuzzy dedup (async, non-blocking)
+        // Flag zero-cost materials for review
+        if (unitCost === null || unitCost === 0) {
+          summary.needsReview.push({ fileName: file.fileName, reason: `"${rawName}" imported with no price — update cost in the Materials list` });
+        }
         void writeUserMaterialHistory(supabase, user.id, rawName, unit, unitCost, "materials");
       }
     }

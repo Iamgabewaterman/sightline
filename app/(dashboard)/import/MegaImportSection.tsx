@@ -16,6 +16,33 @@ interface ParsedFile {
   platformConfidence: "high" | "low";
   rows: Record<string, string>[];
   headers: string[];
+  missingColumns?: string[];
+}
+
+const REQUIRED_COLUMNS: Partial<Record<MegaImportType, { label: string; candidates: string[] }[]>> = {
+  clients:   [{ label: "Name",        candidates: ["name","client_name","customer","full_name","contact_name"] }],
+  jobs:      [{ label: "Job Name",    candidates: ["name","job_name","project","title","job_title"] }],
+  materials: [
+    { label: "Item",     candidates: ["name","material","description","item","product"] },
+    { label: "Quantity", candidates: ["qty","quantity","count","units"] },
+  ],
+  labor:     [
+    { label: "Employee", candidates: ["employee","name","crew","worker","technician"] },
+    { label: "Hours",    candidates: ["hours","duration","hrs","time"] },
+  ],
+  expenses:  [
+    { label: "Description", candidates: ["description","vendor","payee","memo","name"] },
+    { label: "Amount",      candidates: ["amount","total","cost","debit","credit"] },
+  ],
+};
+
+function findMissingColumns(type: MegaImportType, headers: string[]): string[] {
+  const required = REQUIRED_COLUMNS[type];
+  if (!required) return [];
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  return required
+    .filter((col) => !col.candidates.some((c) => lower.some((h) => h.includes(c))))
+    .map((col) => col.label);
 }
 
 const PLATFORM_LABELS: Record<PlatformName, string> = {
@@ -122,25 +149,45 @@ export default function MegaImportSection() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [pdfProcessing, setPdfProcessing] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
 
   const processFiles = useCallback(async (fileList: FileList) => {
     const parsed: ParsedFile[] = [];
+    const errors: string[] = [];
+    setUploadError("");
+    setUploadWarnings([]);
+
+    if (!fileList || fileList.length === 0) {
+      setUploadError("No file selected. Choose a CSV, ZIP, or PDF to import.");
+      return;
+    }
+
     for (const file of Array.from(fileList)) {
       if (file.name.endsWith(".zip")) {
         const buf = await file.arrayBuffer();
         const csvFiles = await extractZip(buf);
+        if (csvFiles.length === 0) {
+          errors.push(`"${file.name}" — no CSV files found inside this ZIP`);
+          continue;
+        }
         for (const { name, data } of csvFiles) {
           const { headers, rows } = parseCSV(data);
           if (rows.length === 0) continue;
           const pd = detectPlatform(headers);
-          parsed.push({ fileName: name, detectedType: detectFileType(headers), platform: pd.platform, platformConfidence: pd.confidence, rows, headers });
+          const type = detectFileType(headers);
+          parsed.push({ fileName: name, detectedType: type, platform: pd.platform, platformConfidence: pd.confidence, rows, headers, missingColumns: findMissingColumns(type, headers) });
         }
       } else if (file.name.endsWith(".csv")) {
         const text = await file.text();
         const { headers, rows } = parseCSV(text);
-        if (rows.length === 0) continue;
+        if (rows.length === 0) {
+          errors.push(`"${file.name}" — no data rows found (file may be empty or saved in an unsupported format)`);
+          continue;
+        }
         const pd = detectPlatform(headers);
-        parsed.push({ fileName: file.name, detectedType: detectFileType(headers), platform: pd.platform, platformConfidence: pd.confidence, rows, headers });
+        const type = detectFileType(headers);
+        parsed.push({ fileName: file.name, detectedType: type, platform: pd.platform, platformConfidence: pd.confidence, rows, headers, missingColumns: findMissingColumns(type, headers) });
       } else if (file.name.toLowerCase().endsWith(".pdf")) {
         const buf = await file.arrayBuffer();
         const bytes = new Uint8Array(buf);
@@ -150,13 +197,24 @@ export default function MegaImportSection() {
         setPdfProcessing(true);
         const result = await extractPdfAsRows(base64);
         setPdfProcessing(false);
-        if (result.error || result.rows.length === 0) continue;
+        if (result.error) {
+          errors.push(`"${file.name}" — PDF could not be read. Try exporting as CSV from your software instead.`);
+          continue;
+        }
+        if (result.rows.length === 0) {
+          errors.push(`"${file.name}" — no contractor data found in this PDF. We could not identify contractor data in this file — try exporting as CSV from your software instead.`);
+          continue;
+        }
         const pdfPlatform = (result.platform ?? "generic") as PlatformName;
-        parsed.push({ fileName: file.name, detectedType: result.detectedType, platform: pdfPlatform, platformConfidence: "high", rows: result.rows, headers: result.headers });
+        parsed.push({ fileName: file.name, detectedType: result.detectedType, platform: pdfPlatform, platformConfidence: "high", rows: result.rows, headers: result.headers, missingColumns: findMissingColumns(result.detectedType, result.headers) });
       }
     }
 
-    if (parsed.length === 0) return;
+    if (parsed.length === 0) {
+      setUploadError(errors.length > 0 ? errors[0] : "No recognizable contractor data found. Try exporting as CSV from your software.");
+      return;
+    }
+    if (errors.length > 0) setUploadWarnings(errors);
     setParsedFiles(parsed);
     setOverrides({});
     setStep("preview");
@@ -198,6 +256,8 @@ export default function MegaImportSection() {
     setParsedFiles([]);
     setOverrides({});
     setSummary(null);
+    setUploadError("");
+    setUploadWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -246,6 +306,13 @@ export default function MegaImportSection() {
           onChange={handleFiles}
         />
 
+        {uploadError && (
+          <div className="mt-4 bg-red-950/50 border border-red-800 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm font-semibold mb-1">Could not read file</p>
+            <p className="text-red-300/80 text-xs">{uploadError}</p>
+          </div>
+        )}
+
         {/* Template download */}
         <div className="mt-4 flex items-center justify-between">
           <p className="text-gray-500 text-xs">Not sure what format? Download our templates.</p>
@@ -276,6 +343,21 @@ export default function MegaImportSection() {
           </div>
           <button onClick={reset} className="text-gray-500 text-sm underline">Start over</button>
         </div>
+
+        {uploadWarnings.length > 0 && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-4">
+            <p className="text-red-400 text-sm font-semibold mb-1">Some files could not be read:</p>
+            {uploadWarnings.map((w, i) => <p key={i} className="text-red-300/70 text-xs mb-1">• {w}</p>)}
+          </div>
+        )}
+
+        {totalRows > 500 && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-4">
+            <p className="text-blue-300 text-sm">
+              Large import ({totalRows.toLocaleString()} rows) — this may take a minute. Keep the app open until it finishes.
+            </p>
+          </div>
+        )}
 
         {unknownCount > 0 && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3 mb-4">
@@ -312,6 +394,12 @@ export default function MegaImportSection() {
                     ))}
                   </select>
                 </div>
+
+                {f.missingColumns && f.missingColumns.length > 0 && (
+                  <p className="text-yellow-400 text-xs mb-1">
+                    Missing columns: {f.missingColumns.join(", ")} — import may be incomplete
+                  </p>
+                )}
 
                 {/* Sample rows */}
                 {f.rows.slice(0, 2).map((row, i) => (

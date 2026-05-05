@@ -278,6 +278,7 @@ export default async function JobDetailPage({
               jobId={job.id}
               initialStatus={job.status ?? "active"}
               openPunchItems={(punchListItems ?? []).filter((i) => !i.completed).length}
+              hasInvoice={!!invoice}
             />
           </div>
 
