@@ -63,6 +63,7 @@ const MORE_ITEMS = [
   { label: "Portfolio",          href: "/portfolio" },
   { label: "Tax Report",         href: "/tax" },
   { label: "Profitability",      href: "/profit" },
+  { label: "Reports",            href: "/reports" },
   { label: "Templates",          href: "/templates" },
   { label: "Materials Library",  href: "/materials-library" },
 ];
