@@ -93,6 +93,7 @@ export interface Material {
   notes: string | null;
   category: ExpenseCategory;
   trade: string | null;
+  receipt_id: string | null;
   created_at: string;
 }
 
@@ -127,6 +128,14 @@ export interface ExtractedReceiptItem {
   unit_price: number | null;
   line_total: number | null;
   checked: boolean;
+  linked_material_id?: string | null;
+}
+
+export interface DuplicateReceiptInfo {
+  id: string;
+  vendor: string | null;
+  amount: number | null;
+  receipt_date: string | null;
 }
 
 export interface ReceiptExtractionResult {
@@ -137,6 +146,7 @@ export interface ReceiptExtractionResult {
   total: number | null;
   image_unclear: boolean;
   auto_confirm: boolean;
+  duplicate_receipt?: DuplicateReceiptInfo | null;
 }
 
 export interface QuoteAddon {

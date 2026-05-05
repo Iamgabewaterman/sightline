@@ -5,6 +5,7 @@ import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { MegaImportType } from "@/lib/detect-file-type";
 import { normalizeCurrency, normalizeDate, normalizePhone } from "@/lib/normalize-import";
 import { normalizeMaterialName, fuzzyFindMatch } from "@/lib/material-normalizer";
+import { similarity } from "@/lib/fuzzy-match";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
 import { JobType, JobStatus, ExpenseCategory } from "@/types";
 
@@ -349,6 +350,9 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
     normalizedName: normalizeMaterialName(r.name as string),
   }));
 
+  // Cache existing job materials per job for Scenario 5 dedup
+  const jobMaterialsCache = new Map<string, Array<{ name: string; unit_cost: number | null }>>();
+
   for (const file of byType.materials) {
     for (const row of file.rows) {
       const rawName = pick(
@@ -392,6 +396,32 @@ export async function runMegaImport(files: MegaFileInput[]): Promise<MegaImportS
       const matchId = fuzzyFindMatch(normalizedName, historyCandidates);
       const isMatched = matchId !== null;
       if (isMatched) summary.materials.matched++;
+
+      // Scenario 5: dedup against existing job materials (name ≥ 0.8 + cost within 10%)
+      if (!jobMaterialsCache.has(jobId)) {
+        const { data: existingMats } = await supabase
+          .from("materials").select("name, unit_cost").eq("job_id", jobId);
+        jobMaterialsCache.set(jobId, (existingMats ?? []) as Array<{ name: string; unit_cost: number | null }>);
+      }
+      const existingJobMats = jobMaterialsCache.get(jobId)!;
+      if (existingJobMats.length > 0) {
+        let isDuplicate = false;
+        for (const existing of existingJobMats) {
+          const sim = similarity(normalizedName, existing.name);
+          if (sim < 0.8) continue;
+          if (unitCost !== null && existing.unit_cost !== null) {
+            const ratio = Math.min(unitCost, existing.unit_cost) / Math.max(unitCost, existing.unit_cost);
+            if (ratio < 0.9) continue;
+          }
+          isDuplicate = true;
+          break;
+        }
+        if (isDuplicate) {
+          summary.needsReview.push({ fileName: file.fileName, reason: `"${rawName}" may already exist on this job — review before importing` });
+          summary.materials.skipped++;
+          continue;
+        }
+      }
 
       const { error } = await supabase.from("materials").insert({
         job_id: jobId,

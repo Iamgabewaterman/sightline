@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteReceipt, updateReceiptCategory } from "@/app/actions/receipts";
-import { ExpenseCategory } from "@/types";
+import { ExpenseCategory, Material } from "@/types";
 import { CATEGORY_CONFIG, ALL_CATEGORIES, detectCategoryFromVendor } from "@/lib/expense-category";
 
 function TrashIcon() {
@@ -30,6 +30,15 @@ function formatDate(iso: string) {
   });
 }
 
+interface DuplicateWarning {
+  newReceiptId: string;
+  existingId: string;
+  vendor: string | null;
+  amount: number | null;
+  date: string | null;
+  extraction: ReceiptExtractionResult;
+}
+
 export default function ReceiptsSection({
   jobId,
   initialReceipts,
@@ -44,6 +53,8 @@ export default function ReceiptsSection({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [extraction, setExtraction] = useState<ReceiptExtractionResult | null>(null);
+  const [jobMaterials, setJobMaterials] = useState<Material[]>([]);
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarning | null>(null);
   const [categoryPickerId, setCategoryPickerId] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -66,6 +77,23 @@ export default function ReceiptsSection({
 
   function getPublicUrl(path: string) {
     return supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function refreshMaterialCost() {
+    const [{ data: receiptData }, { data: materialData }] = await Promise.all([
+      supabase.from("receipts").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+      supabase.from("materials").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+    ]);
+    if (receiptData) setReceipts(receiptData as Receipt[]);
+    if (materialData) {
+      setJobMaterials(materialData as Material[]);
+      const newCost = (materialData as Material[]).reduce((sum, m) => {
+        if (m.unit_cost === null) return sum;
+        const qty = m.quantity_used ?? m.quantity_ordered;
+        return sum + Number(qty) * Number(m.unit_cost);
+      }, 0);
+      setActualMaterialCost(newCost);
+    }
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -99,6 +127,29 @@ export default function ReceiptsSection({
 
     if (result.result.image_unclear) {
       setError("Image is unclear — please retake the photo in better lighting.");
+      await refreshMaterialCost();
+      return;
+    }
+
+    // Fetch fresh job materials for reconciliation check
+    const { data: freshMats } = await supabase
+      .from("materials")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    setJobMaterials((freshMats as Material[]) ?? []);
+
+    // Scenario 4 — duplicate receipt from same vendor+date
+    if (result.result.duplicate_receipt) {
+      const dup = result.result.duplicate_receipt;
+      setDuplicateWarning({
+        newReceiptId: result.result.receipt_id,
+        existingId: dup.id,
+        vendor: dup.vendor,
+        amount: dup.amount,
+        date: dup.receipt_date,
+        extraction: result.result,
+      });
       return;
     }
 
@@ -110,44 +161,38 @@ export default function ReceiptsSection({
         result.result.items,
         result.result.vendor
       );
-      // Reload receipts and update profitability bar
-      const [{ data: receiptData }, { data: materialData }] = await Promise.all([
-        supabase.from("receipts").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-        supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").eq("job_id", jobId),
-      ]);
-      if (receiptData) setReceipts(receiptData as Receipt[]);
-      if (materialData) {
-        const newCost = materialData.reduce((sum, m) => {
-          if (m.unit_cost === null) return sum;
-          const qty = m.quantity_used ?? m.quantity_ordered;
-          return sum + Number(qty) * Number(m.unit_cost);
-        }, 0);
-        setActualMaterialCost(newCost);
-      }
+      await refreshMaterialCost();
       return;
     }
 
-    // Show confirmation modal
     setExtraction(result.result);
   }
 
   async function handleModalDone() {
     setExtraction(null);
-    // Reload receipts and materials in parallel
-    const [{ data: receiptData }, { data: materialData }] = await Promise.all([
-      supabase.from("receipts").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").eq("job_id", jobId),
-    ]);
-    if (receiptData) setReceipts(receiptData as Receipt[]);
-    // Update profitability bar with fresh material cost
-    if (materialData) {
-      const newCost = materialData.reduce((sum, m) => {
-        if (m.unit_cost === null) return sum;
-        const qty = m.quantity_used ?? m.quantity_ordered;
-        return sum + Number(qty) * Number(m.unit_cost);
-      }, 0);
-      setActualMaterialCost(newCost);
+    await refreshMaterialCost();
+  }
+
+  async function handleDuplicateYes() {
+    // User confirms it's a different purchase — show modal as normal
+    if (!duplicateWarning) return;
+    const extr = duplicateWarning.extraction;
+    setDuplicateWarning(null);
+    if (extr.auto_confirm) {
+      await confirmReceiptItems(jobId, extr.receipt_id, extr.items, extr.vendor);
+      await refreshMaterialCost();
+    } else {
+      setExtraction(extr);
     }
+  }
+
+  async function handleDuplicateNo() {
+    // User says it's a duplicate — delete the receipt we just saved
+    if (!duplicateWarning) return;
+    const receiptId = duplicateWarning.newReceiptId;
+    setDuplicateWarning(null);
+    await deleteReceipt(receiptId);
+    await refreshMaterialCost();
   }
 
   async function handleCategoryChange(receiptId: string, category: ExpenseCategory) {
@@ -200,34 +245,15 @@ export default function ReceiptsSection({
         </button>
       </div>
 
-      {/* Camera input — opens camera directly */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFile}
-      />
-      {/* Library input — opens photo picker, no capture attribute */}
-      <input
-        ref={libraryRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFile}
-      />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+      <input ref={libraryRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
 
       {uploading && (
-        <p className="text-gray-400 text-sm mb-4 animate-pulse">
-          Scanning receipt with AI...
-        </p>
+        <p className="text-gray-400 text-sm mb-4 animate-pulse">Scanning receipt with AI...</p>
       )}
 
       {error && (
-        <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3 mb-4">
-          {error}
-        </p>
+        <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3 mb-4">{error}</p>
       )}
 
       {receipts.length === 0 ? (
@@ -243,25 +269,16 @@ export default function ReceiptsSection({
                 key={r.id}
                 className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex items-center gap-4"
               >
-                {/* Thumbnail */}
                 <button
                   onClick={() => setFullscreen(url)}
                   className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-[#242424] active:scale-95 transition-transform"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+                  <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
                 </button>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-base truncate">
-                    {r.vendor ?? "Receipt"}
-                  </p>
+                  <p className="text-white font-semibold text-base truncate">{r.vendor ?? "Receipt"}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-gray-500 text-xs">{formatDate(r.created_at)}</p>
                     {(() => {
@@ -280,12 +297,9 @@ export default function ReceiptsSection({
                   )}
                 </div>
 
-                {/* Amount */}
                 <div className="flex items-center gap-3">
                   {r.amount !== null && (
-                    <span className="text-orange-500 font-bold text-lg">
-                      ${r.amount.toFixed(2)}
-                    </span>
+                    <span className="text-orange-500 font-bold text-lg">${r.amount.toFixed(2)}</span>
                   )}
                   <button
                     onClick={() => setConfirmDeleteId(r.id)}
@@ -299,12 +313,9 @@ export default function ReceiptsSection({
             );
           })}
 
-          {/* Total row */}
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex justify-between items-center">
             <span className="text-gray-400 font-semibold">Total spent</span>
-            <span className="text-white font-bold text-xl">
-              ${total.toFixed(2)}
-            </span>
+            <span className="text-white font-bold text-xl">${total.toFixed(2)}</span>
           </div>
         </div>
       )}
@@ -362,25 +373,48 @@ export default function ReceiptsSection({
 
       {/* Fullscreen overlay */}
       {fullscreen && (
-        <div
-          className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-          onClick={() => setFullscreen(null)}
-        >
-          <button
-            onClick={() => setFullscreen(null)}
-            className="absolute top-5 right-5 text-white text-4xl leading-none z-10"
-            aria-label="Close"
-          >
-            ×
-          </button>
+        <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" onClick={() => setFullscreen(null)}>
+          <button onClick={() => setFullscreen(null)} className="absolute top-5 right-5 text-white text-4xl leading-none z-10" aria-label="Close">×</button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={fullscreen}
-            alt=""
-            className="max-w-full max-h-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <img src={fullscreen} alt="" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
+      )}
+
+      {/* Scenario 4 — duplicate receipt warning */}
+      {duplicateWarning && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/80" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+            <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
+            <div className="flex items-start gap-3 mb-5">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div>
+                <p className="text-white font-bold text-base mb-1">Possible duplicate receipt</p>
+                <p className="text-gray-400 text-sm">
+                  You already have a receipt from{" "}
+                  <span className="text-white font-semibold">{duplicateWarning.vendor ?? "this vendor"}</span>
+                  {duplicateWarning.date ? ` on ${duplicateWarning.date}` : ""}
+                  {duplicateWarning.amount != null ? ` for $${duplicateWarning.amount.toFixed(2)}` : ""}.
+                  Is this a different purchase?
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleDuplicateYes}
+                className="w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Yes, different purchase
+              </button>
+              <button
+                onClick={handleDuplicateNo}
+                className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                No, it&apos;s a duplicate — discard
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Receipt confirmation modal */}
@@ -388,6 +422,7 @@ export default function ReceiptsSection({
         <ReceiptConfirmationModal
           jobId={jobId}
           extraction={extraction}
+          existingMaterials={jobMaterials}
           onDone={handleModalDone}
           onCancel={() => setExtraction(null)}
         />

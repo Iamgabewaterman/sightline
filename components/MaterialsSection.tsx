@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial, getMaterialSuggestions, MaterialSuggestion } from "@/app/actions/materials";
+import { similarity } from "@/lib/fuzzy-match";
 import { Material } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
@@ -382,6 +383,17 @@ function MaterialRow({
             {material.trade && (
               <span className="text-xs font-semibold uppercase tracking-wider text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded-full">{material.trade}</span>
             )}
+            {material.receipt_id && (
+              <span className="inline-flex items-center gap-1 text-green-400 text-xs font-semibold bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Receipt
+              </span>
+            )}
           </div>
           {material.notes && <p className="text-gray-500 text-sm mt-0.5 italic">{material.notes}</p>}
         </div>
@@ -509,11 +521,13 @@ export default function MaterialsSection({
     setActualMaterialCost(cost);
   }, [materials, setActualMaterialCost]);
 
-  const [showForm,     setShowForm]     = useState(false);
-  const [showShopping, setShowShopping] = useState(false);
-  const [showImport,   setShowImport]   = useState(false);
-  const [saving,       setSaving]       = useState(false);
-  const [formError,    setFormError]    = useState("");
+  const [showForm,      setShowForm]      = useState(false);
+  const [showShopping,  setShowShopping]  = useState(false);
+  const [showImport,    setShowImport]    = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [formError,     setFormError]     = useState("");
+  const [receiptWarning, setReceiptWarning] = useState<string | null>(null);
+  const bypassReceiptCheckRef = useRef<boolean>(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Open form when triggered from quick-add bar
@@ -593,6 +607,30 @@ export default function MaterialsSection({
 
     const combinedNotes = buildNotes();
     if (combinedNotes) formData.set("notes", combinedNotes);
+
+    // Scenario 2: warn if a receipt-linked material already matches this name
+    if (!bypassReceiptCheckRef.current) {
+      const receiptLinked = materials.filter((m) => m.receipt_id !== null);
+      const costVal = unitCost !== "" ? parseFloat(unitCost) : null;
+      let warningMatch: string | null = null;
+      for (const m of receiptLinked) {
+        const sim = similarity(nameVal.trim(), m.name);
+        if (sim < 0.8) continue;
+        if (costVal !== null && m.unit_cost !== null) {
+          const ratio = Math.min(costVal, m.unit_cost) / Math.max(costVal, m.unit_cost);
+          if (ratio < 0.5) continue;
+        }
+        warningMatch = m.name;
+        break;
+      }
+      if (warningMatch) {
+        setReceiptWarning(warningMatch);
+        setSaving(false);
+        return;
+      }
+    }
+    bypassReceiptCheckRef.current = false;
+    setReceiptWarning(null);
 
     const result = await addMaterial(jobId, formData);
 
@@ -825,6 +863,26 @@ export default function MaterialsSection({
           {/* $/LF preview */}
           {typeConfig.showLength && (
             <CostPerLFChip qtyOrdered={qtyOrdered} unitCost={unitCost} lengthFt={effectiveLengthFt} />
+          )}
+
+          {receiptWarning && (
+            <div className="bg-yellow-950/50 border border-yellow-700/40 rounded-xl px-4 py-3">
+              <p className="text-yellow-300 text-sm font-semibold mb-1">Receipt already logged</p>
+              <p className="text-yellow-200/70 text-xs mb-3">
+                &ldquo;{receiptWarning}&rdquo; is already documented by a receipt. Adding another entry may double-count this cost on the profitability bar.
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setReceiptWarning(null)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#242424] border border-[#333] text-gray-400 active:scale-95 transition-transform">
+                  Cancel
+                </button>
+                <button type="button"
+                  onClick={() => { bypassReceiptCheckRef.current = true; formRef.current?.requestSubmit(); }}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-yellow-600/20 border border-yellow-700/40 text-yellow-300 active:scale-95 transition-transform">
+                  Add anyway
+                </button>
+              </div>
+            </div>
           )}
 
           {formError && (

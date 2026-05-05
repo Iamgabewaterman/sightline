@@ -173,6 +173,21 @@ export async function extractReceiptItems(
 
   if (dbError) return { error: dbError.message };
 
+  // Scenario 4 — duplicate receipt check (same vendor + same date on this job)
+  let duplicateReceipt = null;
+  if (parsed.vendor && parsed.date) {
+    const { data: existingDup } = await supabase
+      .from("receipts")
+      .select("id, vendor, amount, receipt_date")
+      .eq("job_id", jobId)
+      .eq("vendor", parsed.vendor)
+      .eq("receipt_date", parsed.date)
+      .neq("id", receipt!.id)
+      .limit(1)
+      .maybeSingle();
+    if (existingDup) duplicateReceipt = existingDup;
+  }
+
   // Load user preferences (auto-exclude)
   const { data: prefs } = await supabase
     .from("receipt_item_preferences")
@@ -218,6 +233,7 @@ export async function extractReceiptItems(
       total: parsed.total,
       image_unclear: false,
       auto_confirm: autoConfirm,
+      duplicate_receipt: duplicateReceipt ?? null,
     },
   };
 }
@@ -245,14 +261,25 @@ export async function confirmReceiptItems(
   const checkedItems = items.filter((i) => i.checked);
   const uncheckedItems = items.filter((i) => !i.checked);
 
-  // Create material entries for checked items + write to personal history
-  if (checkedItems.length > 0) {
-    const materialRows = checkedItems.map((item) => ({
+  // Scenario 1/3: items linked to existing materials — just attach receipt proof, no new row
+  const itemsToLink = checkedItems.filter((i) => i.linked_material_id);
+  const itemsToInsert = checkedItems.filter((i) => !i.linked_material_id);
+
+  for (const item of itemsToLink) {
+    await supabase.from("materials")
+      .update({ receipt_id: receiptId })
+      .eq("id", item.linked_material_id!);
+  }
+
+  // Create material entries for new (unlinked) checked items
+  if (itemsToInsert.length > 0) {
+    const materialRows = itemsToInsert.map((item) => ({
       job_id: jobId,
       name: item.normalized_name,
       unit: item.unit ?? "EA",
       quantity_ordered: item.qty ?? 1,
       unit_cost: item.unit_price ?? null,
+      receipt_id: receiptId,
       notes: item.raw_name !== item.normalized_name
         ? `Receipt: ${item.raw_name}`
         : null,
@@ -262,7 +289,7 @@ export async function confirmReceiptItems(
     if (matError) return { error: matError.message };
 
     // Write each confirmed item to user material history with fuzzy dedup
-    for (const item of checkedItems) {
+    for (const item of itemsToInsert) {
       void writeUserMaterialHistory(
         supabase,
         user.id,

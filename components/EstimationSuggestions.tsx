@@ -90,6 +90,7 @@ export default function EstimationSuggestions({
       notes: `AI suggestion (${s.confidence} past job${s.confidence !== 1 ? "s" : ""})`,
       category: "materials" as const,
       trade: null,
+      receipt_id: null,
       created_at: now,
     }));
     onMaterialsAdded(added);
