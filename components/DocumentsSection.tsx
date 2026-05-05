@@ -113,7 +113,13 @@ export default function DocumentsSection({ jobId, initialDocuments }: Props) {
     const doc = documents.find((d) => d.id === confirmDeleteId);
     if (!doc) return;
     setDeleting(true);
-    await deleteDocument(doc.id, doc.storage_path);
+    const res = await deleteDocument(doc.id, doc.storage_path);
+    if (res?.error) {
+      setError(res.error);
+      setConfirmDeleteId(null);
+      setDeleting(false);
+      return;
+    }
     setDocuments((prev) => prev.filter((d) => d.id !== confirmDeleteId));
     if (viewing?.doc.id === confirmDeleteId) setViewing(null);
     setConfirmDeleteId(null);

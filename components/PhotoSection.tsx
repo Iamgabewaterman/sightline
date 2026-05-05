@@ -138,7 +138,13 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
     const photo = photos.find((p) => p.id === confirmDeleteId);
     if (!photo) return;
     setDeleting(true);
-    await deletePhoto(photo.id, photo.storage_path);
+    const res = await deletePhoto(photo.id, photo.storage_path);
+    if (res.error) {
+      setError(res.error);
+      setConfirmDeleteId(null);
+      setDeleting(false);
+      return;
+    }
     setPhotos((prev) => prev.filter((p) => p.id !== confirmDeleteId));
     if (detail?.id === confirmDeleteId) setDetail(null);
     setConfirmDeleteId(null);

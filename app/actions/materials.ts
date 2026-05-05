@@ -298,6 +298,7 @@ export async function updateMaterial(
     length_ft?: number | null;
     notes?: string | null;
     trade?: string | null;
+    category?: string | null;
   }
 ) {
   const supabase = createClient();

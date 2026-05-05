@@ -47,7 +47,13 @@ export default function ChangeOrdersSection({ jobId }: { jobId: string }) {
 
   async function handleDelete(id: string) {
     setDeleting(true);
-    await deleteChangeOrder(id);
+    const res = await deleteChangeOrder(id);
+    if (res?.error) {
+      setError(res.error);
+      setConfirmDeleteId(null);
+      setDeleting(false);
+      return;
+    }
     setChangeOrders(changeOrders.filter((o) => o.id !== id));
     setConfirmDeleteId(null);
     setDeleting(false);
@@ -76,6 +82,10 @@ export default function ChangeOrdersSection({ jobId }: { jobId: string }) {
           Add
         </button>
       </div>
+
+      {error && !sheetOpen && (
+        <p className="text-red-400 text-sm mb-3">{error}</p>
+      )}
 
       {changeOrders.length === 0 ? (
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-10 text-center">

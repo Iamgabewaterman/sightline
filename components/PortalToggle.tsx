@@ -25,8 +25,8 @@ export default function PortalToggle({ jobId, initialEnabled, initialToken }: Pr
   async function handleToggle() {
     setSaving(true);
     if (enabled) {
-      await disablePortal(jobId);
-      setEnabled(false);
+      const res = await disablePortal(jobId);
+      if (!res?.error) setEnabled(false);
     } else {
       const res = await enablePortal(jobId);
       if (res.token) {

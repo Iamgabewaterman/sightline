@@ -62,6 +62,12 @@ export default function PunchListWidget({
 
     const res = await togglePunchListItem(item.id, newCompleted);
     setTogglingId(null);
+    if (res.error) {
+      setItems((prev) => prev.map((i) =>
+        i.id === item.id ? { ...i, completed: item.completed, completed_at: item.completed_at } : i
+      ));
+      return;
+    }
     if (res.item) {
       setItems((prev) => prev.map((i) => i.id === res.item!.id ? res.item! : i));
     }

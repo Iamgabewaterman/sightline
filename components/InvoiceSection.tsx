@@ -319,7 +319,8 @@ export default function InvoiceSection({
   async function handleSaveSchedule() {
     if (!invoice) return;
     const toSave = splitMode === "full" ? [] : milestoneRowsToSave(milestoneRows);
-    await saveMilestones(invoice.id, toSave);
+    const schedRes = await saveMilestones(invoice.id, toSave);
+    if (schedRes?.error) { setError(schedRes.error); return; }
     // Update live milestones (keep paid ones, replace unpaid with new rows)
     setLiveMilestones([
       ...paidMilestones,

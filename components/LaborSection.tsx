@@ -291,7 +291,8 @@ export default function LaborSection({
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this labor entry?")) return;
-    await deleteLaborLog(id);
+    const res = await deleteLaborLog(id);
+    if (res.error) { alert(res.error); return; }
     setLogs((prev) => prev.filter((l) => l.id !== id));
   }
 
