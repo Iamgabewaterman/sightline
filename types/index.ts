@@ -94,6 +94,7 @@ export interface Material {
   category: ExpenseCategory;
   trade: string | null;
   receipt_id: string | null;
+  normalized_name?: string | null;
   created_at: string;
 }
 

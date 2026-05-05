@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Material } from "@/types";
 import { generateShoppingListPDF } from "@/lib/generateShoppingListPDF";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeMaterialName } from "@/lib/material-normalizer";
 
 const CAT_LABELS: Record<string, string> = {
   materials: "Materials", equipment: "Equipment", labor: "Labor",
@@ -20,8 +21,9 @@ function fmtCost(n: number) {
 }
 
 interface ShoppingItem {
-  id: string;
-  name: string;
+  id: string;       // normalized key (for grouped items) or material id
+  name: string;     // display name (most common brand or single name)
+  brands: string[]; // all brand names when multiple are grouped
   qtyNeeded: number;
   unit: string;
   unitCost: number | null;
@@ -29,34 +31,44 @@ interface ShoppingItem {
 }
 
 function getShoppingItems(materials: Material[]): ShoppingItem[] {
-  const items: ShoppingItem[] = [];
+  // Build raw needsList per material
+  const rawNeeds: Array<{ matId: string; name: string; qtyNeeded: number; unit: string; unitCost: number | null; category: string }> = [];
   for (const m of materials) {
     const ordered = Number(m.quantity_ordered ?? 0);
     const used = m.quantity_used !== null ? Number(m.quantity_used) : null;
 
     if (ordered === 0) {
-      // Not purchased yet — quantity to buy is qty_used (planned) or unknown
-      items.push({
-        id: m.id,
-        name: m.name,
-        qtyNeeded: used !== null ? used : 0,
-        unit: m.unit,
-        unitCost: m.unit_cost !== null ? Number(m.unit_cost) : null,
-        category: m.category,
-      });
+      rawNeeds.push({ matId: m.id, name: m.name, qtyNeeded: used ?? 0, unit: m.unit, unitCost: m.unit_cost !== null ? Number(m.unit_cost) : null, category: m.category });
     } else if (used !== null && used > ordered) {
-      // Need to reorder
-      items.push({
-        id: m.id,
-        name: m.name,
-        qtyNeeded: used - ordered,
-        unit: m.unit,
-        unitCost: m.unit_cost !== null ? Number(m.unit_cost) : null,
-        category: m.category,
-      });
+      rawNeeds.push({ matId: m.id, name: m.name, qtyNeeded: used - ordered, unit: m.unit, unitCost: m.unit_cost !== null ? Number(m.unit_cost) : null, category: m.category });
     }
   }
-  return items;
+
+  // Group by normalized name
+  const order: string[] = [];
+  const map = new Map<string, typeof rawNeeds>();
+  for (const n of rawNeeds) {
+    const key = (materials.find((m) => m.id === n.matId)?.normalized_name) ?? normalizeMaterialName(n.name);
+    if (!map.has(key)) { map.set(key, []); order.push(key); }
+    map.get(key)!.push(n);
+  }
+
+  return order.map((key) => {
+    const group = map.get(key)!;
+    const totalQty = group.reduce((s, n) => s + n.qtyNeeded, 0);
+    const costs = group.filter((n) => n.unitCost !== null).map((n) => n.unitCost as number);
+    const avgCost = costs.length > 0 ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
+    const names = Array.from(new Set(group.map((n) => n.name)));
+    return {
+      id: group.length === 1 ? group[0].matId : key,
+      name: names[0],
+      brands: names,
+      qtyNeeded: totalQty,
+      unit: group[0].unit,
+      unitCost: avgCost,
+      category: group[0].category,
+    };
+  });
 }
 
 export default function ShoppingListModal({
@@ -112,7 +124,8 @@ export default function ShoppingListModal({
         const qty = item.qtyNeeded > 0
           ? `× ${item.qtyNeeded % 1 === 0 ? item.qtyNeeded : item.qtyNeeded.toFixed(2)}`
           : "";
-        lines.push(`□ ${item.name} ${item.unit} ${qty}`.trim());
+        const brandNote = item.brands.length > 1 ? ` (${item.brands.join(" / ")})` : "";
+        lines.push(`□ ${item.name}${brandNote} ${item.unit} ${qty}`.trim());
       }
       lines.push("");
     });
@@ -237,6 +250,11 @@ export default function ShoppingListModal({
                         <p className={`font-semibold text-sm leading-snug ${isChecked ? "text-white" : "text-gray-500"}`}>
                           {item.name}
                         </p>
+                        {item.brands.length > 1 && (
+                          <p className="text-gray-600 text-xs mt-0.5 truncate">
+                            +{item.brands.slice(1).join(", ")}
+                          </p>
+                        )}
                         <p className="text-gray-500 text-xs mt-0.5">{qtyLabel}</p>
                       </div>
                       {/* Cost */}

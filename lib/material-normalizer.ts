@@ -27,20 +27,27 @@ export function bigramSimilarity(a: string, b: string): number {
 
 // Sorted longest-first so longer brand names are checked before shorter prefixes
 const BRAND_PREFIXES = [
+  // Vendors / distributors
+  "home depot", "lowe's", "lowes", "menards", "fastenal",
+  "parr lumber", "abc supply", "84 lumber", "wesco", "ferguson",
+  // Brands
   "simpson strong-tie", "simpson strong tie",
   "owens corning",
   "georgia-pacific", "georgia pacific",
   "national gypsum",
   "louisiana-pacific", "lp building products",
   "huber engineered woods",
+  "james hardie", "james-hardie",
   "weyerhaeuser",
   "benjamin moore",
   "sherwin-williams", "sherwin williams",
   "certainteed",
+  "grip-rite", "grip rite",
   "titebond", "loctite",
   "quikrete", "sakrete",
+  "senco", "bostitch",
   "huber", "tyvek", "dupont", "tamko", "platon",
-  "simpson", "behr", "usg", "dow",
+  "simpson", "behr", "usg", "dow", "dap",
 ].sort((a, b) => b.length - a.length);
 
 export function normalizeMaterialName(raw: string): string {

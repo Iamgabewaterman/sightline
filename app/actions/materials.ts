@@ -205,9 +205,11 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  const normalized_name = normalizeMaterialName(name);
+
   const { data, error } = await supabase
     .from("materials")
-    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade })
+    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade, normalized_name })
     .select()
     .single();
 

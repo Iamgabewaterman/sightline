@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { normalize } from "@/lib/receipt-normalizer";
+import { normalizeMaterialName } from "@/lib/material-normalizer";
 import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
@@ -280,6 +281,7 @@ export async function confirmReceiptItems(
       quantity_ordered: item.qty ?? 1,
       unit_cost: item.unit_price ?? null,
       receipt_id: receiptId,
+      normalized_name: normalizeMaterialName(item.normalized_name),
       notes: item.raw_name !== item.normalized_name
         ? `Receipt: ${item.raw_name}`
         : null,

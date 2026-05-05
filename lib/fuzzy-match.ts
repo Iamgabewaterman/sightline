@@ -28,12 +28,12 @@ export interface MaterialMatch {
   confidence: number;
 }
 
-// Find best unlinked material matching name+cost above threshold (default 0.8)
+// Find best unlinked material matching name+cost above threshold (default 0.7)
 export function findBestMaterialMatch(
   name: string,
   unitCost: number | null,
   materials: Material[],
-  threshold = 0.8,
+  threshold = 0.7,
 ): MaterialMatch | null {
   let best: MaterialMatch | null = null;
   for (const mat of materials) {

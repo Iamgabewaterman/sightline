@@ -3,6 +3,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial, getMaterialSuggestions, MaterialSuggestion } from "@/app/actions/materials";
 import { similarity } from "@/lib/fuzzy-match";
+import { normalizeMaterialName } from "@/lib/material-normalizer";
 import { Material } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
@@ -145,6 +146,44 @@ const CATEGORY_FALLBACKS: Record<string, string[]> = {
 
 // Global fallback used when category is "other" or no category fallback matches
 const GLOBAL_FALLBACK: string[] = Object.values(CATEGORY_FALLBACKS).flat();
+
+// ─── Grouping helpers ─────────────────────────────────────────────────────────
+
+interface MaterialGroup {
+  key: string;
+  displayName: string;
+  materials: Material[];
+}
+
+function getNormalizedKey(m: Material): string {
+  return m.normalized_name ?? normalizeMaterialName(m.name);
+}
+
+function getMostCommonName(mats: Material[]): string {
+  const counts = new Map<string, number>();
+  for (const m of mats) counts.set(m.name, (counts.get(m.name) ?? 0) + 1);
+  let best = mats[0].name;
+  let bestCount = 0;
+  Array.from(counts.entries()).forEach(([name, count]) => {
+    if (count > bestCount) { best = name; bestCount = count; }
+  });
+  return best;
+}
+
+function groupByNormalized(materials: Material[]): MaterialGroup[] {
+  const order: string[] = [];
+  const map = new Map<string, Material[]>();
+  for (const m of materials) {
+    const key = getNormalizedKey(m);
+    if (!map.has(key)) { map.set(key, []); order.push(key); }
+    map.get(key)!.push(m);
+  }
+  return order.map((key) => ({
+    key,
+    displayName: getMostCommonName(map.get(key)!),
+    materials: map.get(key)!,
+  }));
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -317,10 +356,11 @@ function NameAutocomplete({
 // ─── MaterialRow ──────────────────────────────────────────────────────────────
 
 function MaterialRow({
-  material, onUpdate, onDelete, onDuplicate, jobTypes,
+  material, onUpdate, onDelete, onDuplicate, jobTypes, nested = false,
 }: {
   material: Material; onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void; onDuplicate: (m: Material) => void; jobTypes: string[];
+  nested?: boolean;
 }) {
   const [editing, setEditing] = useState(!!(material as Material & { _openEdit?: boolean })._openEdit);
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
@@ -382,7 +422,7 @@ function MaterialRow({
   })();
 
   return (
-    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
+    <div className={nested ? "px-4 py-4" : "bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4"}>
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -547,6 +587,98 @@ function MaterialRow({
   );
 }
 
+// ─── GroupedMaterialCard ──────────────────────────────────────────────────────
+
+function GroupedMaterialCard({
+  group, onUpdate, onDelete, onDuplicate, jobTypes,
+}: {
+  group: MaterialGroup;
+  onUpdate: (id: string, fields: Partial<Material>) => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (m: Material) => void;
+  jobTypes: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (group.materials.length === 1) {
+    return (
+      <MaterialRow material={group.materials[0]} onUpdate={onUpdate}
+        onDelete={onDelete} onDuplicate={onDuplicate} jobTypes={jobTypes} />
+    );
+  }
+
+  const totalCost = group.materials.reduce((sum, m) => {
+    if (m.unit_cost === null) return sum;
+    const qty = m.quantity_used ?? m.quantity_ordered;
+    return sum + Number(qty) * Number(m.unit_cost);
+  }, 0);
+  const hasCost = group.materials.some((m) => m.unit_cost !== null);
+
+  // materials sorted newest-first from DB: baseline = last (oldest), latest = first (newest)
+  const baseline = group.materials[group.materials.length - 1];
+  const latest   = group.materials[0];
+
+  const variancePct = (() => {
+    if (baseline.unit_cost === null || latest.unit_cost === null) return null;
+    return ((Number(latest.unit_cost) - Number(baseline.unit_cost)) / Number(baseline.unit_cost)) * 100;
+  })();
+
+  const showVariance = variancePct !== null && Math.abs(variancePct) >= 5;
+
+  return (
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full px-4 py-4 text-left flex items-center gap-3 active:bg-[#202020] transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-base truncate">{group.displayName}</p>
+          <p className="text-gray-500 text-xs mt-0.5">
+            {group.materials.length} purchases
+            {hasCost && ` · $${totalCost.toLocaleString("en-US", { maximumFractionDigits: 0 })} total`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {showVariance && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              variancePct! > 15 ? "bg-red-500/20 text-red-400" :
+              variancePct! > 0  ? "bg-yellow-500/20 text-yellow-400" :
+                                  "bg-green-500/20 text-green-400"
+            }`}>
+              {variancePct! > 0 ? "+" : ""}{variancePct!.toFixed(0)}%
+            </span>
+          )}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className={`text-gray-500 transition-transform ${expanded ? "rotate-180" : ""}`}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[#2a2a2a]">
+          {group.materials.map((m, idx) => {
+            const isBaseline = idx === group.materials.length - 1;
+            return (
+              <div key={m.id} className={idx > 0 ? "border-t border-[#2a2a2a]" : ""}>
+                {isBaseline && (
+                  <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider px-4 pt-3 pb-0">
+                    Baseline purchase
+                  </p>
+                )}
+                <MaterialRow material={m} onUpdate={onUpdate} onDelete={onDelete}
+                  onDuplicate={onDuplicate} jobTypes={jobTypes} nested />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MaterialsSection (main export) ──────────────────────────────────────────
 
 export default function MaterialsSection({
@@ -556,6 +688,7 @@ export default function MaterialsSection({
   initialMaterials: Material[]; onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
+  const groupedMaterials = useMemo(() => groupByNormalized(materials), [materials]);
   const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
 
   useEffect(() => {
@@ -953,8 +1086,8 @@ export default function MaterialsSection({
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {materials.map((m) => (
-            <MaterialRow key={m.id} material={m} onUpdate={handleUpdate}
+          {groupedMaterials.map((group) => (
+            <GroupedMaterialCard key={group.key} group={group} onUpdate={handleUpdate}
               onDelete={handleDelete} onDuplicate={handleDuplicate} jobTypes={jobTypes} />
           ))}
         </div>
