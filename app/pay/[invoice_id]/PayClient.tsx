@@ -61,7 +61,7 @@ export default function PayButton({
         className="w-full bg-[#242424] border border-[#333] text-white font-semibold text-base py-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-50 flex flex-col items-center gap-0.5"
       >
         <span>{loading === "card" ? "Redirecting…" : "Pay with Card"}</span>
-        <span className="text-gray-500 font-normal text-sm">2.9% + $0.30 fee</span>
+        <span className="text-gray-500 font-normal text-sm">${cardFee.toFixed(2)} card fee</span>
       </button>
     </div>
   );

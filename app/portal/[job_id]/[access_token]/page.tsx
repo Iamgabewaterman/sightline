@@ -77,6 +77,8 @@ export default async function PortalPage({
     { data: assignments },
     { data: invoice },
     { data: client },
+    { data: estimate },
+    { data: documents },
   ] = await Promise.all([
     supabase.from("business_profiles").select("*").eq("user_id", job.user_id).maybeSingle(),
     supabase
@@ -93,6 +95,19 @@ export default async function PortalPage({
     job.client_id
       ? supabase.from("clients").select("name, company").eq("id", job.client_id).single()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("estimates")
+      .select("id, final_quote, quote_status, signature_token")
+      .eq("job_id", job.id)
+      .eq("type", "job_quote")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("documents")
+      .select("id, name, category, storage_path, created_at")
+      .eq("job_id", job.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   let logoUrl: string | null = null;
@@ -139,6 +154,11 @@ export default async function PortalPage({
   const invoiceIsOverdue =
     invoice && !isPaid && invoice.due_date && invoice.due_date < new Date().toISOString().split("T")[0];
 
+  const signUrl = estimate?.signature_token
+    ? `/sign/${estimate.id}/${estimate.signature_token}`
+    : null;
+  const quoteIsUnsigned = estimate && estimate.quote_status !== "accepted";
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-10 pb-20">
       <div className="max-w-md mx-auto">
@@ -160,6 +180,14 @@ export default async function PortalPage({
           {bp?.owner_name && <p className="text-gray-400 text-sm mt-0.5">{bp.owner_name}</p>}
           {bp?.phone && <p className="text-gray-500 text-xs">{bp.phone}</p>}
         </div>
+
+        {/* Greeting */}
+        {client?.name && (
+          <div className="mb-5 text-center">
+            <p className="text-white font-bold text-2xl">Hi, {client.name.split(" ")[0]}!</p>
+            <p className="text-gray-500 text-sm mt-1">Here&apos;s the latest on your project.</p>
+          </div>
+        )}
 
         {/* Job info card */}
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
@@ -289,6 +317,80 @@ export default async function PortalPage({
                 </Link>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Quote section — show Sign Quote if unsigned */}
+        {quoteIsUnsigned && estimate && signUrl && (
+          <div className="bg-[#1A1A1A] border border-orange-500/30 rounded-2xl overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Project Quote</p>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                Awaiting Signature
+              </span>
+            </div>
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-gray-400 text-sm">Project Total</p>
+                <p className="text-orange-500 font-black text-2xl">
+                  ${Number(estimate.final_quote).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <Link
+                href={signUrl}
+                className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
+              >
+                Review &amp; Sign Quote →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Documents section */}
+        {(documents ?? []).length > 0 && (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-[#2a2a2a]">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Documents</p>
+            </div>
+            <div className="flex flex-col divide-y divide-[#2a2a2a]">
+              {(documents ?? []).map((doc) => (
+                <div key={doc.id} className="px-5 py-3 flex items-center gap-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{doc.name}</p>
+                    {doc.category && <p className="text-gray-500 text-xs capitalize">{doc.category}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Contractor contact */}
+        {(bp?.phone || bp?.email) && (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-5 py-4 mb-5">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Contact</p>
+            <p className="text-white font-semibold text-sm mb-2">{bp.business_name ?? bp.owner_name ?? "Contractor"}</p>
+            {bp.phone && (
+              <a href={`tel:${bp.phone}`} className="flex items-center gap-2 text-gray-400 text-sm mb-1.5 active:text-white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.19 2 2 0 012.1 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                </svg>
+                {bp.phone}
+              </a>
+            )}
+            {bp.email && (
+              <a href={`mailto:${bp.email}`} className="flex items-center gap-2 text-gray-400 text-sm active:text-white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                {bp.email}
+              </a>
+            )}
           </div>
         )}
 

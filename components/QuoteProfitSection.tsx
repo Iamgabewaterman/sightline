@@ -515,6 +515,8 @@ export default function QuoteProfitSection({
             {(() => {
               const v = actualMaterialCost - qd!.materialBudget;
               const has = actualMaterialCost > 0;
+              const pct = has && qd!.materialBudget > 0 ? (v / qd!.materialBudget) * 100 : 0;
+              const statusColor = !has ? "text-gray-600" : v <= 0 ? "text-green-400" : pct <= 20 ? "text-yellow-400" : "text-red-400";
               return (
                 <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#1e1e1e]">
                   <span className="text-gray-300 text-sm">Materials</span>
@@ -522,7 +524,7 @@ export default function QuoteProfitSection({
                   <span className={`text-sm text-right w-[72px] font-semibold ${has ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
                     {has ? "$" + Math.round(actualMaterialCost).toLocaleString() : "—"}
                   </span>
-                  <span className={`text-xs text-right w-[52px] font-bold ${has ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                  <span className={`text-xs text-right w-[52px] font-bold ${statusColor}`}>
                     {has ? (v > 0 ? "Over" : "Under") : "—"}
                   </span>
                 </div>
@@ -532,6 +534,8 @@ export default function QuoteProfitSection({
             {(() => {
               const v = actualLaborCost - qd!.laborBudget;
               const has = actualLaborCost > 0;
+              const pct = has && qd!.laborBudget > 0 ? (v / qd!.laborBudget) * 100 : 0;
+              const statusColor = !has ? "text-gray-600" : v <= 0 ? "text-green-400" : pct <= 20 ? "text-yellow-400" : "text-red-400";
               return (
                 <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#1e1e1e]">
                   <span className="text-gray-300 text-sm">Labor</span>
@@ -539,7 +543,7 @@ export default function QuoteProfitSection({
                   <span className={`text-sm text-right w-[72px] font-semibold ${has ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
                     {has ? "$" + Math.round(actualLaborCost).toLocaleString() : "—"}
                   </span>
-                  <span className={`text-xs text-right w-[52px] font-bold ${has ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                  <span className={`text-xs text-right w-[52px] font-bold ${statusColor}`}>
                     {has ? (v > 0 ? "Over" : "Under") : "—"}
                   </span>
                 </div>
@@ -559,6 +563,8 @@ export default function QuoteProfitSection({
             {/* Total row */}
             {(() => {
               const v = totalActual - totalQuote;
+              const pct = hasActual && totalQuote > 0 ? (v / totalQuote) * 100 : 0;
+              const statusColor = !hasActual ? "text-gray-600" : v <= 0 ? "text-green-400" : pct <= 20 ? "text-yellow-400" : "text-red-400";
               return (
                 <div className="grid grid-cols-[1fr_auto_auto_auto] px-3 py-2.5 gap-x-3 border-t border-[#2a2a2a] bg-[#111]">
                   <span className="text-white font-bold text-sm">Total</span>
@@ -566,7 +572,7 @@ export default function QuoteProfitSection({
                   <span className={`text-sm text-right w-[72px] font-bold ${hasActual ? (v > 0 ? "text-red-400" : "text-white") : "text-gray-600"}`}>
                     {hasActual ? "$" + Math.round(totalActual).toLocaleString() : "—"}
                   </span>
-                  <span className={`text-xs text-right w-[52px] font-bold ${hasActual ? (v > 0 ? "text-red-400" : "text-green-400") : "text-gray-600"}`}>
+                  <span className={`text-xs text-right w-[52px] font-bold ${statusColor}`}>
                     {hasActual ? (v > 0 ? "Over" : "Under") : "—"}
                   </span>
                 </div>
