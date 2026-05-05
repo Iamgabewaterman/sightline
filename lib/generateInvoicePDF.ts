@@ -315,7 +315,7 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   // Pay online link
   if (data.invoiceId && data.status !== "paid") {
     y -= 4;
-    const payUrl = `sightline.one/pay/${data.invoiceId}`;
+    const payUrl = `https://sightline.one/pay/${data.invoiceId}`;
     page.drawText("Pay online at:", { x: M, y, font: reg, size: 9, color: GRAY });
     page.drawText(payUrl, { x: M + 78, y, font: bold, size: 9, color: ORANGE });
     y -= 18;

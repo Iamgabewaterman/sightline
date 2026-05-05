@@ -193,7 +193,7 @@ export default function OnboardingFlow({ inviteCode }: { inviteCode: string }) {
     if (typeof navigator !== "undefined" && navigator.share) {
       await navigator.share({
         title: "Join my team on Sightline",
-        text: `Use invite code ${inviteCode} to join my team on Sightline. Download at sightline.one`,
+        text: `Use invite code ${inviteCode} to join my team on Sightline. Download at https://sightline.one`,
       }).catch(() => {});
     }
   }
