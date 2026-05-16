@@ -177,6 +177,46 @@ async function contributeRegionalPrice(
   }
 }
 
+// ── computePriceFlag ───────────────────────────────────────────────────────────
+// Returns a flag if currentCost is >10% above the user's 90-day avg for that material.
+
+async function computePriceFlag(
+  supabase: SupabaseClient,
+  userId: string,
+  normalizedName: string,
+  currentJobId: string,
+  currentCost: number,
+): Promise<{ changePct: number; avgCost: number } | null> {
+  try {
+    const { data: userJobs } = await supabase
+      .from("jobs").select("id").eq("user_id", userId).limit(500);
+    const jobIds = (userJobs ?? [])
+      .map((j: { id: string }) => j.id)
+      .filter((id: string) => id !== currentJobId);
+    if (jobIds.length === 0) return null;
+
+    const d90 = new Date(); d90.setDate(d90.getDate() - 90);
+    const { data: mats } = await supabase
+      .from("materials")
+      .select("unit_cost")
+      .in("job_id", jobIds)
+      .eq("normalized_name", normalizedName)
+      .not("unit_cost", "is", null)
+      .gt("unit_cost", 0)
+      .gte("created_at", d90.toISOString())
+      .limit(100);
+
+    if (!mats || mats.length < 2) return null;
+    const avg = mats.reduce((s, m) => s + Number(m.unit_cost), 0) / mats.length;
+    if (avg <= 0) return null;
+    const changePct = ((currentCost - avg) / avg) * 100;
+    if (changePct <= 10) return null;
+    return { changePct: Math.round(changePct), avgCost: avg };
+  } catch {
+    return null;
+  }
+}
+
 // ── addMaterial ────────────────────────────────────────────────────────────────
 
 export async function addMaterial(jobId: string, formData: FormData) {
@@ -223,22 +263,20 @@ export async function addMaterial(jobId: string, formData: FormData) {
     return { error: "Material was not saved. Please try again." };
   }
 
-  if (user) {
-    // Tier 1: always save to user history regardless of location
-    void writeUserMaterialHistory(supabase, user.id, name, unit, unit_cost, category);
+  let priceFlag: { changePct: number; avgCost: number } | null = null;
 
-    // Tier 2: contribute to regional pricing if user has a location set
+  if (user) {
+    void writeUserMaterialHistory(supabase, user.id, name, unit, unit_cost, category);
     if (unit_cost !== null) {
       void contributeRegionalPrice(supabase, user.id, name, unit_cost, unit, length_ft);
-    }
-
-    // Budget alert
-    if (unit_cost !== null) {
       checkMaterialsBudget(jobId, user.id);
+      if (data.normalized_name) {
+        priceFlag = await computePriceFlag(supabase, user.id, data.normalized_name, jobId, unit_cost);
+      }
     }
   }
 
-  return { material: data };
+  return { material: data, priceFlag };
 }
 
 async function checkMaterialsBudget(jobId: string, userId: string) {
@@ -307,17 +345,18 @@ export async function updateMaterial(
 
   const { data: existing } = await supabase
     .from("materials")
-    .select("name, unit, length_ft")
+    .select("name, unit, length_ft, normalized_name, job_id")
     .eq("id", id)
     .maybeSingle();
 
   const { error } = await supabase.from("materials").update(fields).eq("id", id);
   if (error) return { error: error.message };
 
+  let priceFlag: { changePct: number; avgCost: number } | null = null;
+
   if (existing?.name) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // Update personal history with latest unit_cost
       if (fields.unit_cost != null) {
         void writeUserMaterialHistory(
           supabase, user.id, existing.name,
@@ -327,11 +366,16 @@ export async function updateMaterial(
           supabase, user.id, existing.name, fields.unit_cost,
           existing.unit ?? "", fields.length_ft ?? existing.length_ft ?? null,
         );
+        if (existing.normalized_name && existing.job_id) {
+          priceFlag = await computePriceFlag(
+            supabase, user.id, existing.normalized_name, existing.job_id, fields.unit_cost,
+          );
+        }
       }
     }
   }
 
-  return { success: true };
+  return { success: true, priceFlag };
 }
 
 // ── deleteMaterial ─────────────────────────────────────────────────────────────

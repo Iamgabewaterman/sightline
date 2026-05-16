@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { saveJobQuote } from "@/app/actions/quotes";
-import { Job, Material, LaborLog, QuoteAddon } from "@/types";
+import { Job, Material, LaborLog, QuoteAddon, QuoteInflationResult } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
+import { getQuoteInflationWarning } from "@/app/actions/price-flags";
 
 function fmt(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -35,6 +36,7 @@ export default function GenerateQuote({ job }: Props) {
   const [copied, setCopied] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [addons, setAddons] = useState<QuoteAddon[]>([]);
+  const [inflationWarning, setInflationWarning] = useState<QuoteInflationResult | null>(null);
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [laborLogs, setLaborLogs] = useState<LaborLog[]>([]);
@@ -55,7 +57,7 @@ export default function GenerateQuote({ job }: Props) {
     }
 
     const supabase = createClient();
-    const [{ data: mats }, { data: labor }] = await Promise.all([
+    const [{ data: mats }, { data: labor }, inflation] = await Promise.all([
       supabase
         .from("materials")
         .select("*")
@@ -66,10 +68,12 @@ export default function GenerateQuote({ job }: Props) {
         .select("*")
         .eq("job_id", job.id)
         .returns<LaborLog[]>(),
+      getQuoteInflationWarning(job.id, job.types as string[]),
     ]);
 
     setMaterials(mats ?? []);
     setLaborLogs(labor ?? []);
+    setInflationWarning(inflation);
     setLoading(false);
   }
 
@@ -319,6 +323,24 @@ export default function GenerateQuote({ job }: Props) {
             </div>
           ) : (
             <div className="flex-1 px-5 pb-6">
+              {inflationWarning && (
+                <div className="mb-4 flex items-start justify-between gap-3 bg-yellow-950/40 border border-yellow-700/30 rounded-xl px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <div>
+                      <p className="text-yellow-300 text-sm font-semibold">
+                        {inflationWarning.jobType} material costs up {inflationWarning.changePct}%
+                      </p>
+                      <p className="text-yellow-200/60 text-xs">vs. your last similar quote — consider adjusting your margin</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setInflationWarning(null)} className="text-yellow-600 text-sm shrink-0 active:scale-95 transition-transform">✕</button>
+                </div>
+              )}
               {/* Quote document */}
               <div className="bg-[#141414] border border-[#242424] rounded-2xl overflow-hidden">
                 {/* Doc header */}

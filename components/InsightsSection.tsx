@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { InsightCard, InsightBreakdownRow } from "@/lib/insights";
+import { MaterialTrendRow } from "@/types";
 
 export default function InsightsSection({
   cards,
   completedJobCount,
+  materialTrends,
 }: {
   cards: InsightCard[];
   completedJobCount: number;
+  materialTrends?: MaterialTrendRow[];
 }) {
   const [selected, setSelected] = useState<InsightCard | null>(null);
 
@@ -39,6 +42,38 @@ export default function InsightsSection({
 
   return (
     <>
+      {materialTrends && materialTrends.length > 0 && (
+        <div className="mb-8">
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            Material Cost Trends
+          </p>
+          <p className="text-gray-500 text-xs mb-3">
+            Price shifts across your jobs in the last 90 days.
+          </p>
+          <div className="flex flex-col gap-2">
+            {materialTrends.map((row) => (
+              <div key={row.normalizedName} className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-white font-semibold text-sm">{row.displayName}</p>
+                  <p className="text-gray-600 text-xs">{row.dataPoints} data points</p>
+                </div>
+                <div className="text-right">
+                  <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${
+                    row.changePct > 15 ? "bg-red-500/20 text-red-400" :
+                    row.changePct > 0  ? "bg-yellow-500/20 text-yellow-400" :
+                                        "bg-green-500/20 text-green-400"
+                  }`}>
+                    {row.changePct > 0 ? "+" : ""}{row.changePct.toFixed(0)}%
+                  </span>
+                  <p className="text-gray-600 text-xs mt-0.5">
+                    ${row.avgPast.toFixed(2)} → ${row.avgRecent.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mb-8">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
           AI Insights

@@ -221,6 +221,21 @@ export function getCOIStatus(expDate: string | null | undefined): COIStatus {
   return "valid";
 }
 
+export interface MaterialTrendRow {
+  normalizedName: string;
+  displayName: string;
+  avgPast: number;
+  avgRecent: number;
+  changePct: number;
+  dataPoints: number;
+}
+
+export interface QuoteInflationResult {
+  hasInflation: boolean;
+  changePct: number;
+  jobType: string;
+}
+
 export interface SubcontractorLog {
   id: string;
   job_id: string;

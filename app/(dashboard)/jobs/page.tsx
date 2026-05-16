@@ -7,6 +7,7 @@ import { ensureOwnerSetup } from "@/app/actions/team";
 import { getTodayAssignments } from "@/app/actions/assignments";
 import { computeInsights } from "@/lib/insights";
 import InsightsSection from "@/components/InsightsSection";
+import { getMaterialCostTrends } from "@/app/actions/price-flags";
 import InfoTooltip from "@/components/InfoTooltip";
 
 export const dynamic = "force-dynamic";
@@ -149,6 +150,7 @@ export default async function DashboardPage() {
     { data: completedThisMonth },
     invoiceStats,
     insightsData,
+    materialTrends,
   ] = await Promise.all([
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("user_id", user!.id).eq("status", "active"),
     supabase.from("estimates").select("final_quote").eq("user_id", user!.id).gte("created_at", monthStartISO),
@@ -157,6 +159,7 @@ export default async function DashboardPage() {
     supabase.from("jobs").select("id").eq("user_id", user!.id).eq("status", "completed").gte("completed_date", monthStartISO),
     getInvoiceDashboardStats(user!.id),
     computeInsights(user!.id),
+    getMaterialCostTrends(user!.id),
   ]);
 
   // Monthly profit: paid invoices on jobs completed this month - materials - labor
@@ -279,6 +282,7 @@ export default async function DashboardPage() {
         <InsightsSection
           cards={insightsData.cards}
           completedJobCount={insightsData.completedJobCount}
+          materialTrends={materialTrends}
         />
 
         {/* Quick-action shortcuts */}

@@ -358,10 +358,14 @@ function NameAutocomplete({
 
 function MaterialRow({
   material, onUpdate, onDelete, onDuplicate, jobTypes, nested = false, onShowDisposition,
+  priceFlag, onDismissFlag, onPriceFlag,
 }: {
   material: Material; onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void; onDuplicate: (m: Material) => void; jobTypes: string[];
   nested?: boolean; onShowDisposition?: (m: Material) => void;
+  priceFlag?: { changePct: number; avgCost: number } | null;
+  onDismissFlag?: () => void;
+  onPriceFlag?: (id: string, flag: { changePct: number; avgCost: number } | null) => void;
 }) {
   const [editing, setEditing] = useState(!!(material as Material & { _openEdit?: boolean })._openEdit);
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
@@ -394,6 +398,7 @@ function MaterialRow({
     const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
     if (result.error) { setError(result.error); } else {
       onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
+      onPriceFlag?.(material.id, result.priceFlag ?? null);
       setEditing(false);
     }
     setSaving(false);
@@ -493,6 +498,24 @@ function MaterialRow({
       {material.length_ft && material.unit_cost && (
         <div className="mt-2">
           <CostPerLFChip qtyOrdered={material.quantity_ordered} unitCost={material.unit_cost} lengthFt={material.length_ft} />
+        </div>
+      )}
+
+      {priceFlag && (
+        <div className="mt-2 flex items-center justify-between bg-yellow-950/40 border border-yellow-700/30 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span className="text-yellow-300 text-xs font-semibold">
+              +{priceFlag.changePct}% above 90-day avg (${priceFlag.avgCost.toFixed(2)})
+            </span>
+          </div>
+          {onDismissFlag && (
+            <button type="button" onClick={onDismissFlag} className="text-yellow-600 text-xs px-1 active:scale-95 transition-transform">✕</button>
+          )}
         </div>
       )}
 
@@ -615,6 +638,7 @@ function MaterialRow({
 
 function GroupedMaterialCard({
   group, onUpdate, onDelete, onDuplicate, jobTypes, onShowDisposition,
+  priceFlagsMap, onDismissFlag, onPriceFlag,
 }: {
   group: MaterialGroup;
   onUpdate: (id: string, fields: Partial<Material>) => void;
@@ -622,14 +646,21 @@ function GroupedMaterialCard({
   onDuplicate: (m: Material) => void;
   jobTypes: string[];
   onShowDisposition?: (m: Material) => void;
+  priceFlagsMap?: Map<string, { changePct: number; avgCost: number }>;
+  onDismissFlag?: (id: string) => void;
+  onPriceFlag?: (id: string, flag: { changePct: number; avgCost: number } | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   if (group.materials.length === 1) {
+    const m = group.materials[0];
     return (
-      <MaterialRow material={group.materials[0]} onUpdate={onUpdate}
+      <MaterialRow material={m} onUpdate={onUpdate}
         onDelete={onDelete} onDuplicate={onDuplicate} jobTypes={jobTypes}
-        onShowDisposition={onShowDisposition} />
+        onShowDisposition={onShowDisposition}
+        priceFlag={priceFlagsMap?.get(m.id)}
+        onDismissFlag={onDismissFlag ? () => onDismissFlag(m.id) : undefined}
+        onPriceFlag={onPriceFlag} />
     );
   }
 
@@ -696,7 +727,10 @@ function GroupedMaterialCard({
                 )}
                 <MaterialRow material={m} onUpdate={onUpdate} onDelete={onDelete}
                   onDuplicate={onDuplicate} jobTypes={jobTypes} nested
-                  onShowDisposition={onShowDisposition} />
+                  onShowDisposition={onShowDisposition}
+                  priceFlag={priceFlagsMap?.get(m.id)}
+                  onDismissFlag={onDismissFlag ? () => onDismissFlag(m.id) : undefined}
+                  onPriceFlag={onPriceFlag} />
               </div>
             );
           })}
@@ -718,6 +752,7 @@ export default function MaterialsSection({
   const groupedMaterials = useMemo(() => groupByNormalized(materials), [materials]);
   const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
   const [disposingMaterial, setDisposingMaterial] = useState<Material | null>(null);
+  const [priceFlagsMap, setPriceFlagsMap] = useState<Map<string, { changePct: number; avgCost: number }>>(new Map());
 
   useEffect(() => {
     const cost = materials.reduce((sum, m) => {
@@ -847,9 +882,11 @@ export default function MaterialsSection({
       return;
     }
 
-    // Optimistic update
     if (result.material) {
       setMaterials((prev) => [result.material as Material, ...prev]);
+      if (result.priceFlag) {
+        setPriceFlagsMap((prev) => new Map(prev).set((result.material as Material).id, result.priceFlag!));
+      }
     }
 
     // Confirm from DB
@@ -876,6 +913,19 @@ export default function MaterialsSection({
 
   function handleDelete(id: string) {
     setMaterials((prev) => prev.filter((m) => m.id !== id));
+    setPriceFlagsMap((prev) => { const n = new Map(prev); n.delete(id); return n; });
+  }
+
+  function handlePriceFlag(id: string, flag: { changePct: number; avgCost: number } | null) {
+    setPriceFlagsMap((prev) => {
+      const n = new Map(prev);
+      if (flag) n.set(id, flag); else n.delete(id);
+      return n;
+    });
+  }
+
+  function handleDismissFlag(id: string) {
+    setPriceFlagsMap((prev) => { const n = new Map(prev); n.delete(id); return n; });
   }
 
   async function handleDuplicate(source: Material) {
@@ -1117,7 +1167,10 @@ export default function MaterialsSection({
           {groupedMaterials.map((group) => (
             <GroupedMaterialCard key={group.key} group={group} onUpdate={handleUpdate}
               onDelete={handleDelete} onDuplicate={handleDuplicate} jobTypes={jobTypes}
-              onShowDisposition={setDisposingMaterial} />
+              onShowDisposition={setDisposingMaterial}
+              priceFlagsMap={priceFlagsMap}
+              onDismissFlag={handleDismissFlag}
+              onPriceFlag={handlePriceFlag} />
           ))}
         </div>
       )}
