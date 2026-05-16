@@ -358,6 +358,7 @@ export default async function JobDetailPage({
             <JobMaterialsWrapper
               jobId={job.id}
               jobName={job.name}
+              jobNumber={job.job_number ?? null}
               jobTypes={job.types}
               calculatedSqft={job.calculated_sqft ?? null}
               initialMaterials={materials ?? []}

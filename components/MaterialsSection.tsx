@@ -8,6 +8,7 @@ import { Material } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
 import JobImportModal from "@/components/JobImportModal";
+import DispositionSheet from "@/components/DispositionSheet";
 
 // ─── Material type definitions ─────────────────────────────────────────────────
 
@@ -356,11 +357,11 @@ function NameAutocomplete({
 // ─── MaterialRow ──────────────────────────────────────────────────────────────
 
 function MaterialRow({
-  material, onUpdate, onDelete, onDuplicate, jobTypes, nested = false,
+  material, onUpdate, onDelete, onDuplicate, jobTypes, nested = false, onShowDisposition,
 }: {
   material: Material; onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void; onDuplicate: (m: Material) => void; jobTypes: string[];
-  nested?: boolean;
+  nested?: boolean; onShowDisposition?: (m: Material) => void;
 }) {
   const [editing, setEditing] = useState(!!(material as Material & { _openEdit?: boolean })._openEdit);
   const [orderedVal, setOrderedVal] = useState(material.quantity_ordered.toString());
@@ -495,6 +496,29 @@ function MaterialRow({
         </div>
       )}
 
+      {/* Disposition button — only when surplus exists */}
+      {(() => {
+        const surplus = material.quantity_ordered - (material.quantity_used ?? material.quantity_ordered);
+        if (surplus <= 0 || onShowDisposition == null) return null;
+        return (
+          <button
+            type="button"
+            onClick={() => onShowDisposition(material)}
+            className="mt-2 w-full flex items-center justify-between bg-[#1e1a12] border border-orange-500/30 rounded-xl px-4 py-3 active:scale-95 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              <span className="text-orange-400 text-sm font-semibold">Dispose Surplus</span>
+            </div>
+            <span className="text-orange-300 text-xs font-bold bg-orange-500/10 px-2 py-0.5 rounded-full">
+              {surplus} {material.unit} left
+            </span>
+          </button>
+        );
+      })()}
+
       {showReceiptDeleteWarning && (
         <>
           <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setShowReceiptDeleteWarning(false)} />
@@ -590,20 +614,22 @@ function MaterialRow({
 // ─── GroupedMaterialCard ──────────────────────────────────────────────────────
 
 function GroupedMaterialCard({
-  group, onUpdate, onDelete, onDuplicate, jobTypes,
+  group, onUpdate, onDelete, onDuplicate, jobTypes, onShowDisposition,
 }: {
   group: MaterialGroup;
   onUpdate: (id: string, fields: Partial<Material>) => void;
   onDelete: (id: string) => void;
   onDuplicate: (m: Material) => void;
   jobTypes: string[];
+  onShowDisposition?: (m: Material) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   if (group.materials.length === 1) {
     return (
       <MaterialRow material={group.materials[0]} onUpdate={onUpdate}
-        onDelete={onDelete} onDuplicate={onDuplicate} jobTypes={jobTypes} />
+        onDelete={onDelete} onDuplicate={onDuplicate} jobTypes={jobTypes}
+        onShowDisposition={onShowDisposition} />
     );
   }
 
@@ -669,7 +695,8 @@ function GroupedMaterialCard({
                   </p>
                 )}
                 <MaterialRow material={m} onUpdate={onUpdate} onDelete={onDelete}
-                  onDuplicate={onDuplicate} jobTypes={jobTypes} nested />
+                  onDuplicate={onDuplicate} jobTypes={jobTypes} nested
+                  onShowDisposition={onShowDisposition} />
               </div>
             );
           })}
@@ -682,14 +709,15 @@ function GroupedMaterialCard({
 // ─── MaterialsSection (main export) ──────────────────────────────────────────
 
 export default function MaterialsSection({
-  jobId, jobName = "", jobTypes = [], initialMaterials, onMaterialsAdded,
+  jobId, jobName = "", jobNumber = null, jobTypes = [], initialMaterials, onMaterialsAdded,
 }: {
-  jobId: string; jobName?: string; jobTypes?: string[];
+  jobId: string; jobName?: string; jobNumber?: string | null; jobTypes?: string[];
   initialMaterials: Material[]; onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const groupedMaterials = useMemo(() => groupByNormalized(materials), [materials]);
   const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
+  const [disposingMaterial, setDisposingMaterial] = useState<Material | null>(null);
 
   useEffect(() => {
     const cost = materials.reduce((sum, m) => {
@@ -1088,7 +1116,8 @@ export default function MaterialsSection({
         <div className="flex flex-col gap-3">
           {groupedMaterials.map((group) => (
             <GroupedMaterialCard key={group.key} group={group} onUpdate={handleUpdate}
-              onDelete={handleDelete} onDuplicate={handleDuplicate} jobTypes={jobTypes} />
+              onDelete={handleDelete} onDuplicate={handleDuplicate} jobTypes={jobTypes}
+              onShowDisposition={setDisposingMaterial} />
           ))}
         </div>
       )}
@@ -1107,6 +1136,28 @@ export default function MaterialsSection({
             if (data) setMaterials(data as Material[]);
           }} />
       )}
+
+      {disposingMaterial && (() => {
+        const surplus = disposingMaterial.quantity_ordered - (disposingMaterial.quantity_used ?? disposingMaterial.quantity_ordered);
+        return (
+          <DispositionSheet
+            materialId={disposingMaterial.id}
+            materialName={disposingMaterial.name}
+            surplusQty={surplus}
+            unit={disposingMaterial.unit}
+            unitCost={disposingMaterial.unit_cost}
+            jobId={jobId}
+            jobName={jobName}
+            jobNumber={jobNumber}
+            onClose={() => setDisposingMaterial(null)}
+            onReturn={(newQtyUsed) => {
+              handleUpdate(disposingMaterial.id, { quantity_used: newQtyUsed });
+              setDisposingMaterial(null);
+            }}
+            onStore={() => setDisposingMaterial(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

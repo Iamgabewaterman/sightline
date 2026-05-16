@@ -308,14 +308,13 @@ export default async function DashboardPage() {
             </div>
             <span className="text-gray-400 text-xs font-semibold">Import</span>
           </Link>
-          <Link href="/mileage" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+          <Link href="/inventory" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
             <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8v4l3 3"/>
+                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
               </svg>
             </div>
-            <span className="text-gray-400 text-xs font-semibold">Mileage</span>
+            <span className="text-gray-400 text-xs font-semibold">Inventory</span>
           </Link>
           <Link href="/receipts" className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
             <div className="w-14 h-14 rounded-full bg-[#1A1A1A] border border-[#2a2a2a] flex items-center justify-center">

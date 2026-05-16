@@ -95,6 +95,24 @@ export interface Material {
   trade: string | null;
   receipt_id: string | null;
   normalized_name?: string | null;
+  material_category?: string | null;
+  created_at: string;
+}
+
+export interface ShopInventoryItem {
+  id: string;
+  user_id: string;
+  material_name: string;
+  normalized_name: string | null;
+  quantity: number;
+  unit: string;
+  unit_cost: number | null;
+  estimated_value: number;
+  source_job_id: string | null;
+  source_job_name: string | null;
+  source_job_number: string | null;
+  material_category: string | null;
+  date_stored: string;
   created_at: string;
 }
 

@@ -209,7 +209,7 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   const { data, error } = await supabase
     .from("materials")
-    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade, normalized_name })
+    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade, normalized_name, material_category: category })
     .select()
     .single();
 
