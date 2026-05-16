@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   createContact,
   updateContact,
@@ -11,11 +11,12 @@ import {
   addCrewMember,
   removeCrewMember,
 } from "@/app/actions/people";
-import { Contact, CrewWithMembers } from "@/types";
+import { Contact, CrewWithMembers, ContactCOI, getCOIStatus } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "./Avatar";
 import AvatarUpload from "./AvatarUpload";
 import { updateContactAvatar } from "@/app/actions/avatar";
+import COISection, { COIStatusDot } from "./COISection";
 
 const TRADES = [
   "General",
@@ -42,12 +43,17 @@ const selectClass =
 interface Props {
   initialContacts: Contact[];
   initialCrews: CrewWithMembers[];
+  initialCOIRecords: ContactCOI[];
 }
 
-export default function PeopleClient({ initialContacts, initialCrews }: Props) {
+export default function PeopleClient({ initialContacts, initialCrews, initialCOIRecords }: Props) {
   const [section, setSection] = useState<"contacts" | "crews">("contacts");
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [crews, setCrews] = useState<CrewWithMembers[]>(initialCrews);
+  const [coiMap, setCoiMap] = useState<Map<string, ContactCOI>>(() =>
+    new Map(initialCOIRecords.map((c) => [c.contact_id, c]))
+  );
+  const [showExpiredBanner, setShowExpiredBanner] = useState(true);
   const [subFilter, setSubFilter] = useState<"all" | "sub" | "employee">("all");
 
   // Contact form state
@@ -202,6 +208,29 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
 
   const managingCrew = crews.find((cr) => cr.id === managingCrewId) ?? null;
 
+  // COI summary counts
+  const coiSummary = useMemo(() => {
+    const subs = contacts.filter((c) => c.is_subcontractor);
+    let valid = 0, expiringSoon = 0, expired = 0;
+    for (const sub of subs) {
+      const coi = coiMap.get(sub.id);
+      const s = getCOIStatus(coi?.expiration_date);
+      if (s === "valid") valid++;
+      else if (s === "expiring_soon") expiringSoon++;
+      else if (s === "expired") expired++;
+    }
+    return { valid, expiringSoon, expired, total: valid + expiringSoon + expired };
+  }, [contacts, coiMap]);
+
+  function handleCOIUpdated(contactId: string, coi: ContactCOI | null) {
+    setCoiMap((prev) => {
+      const next = new Map(prev);
+      if (coi) next.set(contactId, coi);
+      else next.delete(contactId);
+      return next;
+    });
+  }
+
   return (
     <>
       {/* Section tabs */}
@@ -224,6 +253,51 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
       {/* ── CONTACTS SECTION ── */}
       {section === "contacts" && (
         <div>
+          {/* COI summary counts */}
+          {coiSummary.total > 0 && (
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  <span className="text-white font-black text-xl leading-none">{coiSummary.valid}</span>
+                </div>
+                <p className="text-gray-500 text-xs">Valid</p>
+              </div>
+              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
+                  <span className="text-white font-black text-xl leading-none">{coiSummary.expiringSoon}</span>
+                </div>
+                <p className="text-gray-500 text-xs">Expiring</p>
+              </div>
+              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-3 text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  <span className="text-white font-black text-xl leading-none">{coiSummary.expired}</span>
+                </div>
+                <p className="text-gray-500 text-xs">Expired</p>
+              </div>
+            </div>
+          )}
+
+          {/* Expired/expiring banner */}
+          {showExpiredBanner && (coiSummary.expired > 0 || coiSummary.expiringSoon > 0) && (
+            <button
+              onClick={() => setShowExpiredBanner(false)}
+              className="w-full bg-orange-500/10 border border-orange-500/40 rounded-xl px-4 py-3 mb-4 flex items-center justify-between active:scale-95 transition-transform text-left"
+            >
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span className="text-orange-400 text-sm font-semibold">
+                  {coiSummary.expired + coiSummary.expiringSoon} subcontractor{coiSummary.expired + coiSummary.expiringSoon !== 1 ? "s" : ""} have expired or expiring insurance — tap to review.
+                </span>
+              </div>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+
           {/* Filter pills */}
           <div className="flex gap-2 mb-4">
             {(["all", "sub", "employee"] as const).map((f) => (
@@ -391,7 +465,10 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <Avatar name={c.name} avatarUrl={avatarUrl} size={44} className="mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-semibold text-base">{c.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-semibold text-base">{c.name}</p>
+                            {c.is_subcontractor && <COIStatusDot expDate={coiMap.get(c.id)?.expiration_date} />}
+                          </div>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {c.trade && (
                               <span className="text-orange-500 text-xs font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full">
@@ -432,6 +509,14 @@ export default function PeopleClient({ initialContacts, initialCrews }: Props) {
                         </button>
                       </div>
                     </div>
+                    {/* COI section — only for subs */}
+                    {c.is_subcontractor && (
+                      <COISection
+                        contactId={c.id}
+                        initialCOI={coiMap.get(c.id) ?? null}
+                        onUpdated={(coi) => handleCOIUpdated(c.id, coi)}
+                      />
+                    )}
                   </div>
                 );
               })}

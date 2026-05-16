@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SubcontractorLog, Contact } from "@/types";
+import { SubcontractorLog, Contact, ContactCOI, getCOIStatus } from "@/types";
 import { addSubcontractor, updateSubcontractor, deleteSubcontractor } from "@/app/actions/subcontractors";
 import { useJobCost } from "@/components/JobCostContext";
 import { createClient } from "@/lib/supabase/client";
@@ -69,6 +69,8 @@ export default function SubcontractorsSection({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerContacts, setPickerContacts] = useState<Contact[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [coiMap, setCoiMap] = useState<Map<string, ContactCOI>>(new Map());
+  const [coiWarningContact, setCoiWarningContact] = useState<Contact | null>(null);
 
   // Sync sub cost to context
   useEffect(() => {
@@ -85,17 +87,27 @@ export default function SubcontractorsSection({
     setPickerOpen(true);
     setPickerLoading(true);
     const supabase = createClient();
-    const { data } = await supabase
-      .from("contacts")
-      .select("*")
-      .not("trade", "is", null)
-      .order("name")
-      .returns<Contact[]>();
-    setPickerContacts(data ?? []);
+    const [{ data: contacts }, { data: coiRecords }] = await Promise.all([
+      supabase.from("contacts").select("*").not("trade", "is", null).order("name").returns<Contact[]>(),
+      supabase.from("contact_coi").select("*").returns<ContactCOI[]>(),
+    ]);
+    setPickerContacts(contacts ?? []);
+    setCoiMap(new Map((coiRecords ?? []).map((c) => [c.contact_id, c])));
     setPickerLoading(false);
   }
 
   function selectContact(c: Contact) {
+    const coi = coiMap.get(c.id);
+    const status = getCOIStatus(coi?.expiration_date);
+    if (status === "expired") {
+      setCoiWarningContact(c);
+      setPickerOpen(false);
+      return;
+    }
+    commitSelectContact(c);
+  }
+
+  function commitSelectContact(c: Contact) {
     setForm((f) => ({
       ...f,
       contact_id: c.id,
@@ -103,6 +115,7 @@ export default function SubcontractorsSection({
       trade: c.trade ?? "",
     }));
     setPickerOpen(false);
+    setCoiWarningContact(null);
   }
 
   function setField<K extends keyof FormState>(k: K, v: FormState[K]) {
@@ -469,27 +482,69 @@ export default function SubcontractorsSection({
             </div>
           ) : (
             <div className="flex-1 px-5 py-5 flex flex-col gap-2">
-              {pickerContacts.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => selectContact(c)}
-                  className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform text-left"
-                >
-                  <div>
-                    <p className="text-white font-semibold text-base">{c.name}</p>
-                    <div className="flex gap-2 mt-0.5">
-                      {c.trade && <span className="text-orange-500 text-xs">{c.trade}</span>}
-                      {c.is_subcontractor && (
-                        <span className="text-purple-400 text-xs font-semibold">Sub</span>
-                      )}
+              {pickerContacts.map((c) => {
+                const coi = coiMap.get(c.id);
+                const coiStatus = getCOIStatus(coi?.expiration_date);
+                const dotColor = coiStatus === "valid" ? "bg-green-500" : coiStatus === "expiring_soon" ? "bg-yellow-400" : coiStatus === "expired" ? "bg-red-500" : null;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => selectContact(c)}
+                    className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform text-left"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-semibold text-base">{c.name}</p>
+                        {dotColor && <span className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />}
+                      </div>
+                      <div className="flex gap-2 mt-0.5">
+                        {c.trade && <span className="text-orange-500 text-xs">{c.trade}</span>}
+                        {c.is_subcontractor && <span className="text-purple-400 text-xs font-semibold">Sub</span>}
+                        {coiStatus === "expired" && <span className="text-red-400 text-xs font-semibold">COI Expired</span>}
+                        {coiStatus === "expiring_soon" && <span className="text-yellow-400 text-xs font-semibold">COI Expiring</span>}
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-gray-600 text-xl">→</span>
-                </button>
-              ))}
+                    <span className="text-gray-600 text-xl">→</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
+      )}
+
+      {/* COI expired warning */}
+      {coiWarningContact && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setCoiWarningContact(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <p className="text-white font-bold text-lg leading-tight">Expired COI</p>
+            </div>
+            <p className="text-gray-400 text-sm mb-6">
+              <span className="text-white font-semibold">{coiWarningContact.name}</span> has an expired certificate of insurance. Assign anyway or update their COI first in People.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCoiWarningContact(null)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-semibold py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => commitSelectContact(coiWarningContact)}
+                className="flex-1 bg-red-600/80 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                Assign Anyway
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Delete confirmation */}

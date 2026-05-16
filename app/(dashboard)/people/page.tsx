@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Contact, CrewWithMembers } from "@/types";
+import { Contact, CrewWithMembers, ContactCOI } from "@/types";
 import PeopleClient from "@/components/PeopleClient";
 
 export default async function PeoplePage() {
@@ -8,7 +8,7 @@ export default async function PeoplePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: contacts }, { data: crews }] = await Promise.all([
+  const [{ data: contacts }, { data: crews }, { data: coiRecords }] = await Promise.all([
     supabase
       .from("contacts")
       .select("*")
@@ -21,6 +21,11 @@ export default async function PeoplePage() {
       .eq("user_id", user!.id)
       .order("name")
       .returns<CrewWithMembers[]>(),
+    supabase
+      .from("contact_coi")
+      .select("*")
+      .eq("user_id", user!.id)
+      .returns<ContactCOI[]>(),
   ]);
 
   return (
@@ -30,6 +35,7 @@ export default async function PeoplePage() {
         <PeopleClient
           initialContacts={contacts ?? []}
           initialCrews={crews ?? []}
+          initialCOIRecords={coiRecords ?? []}
         />
       </div>
     </div>

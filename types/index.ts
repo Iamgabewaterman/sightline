@@ -195,6 +195,32 @@ export interface Contact {
   created_at: string;
 }
 
+export interface ContactCOI {
+  id: string;
+  contact_id: string;
+  user_id: string;
+  carrier_name: string | null;
+  policy_number: string | null;
+  coverage_amount: number | null;
+  expiration_date: string | null;
+  document_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type COIStatus = "valid" | "expiring_soon" | "expired" | "none";
+
+export function getCOIStatus(expDate: string | null | undefined): COIStatus {
+  if (!expDate) return "none";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exp = new Date(expDate + "T00:00:00");
+  const daysUntil = Math.floor((exp.getTime() - today.getTime()) / 86400000);
+  if (daysUntil < 0) return "expired";
+  if (daysUntil <= 30) return "expiring_soon";
+  return "valid";
+}
+
 export interface SubcontractorLog {
   id: string;
   job_id: string;
