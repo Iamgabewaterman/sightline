@@ -22,29 +22,64 @@ const PROBLEMS = [
   "You're running a business off group texts and gut feelings",
 ];
 
-const TESTIMONIALS = [
+const FEATURES = [
   {
-    quote: "I used to spend Sunday nights catching up on paperwork. Now I'm done by Friday. Everything's in one place.",
-    name: "Mike R.",
-    trade: "General Contractor",
-    city: "Portland, OR",
+    icon: "📊",
+    title: "Live Job Profitability",
+    desc: "Track materials, labor, and subcontractor costs against your quote in real time — on every job.",
   },
   {
-    quote: "The material estimator alone saved me from underbidding a $40k job. I won't quote without it now.",
-    name: "Sarah K.",
-    trade: "Remodeling Contractor",
-    city: "Eugene, OR",
+    icon: "📷",
+    title: "Receipt Scanning",
+    desc: "Snap a photo of any receipt. OCR pulls the total and logs it to the job automatically.",
+  },
+  {
+    icon: "📈",
+    title: "Regional Material Pricing",
+    desc: "Tracks your material costs over time and flags when prices spike above your own historical average.",
+  },
+  {
+    icon: "🔗",
+    title: "Client Portal",
+    desc: "Share job progress, photos, and invoices with clients — no account or login required on their end.",
+  },
+  {
+    icon: "📍",
+    title: "GPS Mileage & IRS Export",
+    desc: "Log job-related drives and export IRS-ready mileage reports come tax time.",
+  },
+  {
+    icon: "📄",
+    title: "Custom Report Builder",
+    desc: "Generate professional PDF job reports with photos, materials, costs, and timelines — in seconds.",
+  },
+  {
+    icon: "🏗️",
+    title: "MegaPort Import",
+    desc: "Pull supplier pricing directly from MegaPort to keep your material catalog current without manual entry.",
+  },
+  {
+    icon: "💳",
+    title: "ACH & Card Payments",
+    desc: "Accept payments online via Stripe. Send invoice payment links directly from the app.",
+  },
+  {
+    icon: "🤖",
+    title: "AI Material Estimates",
+    desc: "After your first completed job, AI suggests material quantities based on your own job history.",
   },
 ];
 
 const INCLUDED = [
-  "Jobs, photos & timeline tracking",
+  "Live job profitability tracking",
+  "Receipt scanning with OCR",
+  "Regional material pricing alerts",
+  "Client portal",
+  "GPS mileage & IRS tax export",
+  "Custom report builder",
+  "MegaPort supplier import",
+  "ACH & card payments via Stripe",
   "AI material estimates",
-  "Quotes & invoices (PDF + e-sign)",
-  "GPS mileage & tax reports",
-  "Client portal + receipt scanning",
-  "Push notifications & offline mode",
-  "Trade calculators for any job",
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -114,7 +149,7 @@ export default async function LandingPage() {
 
       {/* ── Hero ── */}
       <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-5 pt-16 pb-20">
-        {/* Beta badge */}
+        {/* Trial badge */}
         <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1.5 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">
@@ -183,30 +218,25 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Social proof / Features ── */}
+      {/* ── Features ── */}
       <section id="features" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-4">
-            Built for contractors like you
+            Everything you need. Built and working now.
           </h2>
           <p className="text-gray-500 text-center mb-12 max-w-md mx-auto">
-            From solo operators to crews of ten — Sightline fits the way you work.
+            No waitlists, no &ldquo;coming soon.&rdquo; Every feature below is live in the app today.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {TESTIMONIALS.map(({ quote, name, trade, city }) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map(({ icon, title, desc }) => (
               <div
-                key={name}
-                className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-6 py-6 flex flex-col"
+                key={title}
+                className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-6 py-6 flex flex-col gap-3"
               >
-                <div className="text-orange-500 text-4xl font-black leading-none mb-4">&ldquo;</div>
-                <p className="text-gray-300 text-base leading-relaxed flex-1">{quote}</p>
-                <div className="mt-5 pt-4 border-t border-[#2a2a2a]">
-                  <p className="text-white font-bold text-sm">{name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">
-                    {trade} · {city}
-                  </p>
-                </div>
+                <span className="text-3xl">{icon}</span>
+                <p className="text-white font-bold text-base leading-snug">{title}</p>
+                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -217,10 +247,10 @@ export default async function LandingPage() {
       <section id="pricing" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-lg mx-auto">
 
-          {/* Beta banner */}
+          {/* Trial banner */}
           <div className="bg-orange-500 rounded-t-2xl px-6 py-3 text-center">
             <p className="text-white font-bold text-sm tracking-wide">
-              🎉 30-day free trial — no credit card required
+              30-day free trial — no credit card required
             </p>
           </div>
 
@@ -272,7 +302,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Built by a carpenter ── */}
+      {/* ── About ── */}
       <section id="about" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">
@@ -297,7 +327,7 @@ export default async function LandingPage() {
             alt="Sightline"
             width={240}
             height={130}
-            className="h-14 w-auto"
+            className="h-14 w-auto mx-auto"
           />
           <h2 className="text-3xl sm:text-4xl font-black text-white mt-6 mb-3">
             Ready to run your business like a business?
@@ -342,7 +372,7 @@ export default async function LandingPage() {
               <span className="text-white font-black text-lg">Sightline</span>
             </div>
             <p className="text-gray-600 text-xs">Every job. One view.</p>
-            <p className="text-gray-700 text-xs mt-1">Made in Oregon 🌲</p>
+            <p className="text-gray-700 text-xs mt-1">Powered by Sightline</p>
           </div>
 
           {/* Links */}
@@ -354,10 +384,10 @@ export default async function LandingPage() {
               Sign Up
             </Link>
             <Link href="/privacy" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Privacy
+              Privacy Policy
             </Link>
             <Link href="/terms" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Terms
+              Terms of Service
             </Link>
           </nav>
         </div>
