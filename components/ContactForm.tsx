@@ -122,7 +122,7 @@ export default function ContactForm({ variant }: Props) {
       </form>
 
       {/* Direct contact details */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+      <div className="flex flex-col gap-2">
         <a
           href={`mailto:${EMAIL}`}
           className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors"
@@ -135,6 +135,7 @@ export default function ContactForm({ variant }: Props) {
           </span>
           <span className="text-sm font-semibold">{EMAIL}</span>
         </a>
+        <p className="text-gray-400 text-sm font-semibold pl-12">Text: 971-469-7274</p>
       </div>
     </div>
   );

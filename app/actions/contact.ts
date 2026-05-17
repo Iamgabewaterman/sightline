@@ -32,6 +32,9 @@ export async function sendContactEmail(
       "",
       `Message:`,
       message,
+      "",
+      "---",
+      "Reply by email or text 971-469-7274",
     ].join("\n"),
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
@@ -45,6 +48,7 @@ export async function sendContactEmail(
         <div style="margin-top:20px;padding:16px;background:#f5f5f5;border-radius:8px;">
           <p style="margin:0;white-space:pre-wrap;">${message.replace(/</g, "&lt;")}</p>
         </div>
+        <p style="margin-top:24px;color:#999;font-size:12px;">Reply by email or text 971-469-7274</p>
       </div>
     `,
   });
@@ -63,7 +67,7 @@ export async function sendIdeaEmail(
     replyTo: "sightlinesupport@gmail.com",
     to: "sightlinesupport@gmail.com",
     subject: "Sightline feature idea",
-    text: idea.trim(),
+    text: [idea.trim(), "", "---", "Reply by email or text 971-469-7274"].join("\n"),
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
         <h2 style="color:#F97316;margin-bottom:4px;">New feature idea</h2>
@@ -71,6 +75,7 @@ export async function sendIdeaEmail(
         <div style="margin-top:20px;padding:16px;background:#f5f5f5;border-radius:8px;">
           <p style="margin:0;white-space:pre-wrap;">${idea.trim().replace(/</g, "&lt;")}</p>
         </div>
+        <p style="margin-top:24px;color:#999;font-size:12px;">Reply by email or text 971-469-7274</p>
       </div>
     `,
   });

@@ -29,6 +29,7 @@ export default function IdeaBox({ variant }: { variant: "settings" | "landing" }
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-6 py-8 text-center">
         <p className="text-green-400 font-bold text-lg mb-1">Idea received — thank you!</p>
         <p className="text-gray-400 text-sm">We read every message and build what contractors actually need.</p>
+        <p className="text-gray-500 text-sm mt-2">You can also reach us by text at 971-469-7274</p>
       </div>
     );
   }
