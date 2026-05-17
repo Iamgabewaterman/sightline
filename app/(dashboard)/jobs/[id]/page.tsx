@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone } from "@/types";
 import TypeTags from "@/components/TypeTags";
 import PhotoSection from "@/components/PhotoSection";
 import JobStatus from "@/components/JobStatus";
@@ -15,7 +15,7 @@ import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
 import TimelineSection from "@/components/TimelineSection";
 import InvoiceSection from "@/components/InvoiceSection";
-import PunchListWidget from "@/components/PunchListWidget";
+import PunchListSection from "@/components/PunchListSection";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import DocumentsSection from "@/components/DocumentsSection";
@@ -55,6 +55,7 @@ export default async function JobDetailPage({
     { data: clockSessions },
     { data: documents },
     { data: subLogs },
+    { data: punchListPhotos },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -128,6 +129,12 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<SubcontractorLog[]>(),
+    supabase
+      .from("punch_list_photos")
+      .select("*")
+      .eq("job_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<PunchListPhoto[]>(),
   ]);
 
   if (!job) notFound();
@@ -308,9 +315,13 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* Punch List widget */}
+          {/* Punch List */}
           <div className="mb-4">
-            <PunchListWidget jobId={job.id} initialItems={punchListItems ?? []} />
+            <PunchListSection
+              jobId={job.id}
+              initialItems={punchListItems ?? []}
+              initialPhotos={punchListPhotos ?? []}
+            />
           </div>
 
           {/* Client Portal toggle */}

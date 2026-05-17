@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { PunchListItem } from "@/types";
+import { PunchListItem, PunchListPhoto } from "@/types";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
@@ -95,6 +95,34 @@ export async function deletePunchListItem(itemId: string): Promise<{ error?: str
     .from("punch_list_items")
     .delete()
     .eq("id", itemId)
+    .eq("user_id", user.id);
+  if (error) return { error: error.message };
+  return {};
+}
+
+export async function getPunchListPhotos(jobId: string): Promise<PunchListPhoto[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("punch_list_photos")
+    .select("*")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .returns<PunchListPhoto[]>();
+  return data ?? [];
+}
+
+export async function deletePunchListPhoto(
+  photoId: string,
+  storagePath: string
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  await supabase.storage.from("job-photos").remove([storagePath]);
+  const { error } = await supabase
+    .from("punch_list_photos")
+    .delete()
+    .eq("id", photoId)
     .eq("user_id", user.id);
   if (error) return { error: error.message };
   return {};

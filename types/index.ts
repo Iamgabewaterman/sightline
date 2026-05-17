@@ -324,6 +324,16 @@ export interface PunchListItem {
   created_at: string;
 }
 
+export interface PunchListPhoto {
+  id: string;
+  job_id: string;
+  user_id: string;
+  punch_list_item_id: string | null;
+  storage_path: string;
+  description: string;
+  created_at: string;
+}
+
 export interface Drive {
   id: string;
   user_id: string;
