@@ -56,17 +56,15 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
-  { label: "Shop Inventory",     href: "/inventory" },
+  { label: "Calculator",         href: "/calculator" },
+  { label: "Reports",            href: "/reports" },
   { label: "Mileage Tracker",    href: "/mileage" },
-  { label: "People & Crews",     href: "/people" },
+  { label: "Shop Inventory",     href: "/inventory" },
+  { label: "People and Crews",   href: "/people" },
   { label: "Calendar",           href: "/calendar" },
   { label: "Clients",            href: "/clients" },
   { label: "Portfolio",          href: "/portfolio" },
   { label: "Tax Report",         href: "/tax" },
-  { label: "Profitability",      href: "/profit" },
-  { label: "Reports",            href: "/reports" },
-  { label: "Templates",          href: "/templates" },
-  { label: "Materials Library",  href: "/materials-library" },
 ];
 
 export default function BottomTabBar() {
@@ -186,41 +184,87 @@ export default function BottomTabBar() {
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
             <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mt-3 mb-5" />
             <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest px-6 mb-3">Quick Actions</p>
-            <div className="flex flex-col px-4 gap-3 pb-2">
-              <Link
-                href="/jobs/new"
-                onClick={() => setQuickOpen(false)}
-                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform"
-              >
+            <div className="flex flex-col px-4 gap-2 pb-2">
+              {/* New Job */}
+              <Link href="/jobs/new" onClick={() => setQuickOpen(false)}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" />
-                    <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-                    <line x1="12" y1="11" x2="12" y2="17" />
-                    <line x1="9" y1="14" x2="15" y2="14" />
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+                    <line x1="12" y1="11" x2="12" y2="17"/>
+                    <line x1="9" y1="14" x2="15" y2="14"/>
                   </svg>
                 </div>
                 <div>
                   <p className="text-white font-semibold text-base">New Job</p>
-                  <p className="text-gray-500 text-sm">Start a new job</p>
+                  <p className="text-gray-500 text-sm">Create a new job</p>
                 </div>
               </Link>
 
-              <button
-                onClick={() => { setQuickOpen(false); openClockIn(); }}
-                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform w-full text-left"
-              >
+              {/* Add Material */}
+              <Link href="/jobs/all" onClick={() => setQuickOpen(false)}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
+                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                    <line x1="12" y1="12" x2="12" y2="18"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-base">{activeSession ? "Change Job" : "Clock In"}</p>
-                  <p className="text-gray-500 text-sm">{activeSession ? "Switch active session" : "Log time to a job"}</p>
+                  <p className="text-white font-semibold text-base">Add Material</p>
+                  <p className="text-gray-500 text-sm">Select a job to log materials</p>
                 </div>
-              </button>
+              </Link>
+
+              {/* Log Labor */}
+              <Link href="/jobs/all" onClick={() => setQuickOpen(false)}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-base">Log Labor</p>
+                  <p className="text-gray-500 text-sm">Select a job to log hours</p>
+                </div>
+              </Link>
+
+              {/* Scan Receipt */}
+              <Link href="/receipts" onClick={() => setQuickOpen(false)}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="15" y2="17"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-base">Scan Receipt</p>
+                  <p className="text-gray-500 text-sm">Capture and extract totals</p>
+                </div>
+              </Link>
+
+              {/* Log Drive */}
+              <Link href="/mileage" onClick={() => setQuickOpen(false)}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4l3 3"/>
+                    <path d="M5 3l2 2M19 3l-2 2"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-base">Log Drive</p>
+                  <p className="text-gray-500 text-sm">Track mileage for tax</p>
+                </div>
+              </Link>
             </div>
           </div>
         </>

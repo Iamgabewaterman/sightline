@@ -2,14 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Job } from "@/types";
 import TypeTags from "@/components/TypeTags";
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import AllJobsClient from "./AllJobsClient";
 
 export default async function AllJobsPage() {
   const supabase = createClient();
@@ -19,15 +12,28 @@ export default async function AllJobsPage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, name, types, address, updated_at")
+    .select("id, name, types, address, status, updated_at, client_id, job_number")
     .eq("user_id", user!.id)
     .order("updated_at", { ascending: false })
     .returns<Job[]>();
 
+  // Fetch client names for jobs that have clients
+  const clientIds = Array.from(new Set((jobs ?? []).filter((j) => j.client_id).map((j) => j.client_id!)));
+  const { data: clients } = clientIds.length > 0
+    ? await supabase.from("clients").select("id, name").in("id", clientIds)
+    : { data: [] };
+
+  const clientMap = new Map((clients ?? []).map((c) => [c.id, c.name]));
+
+  const enriched = (jobs ?? []).map((j) => ({
+    ...j,
+    clientName: j.client_id ? (clientMap.get(j.client_id) ?? null) : null,
+  }));
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6">
           <Link
             href="/jobs"
             className="text-gray-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
@@ -38,37 +44,7 @@ export default async function AllJobsPage() {
           <h1 className="text-3xl font-bold text-white">All Jobs</h1>
         </div>
 
-        {!jobs || jobs.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="text-gray-400 text-lg mb-6">No jobs yet.</p>
-            <Link
-              href="/jobs/new"
-              className="bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-xl active:scale-95 transition-transform inline-block"
-            >
-              + New Job
-            </Link>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {jobs.map((job) => (
-              <li key={job.id}>
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="block bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 active:scale-95 transition-transform"
-                >
-                  <h2 className="text-white font-bold text-xl leading-tight mb-3">
-                    {job.name}
-                  </h2>
-                  <TypeTags types={job.types} />
-                  <p className="text-gray-400 text-sm mt-3">{job.address}</p>
-                  <p className="text-gray-500 text-xs mt-2">
-                    {formatDate(job.updated_at)}
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <AllJobsClient jobs={enriched} />
       </div>
     </div>
   );

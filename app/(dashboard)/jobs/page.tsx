@@ -341,9 +341,9 @@ export default async function DashboardPage() {
 
         {allJobs.length === 0 ? (
           <div className="text-center py-24">
-            <p className="text-gray-400 text-lg mb-6">No jobs yet — create your first one.</p>
+            <p className="text-gray-400 text-lg mb-6">No jobs yet. Create your first one to get started.</p>
             <Link href="/jobs/new" className="bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-xl active:scale-95 transition-transform inline-block">
-              + New Job
+              Create Your First Job
             </Link>
           </div>
         ) : (

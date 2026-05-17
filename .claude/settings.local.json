@@ -44,7 +44,19 @@
       "Bash(sed -n '15,35p' app/actions/people.ts)",
       "Bash(sed -n '25,45p' app/actions/subcontractors.ts)",
       "Bash(Get-ChildItem -Path . -Depth 0)",
-      "Bash(Select-Object Name, PSIsContainer)"
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\" -Recurse -Filter \"*.tsx\" -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Find C:\\\\Users\\\\gabew\\\\sightline\\\\app\\\\demo -type f -name \"*.ts\" -o -name \"*.tsx\")",
+      "PowerShell(git push *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\\\\actions\" -Filter \"*.ts\")",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "PowerShell(git add *)",
+      "Bash(git restore *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\" -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
