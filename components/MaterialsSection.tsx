@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial, getMaterialSuggestions, MaterialSuggestion } from "@/app/actions/materials";
+import { dismissPriceFlag, getPriceFlagsForJob } from "@/app/actions/price-flags";
 import { similarity } from "@/lib/fuzzy-match";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
 import { Material } from "@/types";
@@ -743,16 +744,24 @@ function GroupedMaterialCard({
 // ─── MaterialsSection (main export) ──────────────────────────────────────────
 
 export default function MaterialsSection({
-  jobId, jobName = "", jobNumber = null, jobTypes = [], initialMaterials, onMaterialsAdded,
+  jobId, jobName = "", jobNumber = null, jobTypes = [], initialMaterials, initialPriceFlags, onMaterialsAdded,
 }: {
   jobId: string; jobName?: string; jobNumber?: string | null; jobTypes?: string[];
-  initialMaterials: Material[]; onMaterialsAdded?: (newMaterials: Material[]) => void;
+  initialMaterials: Material[];
+  initialPriceFlags?: { materialId: string; changePct: number; avgCost: number }[];
+  onMaterialsAdded?: (newMaterials: Material[]) => void;
 }) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const groupedMaterials = useMemo(() => groupByNormalized(materials), [materials]);
   const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
   const [disposingMaterial, setDisposingMaterial] = useState<Material | null>(null);
-  const [priceFlagsMap, setPriceFlagsMap] = useState<Map<string, { changePct: number; avgCost: number }>>(new Map());
+  const [priceFlagsMap, setPriceFlagsMap] = useState<Map<string, { changePct: number; avgCost: number }>>(() => {
+    const map = new Map<string, { changePct: number; avgCost: number }>();
+    for (const f of (initialPriceFlags ?? [])) {
+      map.set(f.materialId, { changePct: f.changePct, avgCost: f.avgCost });
+    }
+    return map;
+  });
 
   useEffect(() => {
     const cost = materials.reduce((sum, m) => {
@@ -926,7 +935,22 @@ export default function MaterialsSection({
 
   function handleDismissFlag(id: string) {
     setPriceFlagsMap((prev) => { const n = new Map(prev); n.delete(id); return n; });
+    void dismissPriceFlag(id);
   }
+
+  // Re-fetch flags after receipt confirmation
+  useEffect(() => {
+    async function handleReceiptConfirmed() {
+      const freshFlags = await getPriceFlagsForJob(jobId);
+      const map = new Map<string, { changePct: number; avgCost: number }>();
+      for (const f of freshFlags) {
+        map.set(f.materialId, { changePct: f.changePct, avgCost: f.avgCost });
+      }
+      setPriceFlagsMap(map);
+    }
+    window.addEventListener("sightline:receipt-confirmed", handleReceiptConfirmed);
+    return () => window.removeEventListener("sightline:receipt-confirmed", handleReceiptConfirmed);
+  }, [jobId]);
 
   async function handleDuplicate(source: Material) {
     const fd = new FormData();

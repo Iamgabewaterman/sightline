@@ -7,6 +7,7 @@ import { normalizeMaterialName } from "@/lib/material-normalizer";
 import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
+import { computePriceFlag, savePriceFlag } from "@/lib/price-flag-utils";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -300,6 +301,29 @@ export async function confirmReceiptItems(
         item.unit_price ?? null,
         "materials",
       );
+    }
+
+    // Compute and persist price flags for newly inserted materials
+    const { data: newMats } = await supabase
+      .from("materials")
+      .select("id, normalized_name, unit_cost, job_id")
+      .eq("job_id", jobId)
+      .eq("receipt_id", receiptId)
+      .not("unit_cost", "is", null)
+      .not("normalized_name", "is", null);
+
+    if (newMats?.length) {
+      for (const mat of newMats) {
+        const flag = await computePriceFlag(
+          supabase, user.id,
+          mat.normalized_name as string,
+          jobId,
+          Number(mat.unit_cost),
+        );
+        if (flag) {
+          void savePriceFlag(supabase, user.id, mat.id as string, jobId, flag.changePct, flag.avgCost);
+        }
+      }
     }
   }
 

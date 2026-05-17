@@ -162,6 +162,7 @@ export default function ReceiptsSection({
         result.result.vendor
       );
       await refreshMaterialCost();
+      window.dispatchEvent(new CustomEvent("sightline:receipt-confirmed"));
       return;
     }
 
@@ -171,6 +172,7 @@ export default function ReceiptsSection({
   async function handleModalDone() {
     setExtraction(null);
     await refreshMaterialCost();
+    window.dispatchEvent(new CustomEvent("sightline:receipt-confirmed"));
   }
 
   async function handleDuplicateYes() {

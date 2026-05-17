@@ -38,7 +38,7 @@ export default function InsightsSection({
     );
   }
 
-  if (cards.length === 0) return null;
+  if (cards.length === 0 && (!materialTrends || materialTrends.length === 0)) return null;
 
   return (
     <>

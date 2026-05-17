@@ -3,6 +3,33 @@
 import { createClient } from "@/lib/supabase/server";
 import { MaterialTrendRow, QuoteInflationResult } from "@/types";
 
+export async function getPriceFlagsForJob(
+  jobId: string,
+): Promise<{ materialId: string; changePct: number; avgCost: number }[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("material_price_flags")
+    .select("material_id, change_pct, avg_cost")
+    .eq("job_id", jobId)
+    .eq("dismissed", false);
+  return (data ?? []).map((r) => ({
+    materialId: r.material_id as string,
+    changePct: r.change_pct as number,
+    avgCost: Number(r.avg_cost),
+  }));
+}
+
+export async function dismissPriceFlag(materialId: string): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("material_price_flags")
+    .update({ dismissed: true })
+    .eq("material_id", materialId)
+    .eq("user_id", user.id);
+}
+
 export async function getMaterialCostTrends(userId: string): Promise<MaterialTrendRow[]> {
   const supabase = createClient();
 

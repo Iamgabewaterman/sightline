@@ -21,6 +21,7 @@ import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
 import SubcontractorsSection from "@/components/SubcontractorsSection";
+import { getPriceFlagsForJob } from "@/app/actions/price-flags";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -153,8 +154,9 @@ export default async function JobDetailPage({
     return s + (cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0));
   }, 0);
 
-  // Fetch client if linked, and contractor's Stripe Connect status
-  const [{ data: jobClient }, { data: bpConnect }] = await Promise.all([
+  // Fetch price flags and client/stripe status in parallel
+  const [priceFlags, { data: jobClient }, { data: bpConnect }] = await Promise.all([
+    getPriceFlagsForJob(params.id),
     job.client_id
       ? supabase.from("clients").select("id, name, company, phone, email, address").eq("id", job.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -373,6 +375,7 @@ export default async function JobDetailPage({
               jobTypes={job.types}
               calculatedSqft={job.calculated_sqft ?? null}
               initialMaterials={materials ?? []}
+              initialPriceFlags={priceFlags}
               completedJobCount={completedJobCount ?? 0}
             />
           </div>

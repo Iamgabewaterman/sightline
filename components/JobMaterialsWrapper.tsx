@@ -12,6 +12,7 @@ interface Props {
   jobTypes: string[];
   calculatedSqft: number | null;
   initialMaterials: Material[];
+  initialPriceFlags?: { materialId: string; changePct: number; avgCost: number }[];
   completedJobCount: number;
 }
 
@@ -22,6 +23,7 @@ export default function JobMaterialsWrapper({
   jobTypes,
   calculatedSqft,
   initialMaterials,
+  initialPriceFlags,
   completedJobCount,
 }: Props) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
@@ -47,6 +49,7 @@ export default function JobMaterialsWrapper({
         jobNumber={jobNumber}
         jobTypes={jobTypes}
         initialMaterials={materials}
+        initialPriceFlags={initialPriceFlags}
         onMaterialsAdded={handleSuggestionApplied}
       />
     </>
