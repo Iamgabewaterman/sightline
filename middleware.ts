@@ -52,6 +52,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // ── HQ admin route — only gabew595@gmail.com ────────────────────────────
+  if (pathname.startsWith("/hq")) {
+    if (!user) return NextResponse.redirect(new URL("/", request.url));
+    if (user.email !== "gabew595@gmail.com")
+      return NextResponse.redirect(new URL("/jobs", request.url));
+    return supabaseResponse;
+  }
+
   // ── Public routes — never redirect regardless of auth or subscription ────
   // This must be checked before any auth or subscription logic to prevent loops.
   const isPublicRoute =
