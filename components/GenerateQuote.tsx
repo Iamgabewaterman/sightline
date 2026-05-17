@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { saveJobQuote } from "@/app/actions/quotes";
 import { Job, Material, LaborLog, QuoteAddon, QuoteInflationResult } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
-import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 import { getQuoteInflationWarning } from "@/app/actions/price-flags";
 
 function fmt(n: number) {
@@ -207,6 +206,7 @@ export default function GenerateQuote({ job }: Props) {
         total: Number(l.hours) * Number(l.rate),
       }));
 
+      const { generateAndDownloadQuotePDF } = await import("@/lib/generateQuotePDF");
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
         jobName: job.name,

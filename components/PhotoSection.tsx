@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import { deletePhoto } from "@/app/actions/photos";
-import { generatePhotoReportPDF, PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
+import type { PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
 
 function TrashIcon() {
@@ -166,6 +166,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
         logoUrl = supabase.storage.from("business-logos").getPublicUrl(bp.logo_path).data.publicUrl;
       }
 
+      const { generatePhotoReportPDF } = await import("@/lib/generatePhotoReportPDF");
       await generatePhotoReportPDF({
         jobName,
         jobAddress,

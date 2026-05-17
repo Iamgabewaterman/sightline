@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import TypeTags from "@/components/TypeTags";
 
 type JobRow = {
@@ -142,7 +142,7 @@ export default function AllJobsClient({ jobs }: { jobs: JobRow[] }) {
   );
 }
 
-function JobCard({ job }: { job: JobRow }) {
+const JobCard = memo(function JobCard({ job }: { job: JobRow }) {
   return (
     <li>
       <Link
@@ -169,4 +169,4 @@ function JobCard({ job }: { job: JobRow }) {
       </Link>
     </li>
   );
-}
+});

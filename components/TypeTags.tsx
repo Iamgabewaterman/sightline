@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const TYPE_LABELS: Record<string, string> = {
   drywall: "Drywall",
   framing: "Framing",
@@ -15,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
   fencing: "Fencing",
 };
 
-export default function TypeTags({ types }: { types: string[] }) {
+export default memo(function TypeTags({ types }: { types: string[] }) {
   if (!types?.length) return null;
   return (
     <div className="flex flex-wrap gap-2">
@@ -29,4 +31,4 @@ export default function TypeTags({ types }: { types: string[] }) {
       ))}
     </div>
   );
-}
+});

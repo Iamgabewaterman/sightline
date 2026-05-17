@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 import { fetchHistoricalCostRange } from "@/app/actions/insights";
@@ -208,7 +208,8 @@ export default function CalculatorClient({
   const [histRange, setHistRange] = useState<HistoricalCostRange | null>(null);
 
   // Build price table: regional data overrides Oregon baseline where available
-  const P = {
+  // Memoized — only recomputes when the pricing prop reference changes
+  const P = useMemo(() => ({
     ...P_OR,
     // Drywall (regional: $/sheet 4x8)
     dw12:     pricing.drywall.value,
@@ -238,14 +239,9 @@ export default function CalculatorClient({
     intPaint: pricing.paint.value,
     extPaint: pricing.paint.value * (P_OR.extPaint / P_OR.intPaint),
     primer:   pricing.paint.value * (P_OR.primer   / P_OR.intPaint),
-  };
+  }), [pricing]);
 
-  // Map calculator trade IDs to job type strings for history lookup
-  const TRADE_JOB_TYPE: Partial<Record<TradeId, string>> = {
-    framing: "framing", roofing: "roofing", concrete: "concrete",
-    drywall: "drywall", tile: "tile", paint: "paint",
-    plumbing: "plumbing", electrical: "electrical", decking: "decks_patios",
-  };
+  // (TRADE_JOB_TYPE is defined as a module-level constant below the component)
 
   // Fetch historical range when results are ready
   useEffect(() => {
@@ -1258,3 +1254,10 @@ export default function CalculatorClient({
     </div>
   );
 }
+
+// Module-level constant — avoids object creation on every render
+const TRADE_JOB_TYPE: Partial<Record<TradeId, string>> = {
+  framing: "framing", roofing: "roofing", concrete: "concrete",
+  drywall: "drywall", tile: "tile", paint: "paint",
+  plumbing: "plumbing", electrical: "electrical", decking: "decks_patios",
+};

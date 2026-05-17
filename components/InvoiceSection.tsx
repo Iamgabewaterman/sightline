@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client, PaymentMilestone } from "@/types";
 import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions/invoices";
 import { saveMilestones } from "@/app/actions/milestones";
-import { generateAndDownloadInvoicePDF } from "@/lib/generateInvoicePDF";
 import { createClient } from "@/lib/supabase/client";
 import { useJobCost } from "./JobCostContext";
 import { useRole } from "@/hooks/useRole";
@@ -406,6 +405,7 @@ export default function InvoiceSection({
         ? new Date(inv.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
         : null;
 
+      const { generateAndDownloadInvoicePDF } = await import("@/lib/generateInvoicePDF");
       await generateAndDownloadInvoicePDF({
         contractorEmail: user?.email ?? "",
         jobName,

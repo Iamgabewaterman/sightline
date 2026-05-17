@@ -7,7 +7,6 @@ import { fetchHistoricalCostRange } from "@/app/actions/insights";
 import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { HistoricalCostRange } from "@/lib/insights";
 import { useJobCost } from "@/components/JobCostContext";
-import { generateAndDownloadQuotePDF } from "@/lib/generateQuotePDF";
 import { useRole } from "@/hooks/useRole";
 import ChangeOrdersSection from "./ChangeOrdersSection";
 import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
@@ -320,6 +319,7 @@ export default function QuoteProfitSection({
       }
 
       const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
+      const { generateAndDownloadQuotePDF } = await import("@/lib/generateQuotePDF");
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
         jobName: job.name,

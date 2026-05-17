@@ -22,6 +22,7 @@ import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
 import SubcontractorsSection from "@/components/SubcontractorsSection";
 import { getPriceFlagsForJob } from "@/app/actions/price-flags";
+import PerfMark from "@/components/PerfMark";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -61,13 +62,13 @@ export default async function JobDetailPage({
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
       .from("photos")
-      .select("*")
+      .select("id, job_id, category, storage_path, created_at, lat, lng, taken_at, accuracy, job_number")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<Photo[]>(),
     supabase
       .from("materials")
-      .select("*")
+      .select("id, job_id, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, category, trade, receipt_id, normalized_name, material_category, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<Material[]>(),
@@ -83,30 +84,30 @@ export default async function JobDetailPage({
       >(),
     supabase
       .from("receipts")
-      .select("*")
+      .select("id, job_id, storage_path, vendor, amount, receipt_date, ocr_raw, category, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<Receipt[]>(),
     supabase
       .from("labor_logs")
-      .select("*")
+      .select("id, job_id, crew_name, hours, rate, category, trade, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<LaborLog[]>(),
     supabase
       .from("invoices")
-      .select("*")
+      .select("id, job_id, user_id, client_id, status, payment_terms, due_date, notes, sent_at, paid_at, total_amount, created_at, client_line_items")
       .eq("job_id", params.id)
       .maybeSingle<Invoice>(),
     supabase
       .from("change_orders")
-      .select("*")
+      .select("id, job_id, user_id, description, amount, category, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<ChangeOrder[]>(),
     supabase
       .from("punch_list_items")
-      .select("*")
+      .select("id, job_id, user_id, description, completed, completed_at, created_at")
       .eq("job_id", params.id)
       .order("completed", { ascending: true })
       .order("created_at", { ascending: true })
@@ -120,19 +121,19 @@ export default async function JobDetailPage({
       .returns<Pick<ClockSession, "hours" | "rate" | "total">[]>(),
     supabase
       .from("documents")
-      .select("*")
+      .select("id, job_id, user_id, name, category, storage_path, file_type, file_size, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<JobDocument[]>(),
     supabase
       .from("subcontractor_logs")
-      .select("*")
+      .select("id, job_id, user_id, contact_id, company_name, trade, scope_description, quoted_amount, invoice_amount, invoice_received, paid, paid_at, notes, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<SubcontractorLog[]>(),
     supabase
       .from("punch_list_photos")
-      .select("*")
+      .select("id, job_id, user_id, punch_list_item_id, storage_path, description, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<PunchListPhoto[]>(),
@@ -140,29 +141,66 @@ export default async function JobDetailPage({
 
   if (!job) notFound();
 
-  // Fetch milestones for the invoice (if one exists)
-  const { data: invoiceMilestones } = invoice
-    ? await supabase
-        .from("payment_milestones")
-        .select("*")
-        .eq("invoice_id", invoice.id)
-        .order("sort_order")
-        .returns<PaymentMilestone[]>()
-    : { data: [] };
-
-  const clockSessionsLaborTotal = (clockSessions ?? []).reduce((s, cs) => {
-    return s + (cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0));
-  }, 0);
-
-  // Fetch price flags and client/stripe status in parallel
-  const [priceFlags, { data: jobClient }, { data: bpConnect }] = await Promise.all([
+  // Single parallel round for all secondary data — avoids 4 sequential round trips
+  const [
+    priceFlags,
+    clientResult,
+    bpConnectResult,
+    completedCountResult,
+    timelinesResult,
+    milestonesResult,
+  ] = await Promise.all([
     getPriceFlagsForJob(params.id),
     job.client_id
       ? supabase.from("clients").select("id, name, company, phone, email, address").eq("id", job.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("business_profiles").select("stripe_onboarded").eq("user_id", user!.id).maybeSingle(),
+    supabase
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user!.id)
+      .eq("status", "completed")
+      .not("id", "eq", params.id)
+      .not("calculated_sqft", "is", null)
+      .overlaps("types", job.types),
+    job.types.length > 0
+      ? supabase
+          .from("jobs")
+          .select("total_days, types")
+          .eq("user_id", user!.id)
+          .eq("status", "completed")
+          .not("id", "eq", params.id)
+          .not("total_days", "is", null)
+          .overlaps("types", job.types)
+      : Promise.resolve({ data: null as { total_days: number; types: string[] }[] | null }),
+    invoice
+      ? supabase
+          .from("payment_milestones")
+          .select("id, invoice_id, user_id, label, amount, due_date, status, paid_at, sort_order, created_at")
+          .eq("invoice_id", invoice.id)
+          .order("sort_order")
+          .returns<PaymentMilestone[]>()
+      : Promise.resolve({ data: [] as PaymentMilestone[] }),
   ]);
-  const stripeConnected = bpConnect?.stripe_onboarded ?? false;
+
+  const { data: jobClient }    = clientResult;
+  const { data: bpConnect }    = bpConnectResult;
+  const completedJobCount      = completedCountResult.count;
+  const completedTimelines     = timelinesResult.data;
+  const invoiceMilestones      = milestonesResult.data ?? [];
+  const stripeConnected        = bpConnect?.stripe_onboarded ?? false;
+
+  // Timeline AI insight
+  let timelineInsight: { min: number; max: number; type: string } | null = null;
+  if ((completedTimelines?.length ?? 0) >= 3) {
+    const days = completedTimelines!.map((j) => j.total_days as number);
+    const min = Math.min(...days);
+    const max = Math.max(...days);
+    const sharedType = job.types.find((t) =>
+      completedTimelines!.some((j) => (j.types as string[]).includes(t))
+    ) ?? job.types[0];
+    timelineInsight = { min, max, type: sharedType };
+  }
 
   // Initial actual costs (used to seed the live context)
   const initialMaterialCost = (materials ?? []).reduce((sum, m) => {
@@ -185,40 +223,6 @@ export default async function JobDetailPage({
     return s + amt;
   }, 0);
 
-  // Count completed jobs of same types for AI suggestions
-  const { count: completedJobCount } = await supabase
-    .from("jobs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user!.id)
-    .eq("status", "completed")
-    .not("id", "eq", params.id)
-    .not("calculated_sqft", "is", null)
-    .overlaps("types", job.types);
-
-  // Timeline AI insight: completed jobs of same type with total_days recorded
-  let timelineInsight: { min: number; max: number; type: string } | null = null;
-  if (job.types.length > 0) {
-    const { data: completedTimelines } = await supabase
-      .from("jobs")
-      .select("total_days, types")
-      .eq("user_id", user!.id)
-      .eq("status", "completed")
-      .not("id", "eq", params.id)
-      .not("total_days", "is", null)
-      .overlaps("types", job.types);
-
-    if ((completedTimelines?.length ?? 0) >= 3) {
-      const days = completedTimelines!.map((j) => j.total_days as number);
-      const min = Math.min(...days);
-      const max = Math.max(...days);
-      // Find the shared type to name the insight
-      const sharedType = job.types.find((t) =>
-        completedTimelines!.some((j) => (j.types as string[]).includes(t))
-      ) ?? job.types[0];
-      timelineInsight = { min, max, type: sharedType };
-    }
-  }
-
   const initialQuoteData = estimate
     ? {
         materialBudget: estimate.material_total,
@@ -231,6 +235,7 @@ export default async function JobDetailPage({
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
+      <PerfMark mark="job-detail-ready" />
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-8">
