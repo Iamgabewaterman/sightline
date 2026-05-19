@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
 
@@ -79,6 +80,7 @@ export async function disposeMaterialStore(
   });
 
   if (error) return { error: error.message };
+  revalidatePath("/inventory");
   return { success: true };
 }
 
@@ -122,6 +124,8 @@ export async function pullFromInventory(
     notes: note,
   });
   if (matErr) return { error: matErr.message };
+
+  revalidatePath(`/jobs/${jobId}`);
 
   const remaining = Number(inv.quantity) - qtyPulled;
   if (remaining <= 0) {

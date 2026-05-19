@@ -1,6 +1,8 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeMaterialName } from "@/lib/material-normalizer";
 
 export interface BulkMaterialItem {
   name: string;
@@ -20,6 +22,7 @@ export async function addMaterialsBulk(
   const rows = items.map((item) => ({
     job_id: jobId,
     name: item.name,
+    normalized_name: normalizeMaterialName(item.name),
     unit: item.unit,
     quantity_ordered: item.quantity_ordered,
     unit_cost: item.unit_cost,
@@ -31,11 +34,11 @@ export async function addMaterialsBulk(
 
   const { error } = await supabase.from("materials").insert(rows);
   if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${jobId}`);
   return {};
 }
 
-// Adds materials with qty_ordered=0 so they appear immediately in the shopping list.
-// qty_used stores the planned quantity from the calculator.
 export async function addMaterialsAsShoppingList(
   jobId: string,
   items: BulkMaterialItem[]
@@ -47,10 +50,11 @@ export async function addMaterialsAsShoppingList(
   const rows = items.map((item) => ({
     job_id: jobId,
     name: item.name,
+    normalized_name: normalizeMaterialName(item.name),
     unit: item.unit,
-    quantity_ordered: 0,
+    quantity_ordered: item.quantity_ordered,
     unit_cost: item.unit_cost,
-    quantity_used: item.quantity_ordered, // store planned qty in quantity_used
+    quantity_used: null,
     length_ft: null,
     notes: "Added from calculator — not yet purchased",
     category: "materials" as const,
@@ -58,5 +62,7 @@ export async function addMaterialsAsShoppingList(
 
   const { error } = await supabase.from("materials").insert(rows);
   if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${jobId}`);
   return {};
 }

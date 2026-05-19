@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ClockSession, Job } from "@/types";
 import { sendPushToUser } from "@/lib/push";
@@ -147,6 +148,8 @@ export async function clockOut(
     .insert({ job_id: session.job_id, crew_name: crewName, hours, rate });
 
   if (laborError) return { error: laborError.message };
+
+  revalidatePath(`/jobs/${session.job_id}`);
 
   // Notify job owner if clock-out is done by a field member
   const { data: job } = await supabase
