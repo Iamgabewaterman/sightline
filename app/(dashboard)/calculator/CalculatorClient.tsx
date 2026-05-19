@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import AIVisualEstimator from "@/components/AIVisualEstimator";
 import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 import { fetchHistoricalCostRange } from "@/app/actions/insights";
@@ -164,6 +165,12 @@ export default function CalculatorClient({
   const [sub, setSub]             = useState<string | null>(null);
   const [result, setResult]       = useState<ResultItem[] | null>(null);
   const [wasteNote, setWasteNote] = useState("");
+
+  const [showAI, setShowAI] = useState(false);
+  const [aiRecentlyUsed, setAiRecentlyUsed] = useState(false);
+  useEffect(() => {
+    setAiRecentlyUsed(!!localStorage.getItem("sl-ai-estimator-used"));
+  }, []);
 
   // Dimension unit (default: inches — convert to ft for calculations)
   const [dimUnit, setDimUnit] = useState<"in" | "ft">("in");
@@ -836,6 +843,21 @@ export default function CalculatorClient({
   const totalCost = result?.reduce((s, r) => s + r.qty * r.unitCost, 0) ?? 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (showAI) {
+    return (
+      <AIVisualEstimator
+        jobs={jobs}
+        pricing={pricing}
+        locationSource={locationSource}
+        onBack={() => setShowAI(false)}
+        onUsed={() => {
+          localStorage.setItem("sl-ai-estimator-used", "1");
+          setAiRecentlyUsed(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 pt-6 pb-16">
       <div className="max-w-lg mx-auto">
@@ -882,6 +904,42 @@ export default function CalculatorClient({
         {/* ── STEP 1: Trade picker ── */}
         {step === 1 && (
           <>
+            {/* AI Visual Estimator card */}
+            <button
+              onClick={() => setShowAI(true)}
+              className="w-full mb-2 text-left rounded-2xl overflow-hidden border border-orange-500/40 active:scale-[0.98] transition-transform"
+              style={{ background: "linear-gradient(135deg, #1a0e00 0%, #1f1200 50%, #1a0a00 100%)" }}
+            >
+              {/* AI Powered badge in top right */}
+              <div className="relative px-5 pt-4 pb-4">
+                <div className="absolute top-3 right-3">
+                  <span className="text-orange-400 text-[10px] font-bold uppercase tracking-wider bg-[#2a1500] border border-orange-500/30 px-2 py-0.5 rounded-full">AI Powered</span>
+                </div>
+                <div className="flex items-center gap-4 pr-16">
+                  {/* Camera + sparkle icon */}
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-bold text-base leading-tight">Photo Estimator</p>
+                    <p className="text-orange-300/70 text-sm mt-0.5 leading-snug">
+                      {aiRecentlyUsed
+                        ? <>🕐 Tap to start a new visual estimate</>
+                        : "Take a photo — AI identifies materials and dimensions"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* Separator */}
+            <p className="text-gray-600 text-xs text-center mb-4">
+              Optional — or choose a category below to calculate manually.
+            </p>
+
             <p className="text-gray-400 text-sm mb-4">What trade?</p>
             <div className="grid grid-cols-2 gap-3">
               {TRADES.map((t) => (
