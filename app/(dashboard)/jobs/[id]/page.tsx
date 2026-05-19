@@ -1,35 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone } from "@/types";
-import TypeTags from "@/components/TypeTags";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
 import PhotoSection from "@/components/PhotoSection";
-import JobStatus from "@/components/JobStatus";
 import QuoteProfitSection from "@/components/QuoteProfitSection";
 import ReceiptsSection from "@/components/ReceiptsSection";
-import LaborSection from "@/components/LaborSection";
-import LockboxCode from "@/components/LockboxCode";
-import DeleteJobButton from "@/components/DeleteJobButton";
-import DimensionsSection from "@/components/DimensionsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
-import TimelineSection from "@/components/TimelineSection";
 import InvoiceSection from "@/components/InvoiceSection";
 import PunchListSection from "@/components/PunchListSection";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import DocumentsSection from "@/components/DocumentsSection";
 import WeatherWidget from "@/components/WeatherWidget";
-import SubcontractorsSection from "@/components/SubcontractorsSection";
+import LaborSubsSection from "@/components/LaborSubsSection";
+import DailyLogsSection from "@/components/DailyLogsSection";
+import ChangeOrdersSection from "@/components/ChangeOrdersSection";
 import { getPriceFlagsForJob } from "@/app/actions/price-flags";
 import PerfMark from "@/components/PerfMark";
+import CollapsibleSection from "@/components/CollapsibleSection";
+import JobOverviewCard from "@/components/JobOverviewCard";
+import DeleteJobButton from "@/components/DeleteJobButton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+    month: "short", day: "numeric", year: "numeric",
   });
 }
 
@@ -39,13 +34,10 @@ export default async function JobDetailPage({
   params: { id: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const [
     { data: job },
-    // client fetched separately below after job loads
     { data: photos },
     { data: materials },
     { data: estimate },
@@ -58,6 +50,7 @@ export default async function JobDetailPage({
     { data: documents },
     { data: subLogs },
     { data: punchListPhotos },
+    { data: dailyLogs },
   ] = await Promise.all([
     supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
     supabase
@@ -137,11 +130,16 @@ export default async function JobDetailPage({
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<PunchListPhoto[]>(),
+    supabase
+      .from("daily_logs")
+      .select("id, job_id, user_id, log_date, notes, crew_present, created_at")
+      .eq("job_id", params.id)
+      .order("log_date", { ascending: false })
+      .returns<DailyLog[]>(),
   ]);
 
   if (!job) notFound();
 
-  // Single parallel round for all secondary data — avoids 4 sequential round trips
   const [
     priceFlags,
     clientResult,
@@ -190,7 +188,6 @@ export default async function JobDetailPage({
   const invoiceMilestones      = milestonesResult.data ?? [];
   const stripeConnected        = bpConnect?.stripe_onboarded ?? false;
 
-  // Timeline AI insight
   let timelineInsight: { min: number; max: number; type: string } | null = null;
   if ((completedTimelines?.length ?? 0) >= 3) {
     const days = completedTimelines!.map((j) => j.total_days as number);
@@ -202,7 +199,6 @@ export default async function JobDetailPage({
     timelineInsight = { min, max, type: sharedType };
   }
 
-  // Initial actual costs (used to seed the live context)
   const initialMaterialCost = (materials ?? []).reduce((sum, m) => {
     if (m.unit_cost === null) return sum;
     const qty = m.quantity_used ?? m.quantity_ordered;
@@ -210,8 +206,7 @@ export default async function JobDetailPage({
   }, 0);
 
   const initialLaborCost = (laborLogs ?? []).reduce(
-    (s, l) => s + Number(l.hours) * Number(l.rate),
-    0
+    (s, l) => s + Number(l.hours) * Number(l.rate), 0
   );
 
   const initialReceiptTotal = (receipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
@@ -233,50 +228,31 @@ export default async function JobDetailPage({
       }
     : null;
 
+  const openPunchItems = (punchListItems ?? []).filter((i) => !i.completed).length;
+
+  void clockSessions;
+
   return (
-    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-6 pb-16">
       <PerfMark mark="job-detail-ready" />
       <div className="max-w-lg mx-auto">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/jobs"
-              className="text-gray-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
-              aria-label="Back"
-            >
-              ←
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-white leading-tight">{job.name}</h1>
-              {job.job_number && (
-                <p className="text-gray-500 text-sm mt-0.5">Job #{job.job_number}</p>
-              )}
-            </div>
-          </div>
+
+        {/* ── Nav row ── */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <Link
+            href="/jobs"
+            className="text-gray-400 text-2xl leading-none active:scale-95 transition-transform min-w-[48px] min-h-[48px] flex items-center justify-center"
+            aria-label="Back"
+          >
+            ←
+          </Link>
           <Link
             href={`/jobs/${job.id}/edit`}
-            className="shrink-0 text-white border border-[#2a2a2a] font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
+            className="text-white border border-[#2a2a2a] font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
           >
             Edit
           </Link>
         </div>
-        {jobClient && (
-          <Link
-            href={`/clients/${jobClient.id}`}
-            className="flex items-center gap-2 mb-4 text-orange-400 active:opacity-70"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-            <span className="text-sm font-semibold">{jobClient.name}</span>
-          </Link>
-        )}
-
-        {/* Weather widget — only if job has coordinates */}
-        {job.job_lat && job.job_lng && (
-          <WeatherWidget lat={job.job_lat} lng={job.job_lng} jobStatus={job.status ?? "active"} />
-        )}
 
         <JobCostProvider
           initialMaterialCost={initialMaterialCost}
@@ -286,17 +262,16 @@ export default async function JobDetailPage({
           initialQuoteData={initialQuoteData}
           initialChangeOrders={changeOrders ?? []}
         >
-          {/* Job Status */}
-          <div className="mb-4">
-            <JobStatus
-              jobId={job.id}
-              initialStatus={job.status ?? "active"}
-              openPunchItems={(punchListItems ?? []).filter((i) => !i.completed).length}
-              hasInvoice={!!invoice}
-            />
-          </div>
+          {/* 1 — Job Overview Card (collapsed by default) */}
+          <JobOverviewCard
+            job={job}
+            jobClient={jobClient ? { id: jobClient.id, name: jobClient.name } : null}
+            openPunchItems={openPunchItems}
+            hasInvoice={!!invoice}
+            timelineInsight={timelineInsight}
+          />
 
-          {/* Quote + Profitability (merged) */}
+          {/* 2 — Profitability (always open) */}
           <div className="mb-4">
             <QuoteProfitSection
               job={job}
@@ -307,7 +282,23 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* Invoice & Payments — every job */}
+          {/* 3 — Weather (always open, only if geocoded) */}
+          {job.job_lat && job.job_lng && (
+            <div className="mb-4">
+              <WeatherWidget lat={job.job_lat} lng={job.job_lng} jobStatus={job.status ?? "active"} />
+            </div>
+          )}
+
+          {/* 4 — Client Portal (always open) */}
+          <div className="mb-4">
+            <PortalToggle
+              jobId={job.id}
+              initialEnabled={job.portal_enabled ?? false}
+              initialToken={job.portal_token ?? null}
+            />
+          </div>
+
+          {/* 5 — Invoice & Payments (always open) */}
           <div className="mb-4">
             <InvoiceSection
               jobId={job.id}
@@ -322,101 +313,121 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* Punch List */}
-          <div className="mb-4">
+          {/* 6 — Punch List & Photo Notes */}
+          <CollapsibleSection
+            title="Punch List"
+            count={(punchListItems ?? []).length}
+          >
             <PunchListSection
               jobId={job.id}
               initialItems={punchListItems ?? []}
               initialPhotos={punchListPhotos ?? []}
             />
-          </div>
+          </CollapsibleSection>
 
-          {/* Client Portal toggle */}
-          <div className="mb-4">
-            <PortalToggle
-              jobId={job.id}
-              initialEnabled={job.portal_enabled ?? false}
-              initialToken={job.portal_token ?? null}
-            />
-          </div>
-
-          {/* Detail cards */}
-          <div className="flex flex-col gap-4">
-            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
-                Job Type
-              </p>
-              <TypeTags types={job.types} />
+          {/* 7 — Materials */}
+          <CollapsibleSection
+            title="Materials"
+            count={(materials ?? []).length}
+          >
+            <div id="section-materials">
+              <JobMaterialsWrapper
+                jobId={job.id}
+                jobName={job.name}
+                jobNumber={job.job_number ?? null}
+                jobTypes={job.types}
+                calculatedSqft={job.calculated_sqft ?? null}
+                initialMaterials={materials ?? []}
+                initialPriceFlags={priceFlags}
+                completedJobCount={completedJobCount ?? 0}
+              />
             </div>
-            <DetailRow label="Address" value={job.address} />
-            <DetailRow label="Created" value={formatDate(job.created_at)} />
-            {job.estimated_completion_date && (
-              <DetailRow label="Est. Completion" value={formatDate(job.estimated_completion_date)} />
-            )}
-            {job.notes && <DetailRow label="Notes" value={job.notes} multiline />}
-            {job.lockbox_code && <LockboxCode code={job.lockbox_code} />}
-          </div>
+          </CollapsibleSection>
 
-          {/* Timeline */}
-          <div className="mt-4">
-            <TimelineSection job={job} timelineInsight={timelineInsight} />
-          </div>
+          {/* 8 — Labor & Subcontractors (merged) */}
+          <CollapsibleSection
+            title="Labor & Subs"
+            count={(laborLogs ?? []).length + (subLogs ?? []).length}
+          >
+            <div id="section-labor">
+              <LaborSubsSection
+                jobId={job.id}
+                initialLogs={laborLogs ?? []}
+                initialSubLogs={subLogs ?? []}
+                jobTypes={job.types as string[]}
+              />
+            </div>
+          </CollapsibleSection>
 
-          {/* Dimensions */}
-          <DimensionsSection
-            jobId={job.id}
-            initialLength={job.dim_length ?? null}
-            initialWidth={job.dim_width ?? null}
-            initialHeight={job.dim_height ?? null}
-            initialSqft={job.calculated_sqft ?? null}
-          />
+          {/* 9 — Receipts */}
+          <CollapsibleSection
+            title="Receipts"
+            count={(receipts ?? []).length}
+          >
+            <div id="section-receipts">
+              <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
+            </div>
+          </CollapsibleSection>
 
-          {/* Materials + AI suggestions (wrapped together for state sharing) */}
-          <div id="section-materials" className="mt-8">
-            <JobMaterialsWrapper
+          {/* 10 — Photos */}
+          <CollapsibleSection
+            title="Photos"
+            count={(photos ?? []).length}
+          >
+            <PhotoSection
               jobId={job.id}
               jobName={job.name}
-              jobNumber={job.job_number ?? null}
-              jobTypes={job.types}
-              calculatedSqft={job.calculated_sqft ?? null}
-              initialMaterials={materials ?? []}
-              initialPriceFlags={priceFlags}
-              completedJobCount={completedJobCount ?? 0}
+              jobAddress={job.address}
+              jobNumber={job.job_number ?? undefined}
+              clientName={jobClient?.name ?? null}
+              initialPhotos={photos ?? []}
+              documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
             />
+          </CollapsibleSection>
+
+          {/* 11 — Documents */}
+          <CollapsibleSection
+            title="Documents"
+            count={(documents ?? []).length}
+          >
+            <DocumentsSection
+              jobId={job.id}
+              initialDocuments={documents ?? []}
+            />
+          </CollapsibleSection>
+
+          {/* 12 — Daily Logs */}
+          <CollapsibleSection
+            title="Daily Logs"
+            count={(dailyLogs ?? []).length}
+          >
+            <DailyLogsSection
+              jobId={job.id}
+              initialLogs={dailyLogs ?? []}
+            />
+          </CollapsibleSection>
+
+          {/* 13 — Change Orders */}
+          <CollapsibleSection
+            title="Change Orders"
+            count={(changeOrders ?? []).length}
+          >
+            <ChangeOrdersSection jobId={job.id} />
+          </CollapsibleSection>
+
+          {/* Footer */}
+          <div className="mt-8 pt-4 border-t border-[#1e1e1e]">
+            <p className="text-gray-600 text-xs">
+              Created {formatDate(job.created_at)}
+              {job.updated_at && job.updated_at !== job.created_at && (
+                <> · Last updated {formatDate(job.updated_at)}</>
+              )}
+            </p>
           </div>
 
-          {/* Labor */}
-          <div id="section-labor">
-            <LaborSection jobId={job.id} initialLogs={laborLogs ?? []} jobTypes={job.types as string[]} />
-          </div>
-
-          {/* Subcontractors */}
-          <SubcontractorsSection jobId={job.id} initialLogs={subLogs ?? []} />
-
-          {/* Receipts */}
-          <div id="section-receipts">
-            <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
-          </div>
-
-          {/* Photos */}
-          <PhotoSection
-            jobId={job.id}
-            jobName={job.name}
-            jobAddress={job.address}
-            jobNumber={job.job_number ?? undefined}
-            clientName={jobClient?.name ?? null}
-            initialPhotos={photos ?? []}
-            documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
-          />
-
-          {/* Documents */}
-          <DocumentsSection
-            jobId={job.id}
-            initialDocuments={documents ?? []}
-          />
         </JobCostProvider>
 
-        {/* Save as Template — completed jobs only */}
+        {/* Save as Template */}
         {job.status === "completed" && (
           <div className="mt-6 flex justify-center">
             <SaveAsTemplateButton jobId={job.id} defaultName={job.name} />
@@ -427,24 +438,8 @@ export default async function JobDetailPage({
         <div className="mt-6 pt-6 border-t border-[#2a2a2a]">
           <DeleteJobButton jobId={job.id} jobName={job.name} />
         </div>
-      </div>
-    </div>
-  );
-}
 
-function DetailRow({
-  label,
-  value,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
-  return (
-    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
-      <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-white text-lg ${multiline ? "whitespace-pre-wrap" : ""}`}>{value}</p>
+      </div>
     </div>
   );
 }
