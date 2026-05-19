@@ -50,6 +50,22 @@ const P_OR = {
   fencePost4x4: 14.00, fenceRail2x4: 7.50,
   fencePostCap: 3.50, fenceStain: 38.00,
   fenceConcrete: 7.50,
+  // ── Roofing supplementals ─────────────────────────────────────────────────
+  felt15lb: 28.00, felt30lb: 38.00, starterStrip: 48.00, roofingNails50lb: 32.00,
+  // ── Flooring ──────────────────────────────────────────────────────────────
+  underlayRoll100: 35.00, floorStaples1000: 18.00, floorTransition: 22.00,
+  // ── Concrete supplementals ────────────────────────────────────────────────
+  concrete60: 5.50, expansionJoint10ft: 4.50,
+  // ── HVAC rough-in ────────────────────────────────────────────────────────
+  hvacSupplyReg: 12.00, hvacReturnGrille: 18.00, hvacFlexDuct25: 25.00,
+  hvacDuctTape: 8.00, hvacMastic: 22.00, hvacMetalScrews: 5.00,
+  // ── Plumbing rough-in ─────────────────────────────────────────────────────
+  pvc4_10ft: 14.00, pvc3_10ft: 10.00, pvc2_10ft: 7.00, pvc1510ft: 5.50,
+  pvcGlue: 8.00, pvcPrimer: 8.00, pTrap2: 10.00, waxRing: 6.00, angleStop: 8.00,
+  // ── Electrical rough-in ───────────────────────────────────────────────────
+  romex14_250: 75.00, romex12_250: 95.00, romex10_250: 130.00,
+  elecBox: 2.50, breaker15: 8.00, breaker20: 10.00,
+  wireStaples: 5.00, wireNuts: 5.00,
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -68,6 +84,7 @@ const TRADES = [
   { id: "electrical", label: "Electrical",           icon: "⚡" },
   { id: "fire_flood", label: "Fire & Flood",         icon: "🔥" },
   { id: "decking",    label: "Decks & Patios",       icon: "🪟" },
+  { id: "hvac",       label: "HVAC Rough-In",        icon: "💨" },
 ] as const;
 type TradeId = typeof TRADES[number]["id"];
 
@@ -100,9 +117,10 @@ const SUB_OPTIONS: Record<TradeId, { id: string; label: string }[]> = {
   ],
   siding:     [{ id: "panel", label: "Siding by Sqft" }],
   paint:      [{ id: "room",  label: "Room / Area" }],
-  plumbing:   [{ id: "pipe",  label: "Pipe Run" }],
-  electrical: [{ id: "wire",  label: "Wire Run" }],
+  plumbing:   [{ id: "pipe", label: "Pipe Run" }, { id: "fixtures", label: "Plumbing Rough-In" }],
+  electrical: [{ id: "wire", label: "Wire Run" }, { id: "rough_in", label: "Electrical Rough-In" }],
   fire_flood: [{ id: "kit",   label: "Restoration Kit" }],
+  hvac:       [{ id: "rough_in", label: "HVAC Rough-In" }],
   decking: [
     { id: "boards",   label: "Deck Boards" },
     { id: "framing",  label: "Framing / Joists" },
@@ -195,6 +213,14 @@ export default function CalculatorClient({
   // Fencing
   const [fenceHeight, setFenceHeight]     = useState("6");
   const [fencePostSpacing, setFencePostSpacing] = useState("8");
+  // New trade/option states
+  const [feltType, setFeltType]     = useState("synth");
+  const [bagSize, setBagSize]       = useState("80");
+  const [toilets, setToilets]       = useState("");
+  const [sinks, setSinks]           = useState("");
+  const [showers, setShowers]       = useState("");
+  const [circuit15, setCircuit15]   = useState("");
+  const [circuit20, setCircuit20]   = useState("");
 
   // Save to job
   const [jobPickerOpen,    setJobPickerOpen]    = useState(false);
@@ -256,6 +282,7 @@ export default function CalculatorClient({
     setStep(1); setTrade(null); setSub(null); setResult(null);
     setLen(""); setWid(""); setHgt(""); setWallSqft(""); setCeilSqft("");
     setDepth(""); setOpenings(""); setLf(""); setPitch("1.0");
+    setToilets(""); setSinks(""); setShowers(""); setCircuit15(""); setCircuit20("");
     setSaved(false); setSaveError(""); setJobPickerOpen(false); setSaveMode("job");
   }
 
@@ -352,22 +379,30 @@ export default function CalculatorClient({
       const pitchN = parseFloat(pitch) || 1.0;
       const roofArea = sqft * pitchN;
       const withWaste = roofArea * 1.12;
-      const squares = ceil(withWaste / 100);
-      const underlayRolls = ceil(withWaste / 1000); // synthetic roll = 10sq
-      const iceWaterRolls = ceil((n(len) * 3) / 65); // 3ft eaves
-      const dripEdgePcs = ceil((n(len) * 2 + n(wid) * 2) / 10);
-      const ridgeBundles = ceil(n(len) / 35);
+      const squares = withWaste / 100;
+      const bundlesPerSq = roofingType === "arch" ? 4 : 3;
+      const shingleBundles = ceil(squares * bundlesPerSq);
       const shinglePx = roofingType === "arch" ? P.archShingles : P.tab3Shingles;
-      const shingleLabel = roofingType === "arch" ? "Architectural Shingles" : "3-Tab Shingles";
+      const shingleLabel = roofingType === "arch" ? "Arch Shingle" : "3-Tab Shingle";
+      const feltRolls = feltType === "15lb" ? ceil(withWaste / 400) : feltType === "30lb" ? ceil(withWaste / 200) : ceil(withWaste / 1000);
+      const feltPx = feltType === "15lb" ? P.felt15lb : feltType === "30lb" ? P.felt30lb : P.synthUnderlayment;
+      const feltLabel = feltType === "15lb" ? "15lb Felt Underlayment Roll" : feltType === "30lb" ? "30lb Felt Underlayment Roll" : "Synthetic Underlayment Roll";
+      const eaveLF = (n(len) + n(wid)) * 2;
+      const starterBundles = ceil(eaveLF / 105);
+      const iceWaterRolls = ceil((n(len) * 3) / 65);
+      const dripEdgePcs = ceil(eaveLF / 10);
+      const ridgeBundles = ceil(n(len) / 35);
+      const nailBoxes = ceil(squares / 3);
       items.push(
-        { name: shingleLabel,             qty: squares,       unit: "square", unitCost: shinglePx },
-        { name: "Synthetic Underlayment", qty: underlayRolls, unit: "roll",   unitCost: P.synthUnderlayment },
-        { name: "Ice and Water Shield",   qty: Math.max(1, iceWaterRolls), unit: "roll", unitCost: P.iceWater },
-        { name: "Drip Edge Aluminum 10ft",qty: dripEdgePcs,   unit: "each",   unitCost: P.dripEdge },
-        { name: "Ridge Cap",              qty: Math.max(1, ridgeBundles), unit: "bundle", unitCost: P.ridgeCap },
-        { name: "Roofing Nails",          qty: squares,       unit: "lb",     unitCost: P.nails16d },
+        { name: shingleLabel + " Bundle",  qty: shingleBundles, unit: "bundle", unitCost: shinglePx / bundlesPerSq },
+        { name: feltLabel,                 qty: Math.max(1, feltRolls), unit: "roll", unitCost: feltPx },
+        { name: "Starter Strip Bundle",    qty: Math.max(1, starterBundles), unit: "bundle", unitCost: P.starterStrip },
+        { name: "Ice and Water Shield",    qty: Math.max(1, iceWaterRolls), unit: "roll", unitCost: P.iceWater },
+        { name: "Drip Edge Aluminum 10ft", qty: Math.max(1, dripEdgePcs), unit: "each", unitCost: P.dripEdge },
+        { name: "Ridge Cap Bundle",        qty: Math.max(1, ridgeBundles), unit: "bundle", unitCost: P.ridgeCap },
+        { name: "Roofing Nails 50lb Box",  qty: Math.max(1, nailBoxes), unit: "box", unitCost: P.roofingNails50lb },
       );
-      note = "12% waste · pitch factor applied to area";
+      note = `12% waste · pitch factor applied · ${bundlesPerSq} bundles/sq`;
     }
 
     else if (trade === "roofing" && sub === "underlayment") {
@@ -380,32 +415,38 @@ export default function CalculatorClient({
 
     else if (trade === "concrete" && (sub === "slab" || sub === "rebar")) {
       const volCuFt = toFt(len) * toFt(wid) * (n(depth) / 12);
-      const bags = ceil(volCuFt / 0.45 * 1.10); // 80lb bag = ~0.45 cuft, 10% overage
+      const bagCuFt = bagSize === "60" ? 0.45 : 0.60;
+      const bagPx = bagSize === "60" ? P.concrete60 : P.concrete80;
+      const bagLabel = `Concrete ${bagSize}lb Bag`;
+      const bags = ceil(volCuFt / bagCuFt * 1.10);
+      const perimLF = toFt(len) * 2 + toFt(wid) * 2;
+      const expJoints = ceil(perimLF / 10);
       items.push(
-        { name: "Concrete 80lb Bag", qty: bags, unit: "bag", unitCost: P.concrete80 },
+        { name: bagLabel, qty: Math.max(1, bags), unit: "bag", unitCost: bagPx },
+        { name: "Expansion Joint 10ft", qty: Math.max(1, expJoints), unit: "each", unitCost: P.expansionJoint10ft },
       );
       if (sub === "rebar") {
-        const gridSpacingFt = 1.5; // 18" default
+        const gridSpacingFt = 1.5;
         const rebarSticks = ceil(((toFt(len) / gridSpacingFt) + (toFt(wid) / gridSpacingFt)) * 1.1);
         const meshSheets = ceil((n(len) * n(wid)) / 32);
         items.push(
-          { name: "Rebar #4 20ft",  qty: rebarSticks, unit: "stick", unitCost: P.rebar4 },
-          { name: "Wire Mesh 4x8",  qty: meshSheets,  unit: "sheet", unitCost: P.wireMesh },
-          { name: "Vapor Barrier 6mil", qty: 1,        unit: "roll",  unitCost: 55.00 },
+          { name: "Rebar #4 20ft",      qty: rebarSticks, unit: "stick", unitCost: P.rebar4 },
+          { name: "Wire Mesh 4x8",      qty: meshSheets,  unit: "sheet", unitCost: P.wireMesh },
+          { name: "Vapor Barrier 6mil", qty: 1,           unit: "roll",  unitCost: 55.00 },
         );
       }
-      note = "10% concrete overage · one 80lb bag ≈ 0.45 cu ft";
+      note = `10% overage · one ${bagSize}lb bag ≈ ${bagCuFt} cu ft`;
     }
 
     else if (trade === "drywall" && sub === "room") {
       const wallsN = n(wallSqft), ceilN = n(ceilSqft);
       const total = wallsN + ceilN;
-      const withWaste = total * 1.10;
+      const withWaste = total * 1.12;
       const dwPx = dwThickness === "12" ? P.dw12 : dwThickness === "12x12" ? P.dw12x12 : dwThickness === "typeX" ? P.dwTypeX : P.dwMold;
       const dwLabel = dwThickness === "12" ? "Drywall 1/2 4x8" : dwThickness === "12x12" ? "Drywall 1/2 4x12" : dwThickness === "typeX" ? "Drywall 5/8 Type X 4x8" : "Mold Resistant Drywall 4x8";
       const sheets = ceil(withWaste / 32);
-      const screwBoxes = ceil(sheets / 10);
-      const compoundBuckets = ceil(sheets / 20);
+      const screwBoxes = ceil(withWaste / 150);
+      const compoundBuckets = ceil(withWaste / 500);
       const tapeRolls = ceil(sheets / 30);
       const cbLength = ceil(Math.sqrt(wallsN) * 4 / 8); // corner bead 8ft sticks
       items.push(
@@ -417,7 +458,7 @@ export default function CalculatorClient({
         { name: "Corner Bead Metal 8ft",  qty: cbLength,        unit: "each",   unitCost: P.cornerBead },
         { name: "Drywall Primer",         qty: ceil(total / 400), unit: "gallon", unitCost: P.dwPrimer },
       );
-      note = "10% waste on sheet count";
+      note = "12% waste · 1 screw box/150 sqft · 1 compound bucket/500 sqft";
     }
 
     else if (trade === "insulation" && sub === "batt") {
@@ -449,41 +490,53 @@ export default function CalculatorClient({
       const withWaste = sqft * 1.15;
       const tilePx: Record<string,number> = { "12x12_ceramic": P.ceramic12, "12x12_porcelain": P.porcelain12, "24x24": P.porcelain24, "mosaic": P.mosaic };
       const tileLabel: Record<string,string> = { "12x12_ceramic": "Ceramic Tile 12x12", "12x12_porcelain": "Porcelain Tile 12x12", "24x24": "Porcelain Tile 24x24", "mosaic": "Mosaic Tile" };
+      const boxCoverage: Record<string,number> = { "12x12_ceramic": 20, "12x12_porcelain": 15, "24x24": 16, "mosaic": 10 };
+      const coverage = boxCoverage[tileSize] ?? 20;
+      const boxes = ceil(withWaste / coverage);
       const thinsetBags = ceil(withWaste / 40);
       const groutBags   = ceil(withWaste / 50);
-      const cbSheets    = ceil(withWaste / 15); // cement board 3x5=15sqft
+      const cbSheets    = ceil(withWaste / 15);
       items.push(
-        { name: tileLabel[tileSize], qty: ceil(withWaste), unit: "sqft",  unitCost: tilePx[tileSize] },
-        { name: "Thinset 50lb Bag",  qty: thinsetBags,     unit: "bag",   unitCost: P.thinset },
-        { name: "Sanded Grout 25lb", qty: groutBags,       unit: "bag",   unitCost: P.sandedGrout },
-        { name: "Cement Board 1/2 3x5", qty: cbSheets,     unit: "sheet", unitCost: P.cementBoard12 },
-        { name: "Cement Board Screws",  qty: cbSheets,     unit: "box",   unitCost: P.cbScrews },
+        { name: tileLabel[tileSize] + ` Box (${coverage} sqft)`, qty: boxes, unit: "box", unitCost: tilePx[tileSize] * coverage },
+        { name: "Thinset 50lb Bag",     qty: thinsetBags, unit: "bag",   unitCost: P.thinset },
+        { name: "Sanded Grout 25lb",    qty: groutBags,   unit: "bag",   unitCost: P.sandedGrout },
+        { name: "Cement Board 1/2 3x5", qty: cbSheets,    unit: "sheet", unitCost: P.cementBoard12 },
+        { name: "Cement Board Screws",  qty: cbSheets,    unit: "box",   unitCost: P.cbScrews },
         { name: "Tile Spacers 1/8in",   qty: ceil(sqft / 50), unit: "bag", unitCost: P.spacers },
-        { name: "Grout Sealer",         qty: 1,            unit: "quart", unitCost: P.groutSealer },
+        { name: "Grout Sealer",         qty: 1,           unit: "quart", unitCost: P.groutSealer },
       );
-      note = "15% tile waste";
+      note = `15% waste · ${coverage} sqft/box`;
     }
 
     else if (trade === "tile" && sub === "lvp") {
       const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const withWaste = sqft * 1.10;
+      const boxes = ceil(withWaste / 22);
+      const underlayRolls = ceil(withWaste / 100);
       items.push(
-        { name: "LVP Flooring",              qty: ceil(withWaste), unit: "sqft", unitCost: P.lvp },
-        { name: "Flooring Underlayment 3mm", qty: ceil(withWaste), unit: "sqft", unitCost: P.underlayment },
+        { name: "LVP Flooring Box (22 sqft)",    qty: boxes, unit: "box", unitCost: P.lvp * 22 },
+        { name: "Underlayment Roll (100 sqft)",  qty: Math.max(1, underlayRolls), unit: "roll", unitCost: P.underlayRoll100 },
+        { name: "Floor Transition Strip",        qty: 1, unit: "each", unitCost: P.floorTransition },
       );
-      note = "10% waste";
+      note = "10% waste · 22 sqft/box · 100 sqft/underlayment roll";
     }
 
     else if (trade === "tile" && sub === "hardwood") {
       const sqft = toFt(len) * toFt(wid) || n(wallSqft);
       const withWaste = sqft * 1.10;
       const px = floorType === "hardwood" ? P.hardwood : P.laminate;
-      const label = floorType === "hardwood" ? "Hardwood Oak Flooring" : "Laminate Flooring";
+      const label = floorType === "hardwood" ? "Hardwood Oak" : "Laminate";
+      const boxes = ceil(withWaste / 20);
+      const underlayRolls = ceil(withWaste / 100);
       items.push(
-        { name: label,                       qty: ceil(withWaste), unit: "sqft", unitCost: px },
-        { name: "Flooring Underlayment 3mm", qty: ceil(withWaste), unit: "sqft", unitCost: P.underlayment },
+        { name: label + " Box (20 sqft)",       qty: boxes, unit: "box", unitCost: px * 20 },
+        { name: "Underlayment Roll (100 sqft)", qty: Math.max(1, underlayRolls), unit: "roll", unitCost: P.underlayRoll100 },
       );
-      note = "10% waste";
+      if (floorType === "hardwood") {
+        items.push({ name: "Floor Staples 1000ct", qty: Math.max(1, ceil(withWaste / 100)), unit: "box", unitCost: P.floorStaples1000 });
+      }
+      items.push({ name: "Floor Transition Strip", qty: 1, unit: "each", unitCost: P.floorTransition });
+      note = "10% waste · 20 sqft/box";
     }
 
     else if (trade === "siding" && sub === "panel") {
@@ -517,7 +570,7 @@ export default function CalculatorClient({
       items.push(
         { name: label,              qty: gallons,            unit: "gallon", unitCost: px },
         { name: "Paint Primer",     qty: Math.max(1, primerGallons), unit: "gallon", unitCost: P.primer },
-        { name: "Roller Cover",     qty: ceil(gallons / 2),  unit: "each",   unitCost: P.rollerCover },
+        { name: "Roller Cover",     qty: Math.max(1, ceil(sqft / 400)), unit: "each", unitCost: P.rollerCover },
         { name: "9in Roller Frame", qty: 1,                  unit: "each",   unitCost: P.rollerFrame },
         { name: "3in Brush",        qty: 2,                  unit: "each",   unitCost: P.brush3 },
         { name: "Painters Tape 60yd", qty: ceil(sqft / 200), unit: "roll",   unitCost: P.paintersTape },
@@ -692,6 +745,72 @@ export default function CalculatorClient({
         { name: "Deck Screws 350ct",      qty: ceil(pickets / 70), unit: "box", unitCost: P.deckScrew350 },
       );
       note = `${posts} posts @ ${postSpacingFt}ft OC · ${railsPerBay} rails/bay · 5% waste · 2 bags concrete/post`;
+    }
+
+    else if (trade === "hvac" && sub === "rough_in") {
+      const sqftN = n(wallSqft);
+      const ceilHt = n(hgt) || 9;
+      const zones = parseInt(lf) || 1;
+      const tons = Math.max(1, Math.round(sqftN / 400));
+      const supplyRegs = Math.max(zones, ceil(sqftN / 150));
+      const returnGrilles = zones;
+      const flexDuctRolls = Math.max(1, ceil(supplyRegs * 8 / 25));
+      const ductTapeRolls = Math.max(1, ceil(supplyRegs / 3));
+      const masticQts = Math.max(1, ceil((supplyRegs + returnGrilles) / 5));
+      items.push(
+        { name: `Supply Register (${tons}-ton system)`, qty: supplyRegs, unit: "each",  unitCost: P.hvacSupplyReg },
+        { name: "Return Air Grille",     qty: returnGrilles, unit: "each",  unitCost: P.hvacReturnGrille },
+        { name: "Flex Duct 25ft Roll",   qty: flexDuctRolls, unit: "roll",  unitCost: P.hvacFlexDuct25 },
+        { name: "Foil Duct Tape Roll",   qty: ductTapeRolls, unit: "roll",  unitCost: P.hvacDuctTape },
+        { name: "Duct Mastic Sealant",   qty: masticQts,     unit: "quart", unitCost: P.hvacMastic },
+        { name: "Sheet Metal Screws Box",qty: 1,             unit: "box",   unitCost: P.hvacMetalScrews },
+      );
+      note = `${sqftN} sqft · ${ceilHt}ft ceilings · ${zones} zone${zones > 1 ? "s" : ""} · ~${tons}-ton system`;
+    }
+
+    else if (trade === "plumbing" && sub === "fixtures") {
+      const tCount = parseInt(toilets) || 0;
+      const siCount = parseInt(sinks) || 0;
+      const shCount = parseInt(showers) || 0;
+      if (tCount > 0) {
+        items.push(
+          { name: "PVC 4in DWV 10ft", qty: Math.max(1, ceil(tCount * 10 / 10)), unit: "each", unitCost: P.pvc4_10ft },
+          { name: "PVC 3in DWV 10ft", qty: Math.max(1, ceil(tCount * 1.5)),     unit: "each", unitCost: P.pvc3_10ft },
+          { name: "Wax Ring",         qty: tCount,                               unit: "each", unitCost: P.waxRing },
+        );
+      }
+      if (siCount + shCount > 0) {
+        items.push(
+          { name: "PVC 2in DWV 10ft", qty: Math.max(1, ceil((siCount + shCount) * 8 / 10)), unit: "each", unitCost: P.pvc2_10ft },
+          { name: "P-Trap 2in",       qty: siCount + shCount,                                unit: "each", unitCost: P.pTrap2 },
+        );
+      }
+      items.push(
+        { name: "PVC Cement",  qty: 1, unit: "each", unitCost: P.pvcGlue },
+        { name: "PVC Primer",  qty: 1, unit: "each", unitCost: P.pvcPrimer },
+      );
+      if (tCount + siCount > 0) {
+        items.push({ name: "Angle Stop 3/8in", qty: (tCount + siCount) * 2, unit: "each", unitCost: P.angleStop });
+      }
+      note = `${tCount} toilet${tCount !== 1 ? "s" : ""} · ${siCount} sink${siCount !== 1 ? "s" : ""} · ${shCount} shower${shCount !== 1 ? "s" : ""}`;
+    }
+
+    else if (trade === "electrical" && sub === "rough_in") {
+      const c15 = parseInt(circuit15) || 0;
+      const c20 = parseInt(circuit20) || 0;
+      const totalCircuits = c15 + c20;
+      const romex14Spools = c15 > 0 ? Math.max(1, ceil(c15 * 50 / 250)) : 0;
+      const romex12Spools = c20 > 0 ? Math.max(1, ceil(c20 * 50 / 250)) : 0;
+      if (romex14Spools > 0) items.push({ name: "14/2 Romex 250ft Spool", qty: romex14Spools, unit: "spool", unitCost: P.romex14_250 });
+      if (romex12Spools > 0) items.push({ name: "12/2 Romex 250ft Spool", qty: romex12Spools, unit: "spool", unitCost: P.romex12_250 });
+      items.push(
+        { name: "Electrical Box",    qty: totalCircuits * 2, unit: "each", unitCost: P.elecBox },
+        { name: "15A Breaker",       qty: c15,               unit: "each", unitCost: P.breaker15 },
+        { name: "20A Breaker",       qty: c20,               unit: "each", unitCost: P.breaker20 },
+        { name: "Wire Staples Box",  qty: Math.max(1, ceil(totalCircuits / 5)), unit: "box", unitCost: P.wireStaples },
+        { name: "Wire Nuts Box",     qty: Math.max(1, ceil(totalCircuits / 5)), unit: "box", unitCost: P.wireNuts },
+      );
+      note = `${c15} × 15A circuits · ${c20} × 20A circuits`;
     }
 
     if (items.length > 0) { setResult(items); setWasteNote(note); setStep(5); }
@@ -907,6 +1026,10 @@ export default function CalculatorClient({
                 <label className={labelCls}>Shingle Type</label>
                 <div className="flex gap-2">{[["arch","Architectural"],["tab3","3-Tab"]].map(([v,l])=><button key={v} onClick={()=>setRoofingType(v)} className={chip(roofingType===v)}>{l}</button>)}</div>
               </div>
+              <div>
+                <label className={labelCls}>Underlayment Type</label>
+                <div className="flex gap-2">{[["synth","Synthetic"],["15lb","15lb Felt"],["30lb","30lb Felt"]].map(([v,l])=><button key={v} onClick={()=>setFeltType(v)} className={chip(feltType===v)}>{l}</button>)}</div>
+              </div>
             </>)}
 
             {trade === "roofing" && sub === "underlayment" && (<>
@@ -918,6 +1041,10 @@ export default function CalculatorClient({
               <div><label className={labelCls}>Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div><label className={labelCls}>Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div><label className={labelCls}>Depth (inches)</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="4" className={inputCls}/></div>
+              <div>
+                <label className={labelCls}>Bag Size</label>
+                <div className="flex gap-2">{[["80","80lb (0.60 cuft)"],["60","60lb (0.45 cuft)"]].map(([v,l])=><button key={v} onClick={()=>setBagSize(v)} className={chip(bagSize===v)}>{l}</button>)}</div>
+              </div>
             </>)}
 
             {/* DRYWALL */}
@@ -1019,8 +1146,8 @@ export default function CalculatorClient({
               </div>
             </>)}
 
-            {/* PLUMBING */}
-            {trade === "plumbing" && (<>
+            {/* PLUMBING PIPE RUN */}
+            {trade === "plumbing" && sub === "pipe" && (<>
               <div><label className={labelCls}>Run Length (ft)</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Pipe Type</label>
@@ -1032,13 +1159,33 @@ export default function CalculatorClient({
               </div>
             </>)}
 
-            {/* ELECTRICAL */}
-            {trade === "electrical" && (<>
+            {/* PLUMBING ROUGH-IN FIXTURES */}
+            {trade === "plumbing" && sub === "fixtures" && (<>
+              <div><label className={labelCls}>Toilets</label><input type="number" inputMode="numeric" value={toilets} onChange={e=>setToilets(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Sinks</label><input type="number" inputMode="numeric" value={sinks} onChange={e=>setSinks(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Showers / Tubs</label><input type="number" inputMode="numeric" value={showers} onChange={e=>setShowers(e.target.value)} placeholder="0" className={inputCls}/></div>
+            </>)}
+
+            {/* ELECTRICAL WIRE RUN */}
+            {trade === "electrical" && sub === "wire" && (<>
               <div><label className={labelCls}>Run Length (ft)</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Wire Gauge</label>
                 <div className="flex gap-2">{[["14_2","14/2 Romex"],["12_2","12/2 Romex"],["10_2","10/2 Romex"]].map(([v,l])=><button key={v} onClick={()=>setWireType(v)} className={chip(wireType===v)}>{l}</button>)}</div>
               </div>
+            </>)}
+
+            {/* ELECTRICAL ROUGH-IN */}
+            {trade === "electrical" && sub === "rough_in" && (<>
+              <div><label className={labelCls}>15A Circuits</label><input type="number" inputMode="numeric" value={circuit15} onChange={e=>setCircuit15(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>20A Circuits</label><input type="number" inputMode="numeric" value={circuit20} onChange={e=>setCircuit20(e.target.value)} placeholder="0" className={inputCls}/></div>
+            </>)}
+
+            {/* HVAC ROUGH-IN */}
+            {trade === "hvac" && sub === "rough_in" && (<>
+              <div><label className={labelCls}>Square Footage</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Ceiling Height (ft)</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder="9" className={inputCls}/></div>
+              <div><label className={labelCls}>Number of Zones</label><input type="number" inputMode="numeric" value={lf} onChange={e=>setLf(e.target.value)} placeholder="1" className={inputCls}/></div>
             </>)}
 
             {/* FIRE & FLOOD */}
@@ -1192,6 +1339,34 @@ export default function CalculatorClient({
               })()}
             </div>
 
+            {/* ORDER LIST */}
+            {(() => {
+              const items = result!;
+              const tradeName = TRADES.find(t => t.id === trade)?.label ?? "";
+              const dimStr = wallSqft ? `${wallSqft} sqft` : (len && wid) ? `${len}×${wid} ${dimUnit}` : lf ? `${lf} LF` : "";
+              const subtotal = items.reduce((s, r) => s + r.qty * r.unitCost, 0);
+              return (
+                <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-[#2a2a2a]">
+                    <p className="text-gray-300 text-xs font-bold uppercase tracking-wider">
+                      ORDER LIST — {tradeName}{dimStr ? ` — ${dimStr}` : ""}
+                    </p>
+                  </div>
+                  <div className="px-5 py-3 font-mono text-xs flex flex-col gap-0.5">
+                    {items.map((item, i) => (
+                      <p key={i} className="text-gray-400 leading-relaxed">
+                        {item.name} — {item.qty} {item.unit} @ ${item.unitCost.toFixed(2)} = <span className="text-white font-bold">${(item.qty * item.unitCost).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                      </p>
+                    ))}
+                    <div className="border-t border-[#2a2a2a] mt-2 pt-2">
+                      <p className="text-white font-bold text-sm">SUBTOTAL: ${subtotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}</p>
+                      <p className="text-gray-600 text-xs mt-0.5">{pricingTierLabel(pricing, locationSource)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Add to job */}
             {saved ? (
               <div className="bg-green-900/30 border border-green-800 text-green-400 font-bold text-base py-4 rounded-xl text-center">
@@ -1260,4 +1435,5 @@ const TRADE_JOB_TYPE: Partial<Record<TradeId, string>> = {
   framing: "framing", roofing: "roofing", concrete: "concrete",
   drywall: "drywall", tile: "tile", paint: "paint",
   plumbing: "plumbing", electrical: "electrical", decking: "decks_patios",
+  hvac: "hvac",
 };
