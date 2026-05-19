@@ -243,6 +243,42 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* ── See it in action ── */}
+      <section className="py-20 px-5 border-t border-[#1a1a1a]">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            See it in action
+          </h2>
+          <p className="text-gray-500 text-center mb-10">
+            Walk through a live demo — no signup required.
+          </p>
+
+          {/* VIDEO_URL — replace this placeholder with the embed URL when ready */}
+          <div className="relative w-full bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-8" style={{ paddingBottom: "56.25%" }}>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-[#2a2a2a] border border-[#3a3a3a] flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <polygon points="5,3 19,12 5,21" fill="#6B7280" />
+                </svg>
+              </div>
+              <p className="text-gray-600 text-sm font-medium">Demo video coming soon</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3">
+            <Link
+              href="/demo"
+              className="w-full sm:w-auto bg-orange-500 text-white font-bold text-lg px-10 py-5 rounded-2xl hover:bg-orange-400 transition-colors active:scale-95 text-center"
+            >
+              Try the live demo
+            </Link>
+            <p className="text-gray-600 text-sm">
+              No account needed — explore every feature with sample data.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── Pricing ── */}
       <section id="pricing" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-lg mx-auto">
