@@ -1,22 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { sendIdeaEmail } from "@/app/actions/contact";
 
+const FALLBACK_MSG = "Message could not be sent — please text us at 971-469-7274 or email sightlinesupport@gmail.com directly.";
+
 export default function IdeaBox({ variant }: { variant: "settings" | "landing" }) {
-  const [idea, setIdea] = useState("");
+  const [idea, setIdea]         = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
+  const [sent, setSent]         = useState(false);
+  const [error, setError]       = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
-    const res = await sendIdeaEmail(idea);
-    setSubmitting(false);
-    if (res.error) { setError(res.error); return; }
-    setSent(true);
+    try {
+      const res = await sendIdeaEmail(idea);
+      if (res.error) { setError(res.error); return; }
+      setSent(true);
+    } catch {
+      setError(FALLBACK_MSG);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const textareaCls =
@@ -29,7 +41,20 @@ export default function IdeaBox({ variant }: { variant: "settings" | "landing" }
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-6 py-8 text-center">
         <p className="text-green-400 font-bold text-lg mb-1">Idea received — thank you!</p>
         <p className="text-gray-400 text-sm">We read every message and build what contractors actually need.</p>
-        <p className="text-gray-500 text-sm mt-2">You can also reach us by text at 971-469-7274</p>
+        <p className="text-gray-500 text-sm mt-2">
+          You can also reach us by{" "}
+          <a href="mailto:sightlinesupport@gmail.com" className="text-orange-400 underline underline-offset-2 hover:text-orange-300 transition-colors">
+            email
+          </a>
+          {" "}or{" "}
+          {isMobile ? (
+            <a href="sms:+19714697274" className="text-orange-400 underline underline-offset-2 hover:text-orange-300 transition-colors">
+              text at 971-469-7274
+            </a>
+          ) : (
+            <span>text at 971-469-7274</span>
+          )}
+        </p>
       </div>
     );
   }
