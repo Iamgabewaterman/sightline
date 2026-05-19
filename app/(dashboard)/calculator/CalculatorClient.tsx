@@ -941,8 +941,8 @@ export default function CalculatorClient({
 
             {/* FRAMING WALL */}
             {trade === "framing" && sub === "wall" && (<>
-              <div><label className={labelCls}>Wall Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Wall Height ({dimUnit})</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder={dimUnit==="in"?"108":"9"} className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Height</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div><label className={labelCls}>Openings (doors + windows)</label><input type="number" inputMode="numeric" value={openings} onChange={e=>setOpenings(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Stud Size</label>
@@ -956,8 +956,8 @@ export default function CalculatorClient({
 
             {/* FLOOR SYSTEM */}
             {trade === "framing" && sub === "floor" && (<>
-              <div><label className={labelCls}>Floor Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Floor Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Floor Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Floor Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Joist Size</label>
                 <div className="flex gap-2">{["2x8","2x10","2x12"].map(s=><button key={s} onClick={()=>setJoistSize(s)} className={chip(joistSize===s)}>{s}</button>)}</div>
@@ -974,8 +974,8 @@ export default function CalculatorClient({
 
             {/* ROOF STRUCTURE */}
             {trade === "framing" && sub === "roof" && (<>
-              <div><label className={labelCls}>Roof Span Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Roof Span Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Roof Span Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Roof Span Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Rafter Size</label>
                 <div className="flex gap-2">{["2x8","2x10","2x12"].map(s=><button key={s} onClick={()=>setJoistSize(s)} className={chip(joistSize===s)}>{s}</button>)}</div>
@@ -988,7 +988,7 @@ export default function CalculatorClient({
 
             {/* HEADER */}
             {trade === "framing" && sub === "header" && (<>
-              <div><label className={labelCls}>Opening Span (ft)</label><input type="number" inputMode="decimal" value={headerSpan} onChange={e=>setHeaderSpan(e.target.value)} placeholder="e.g. 6" className={inputCls}/></div>
+              <div><label className={labelCls}>Opening Span</label><input type="number" inputMode="decimal" value={headerSpan} onChange={e=>setHeaderSpan(e.target.value)} placeholder="e.g. 6" className={inputCls}/></div>
             </>)}
 
             {/* POST */}
@@ -1002,7 +1002,7 @@ export default function CalculatorClient({
 
             {/* FENCE LINE */}
             {trade === "framing" && sub === "fence" && (<>
-              <div><label className={labelCls}>Linear Feet of Fence</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Fence Line</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Fence Height</label>
                 <div className="flex gap-2">{[["4","4 ft"],["5","5 ft"],["6","6 ft"],["8","8 ft"]].map(([v,l])=><button key={v} onClick={()=>setFenceHeight(v)} className={chip(fenceHeight===v)}>{l}</button>)}</div>
@@ -1015,9 +1015,9 @@ export default function CalculatorClient({
 
             {/* ROOFING */}
             {trade === "roofing" && sub === "shingles" && (<>
-              <div><label className={labelCls}>Roof Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Roof Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Or Enter Roof Sq Ft Directly</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Roof Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Roof Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Or Enter Roof Area Directly</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Roof Pitch</label>
                 <div className="grid grid-cols-4 gap-2">{[["1.0","Flat"],["1.054","4:12"],["1.083","5:12"],["1.118","6:12"],["1.158","7:12"],["1.202","8:12"],["1.302","10:12"],["1.414","12:12"]].map(([v,l])=><button key={v} onClick={()=>setPitch(v)} className={chip(pitch===v)}>{l}</button>)}</div>
@@ -1033,14 +1033,14 @@ export default function CalculatorClient({
             </>)}
 
             {trade === "roofing" && sub === "underlayment" && (<>
-              <div><label className={labelCls}>Roof Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Roof Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
             </>)}
 
             {/* CONCRETE */}
             {trade === "concrete" && (<>
-              <div><label className={labelCls}>Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Depth (inches)</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="4" className={inputCls}/></div>
+              <div><label className={labelCls}>Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Depth</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="4" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Bag Size</label>
                 <div className="flex gap-2">{[["80","80lb (0.60 cuft)"],["60","60lb (0.45 cuft)"]].map(([v,l])=><button key={v} onClick={()=>setBagSize(v)} className={chip(bagSize===v)}>{l}</button>)}</div>
@@ -1049,8 +1049,8 @@ export default function CalculatorClient({
 
             {/* DRYWALL */}
             {trade === "drywall" && (<>
-              <div><label className={labelCls}>Wall Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Ceiling Sq Ft</label><input type="number" inputMode="decimal" value={ceilSqft} onChange={e=>setCeilSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Ceiling Area</label><input type="number" inputMode="decimal" value={ceilSqft} onChange={e=>setCeilSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Sheet Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1067,7 +1067,7 @@ export default function CalculatorClient({
                 <label className={labelCls}>Location</label>
                 <div className="flex gap-2">{[["wall","Wall"],["floor","Floor"],["attic","Attic"]].map(([v,l])=><button key={v} onClick={()=>setInsLocation(v)} className={chip(insLocation===v)}>{l}</button>)}</div>
               </div>
-              <div><label className={labelCls}>Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>R-Value</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1080,7 +1080,7 @@ export default function CalculatorClient({
 
             {/* INSULATION RIGID */}
             {trade === "insulation" && sub === "rigid" && (<>
-              <div><label className={labelCls}>Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>R-Value</label>
                 <div className="flex gap-2">{[["r5","1\" R-5"],["r10","2\" R-10"]].map(([v,l])=><button key={v} onClick={()=>setRValue(v)} className={chip(rValue===v)}>{l}</button>)}</div>
@@ -1089,8 +1089,8 @@ export default function CalculatorClient({
 
             {/* TILE CERAMIC */}
             {trade === "tile" && sub === "ceramic" && (<>
-              <div><label className={labelCls}>Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Tile Size / Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1103,14 +1103,14 @@ export default function CalculatorClient({
 
             {/* LVP */}
             {trade === "tile" && sub === "lvp" && (<>
-              <div><label className={labelCls}>Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
             </>)}
 
             {/* HARDWOOD/LAMINATE */}
             {trade === "tile" && sub === "hardwood" && (<>
-              <div><label className={labelCls}>Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Width (ft)</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Type</label>
                 <div className="flex gap-2">{[["hardwood","Hardwood Oak"],["laminate","Laminate"]].map(([v,l])=><button key={v} onClick={()=>setFloorType(v)} className={chip(floorType===v)}>{l}</button>)}</div>
@@ -1119,9 +1119,9 @@ export default function CalculatorClient({
 
             {/* SIDING */}
             {trade === "siding" && (<>
-              <div><label className={labelCls}>Wall Length (ft)</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Wall Height (ft)</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Or Enter Total Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Height</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Or Enter Total Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Siding Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1134,8 +1134,8 @@ export default function CalculatorClient({
 
             {/* PAINT */}
             {trade === "paint" && (<>
-              <div><label className={labelCls}>Wall Sq Ft</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Ceiling Sq Ft</label><input type="number" inputMode="decimal" value={ceilSqft} onChange={e=>setCeilSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Wall Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Ceiling Area</label><input type="number" inputMode="decimal" value={ceilSqft} onChange={e=>setCeilSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Paint Type</label>
                 <div className="flex gap-2">{[["interior","Interior"],["exterior","Exterior"]].map(([v,l])=><button key={v} onClick={()=>setPaintType(v)} className={chip(paintType===v)}>{l}</button>)}</div>
@@ -1148,7 +1148,7 @@ export default function CalculatorClient({
 
             {/* PLUMBING PIPE RUN */}
             {trade === "plumbing" && sub === "pipe" && (<>
-              <div><label className={labelCls}>Run Length (ft)</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Run Length</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Pipe Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1168,7 +1168,7 @@ export default function CalculatorClient({
 
             {/* ELECTRICAL WIRE RUN */}
             {trade === "electrical" && sub === "wire" && (<>
-              <div><label className={labelCls}>Run Length (ft)</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Run Length</label><input type="number" inputMode="decimal" value={lf} onChange={e=>setLf(e.target.value)} placeholder="0" className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Wire Gauge</label>
                 <div className="flex gap-2">{[["14_2","14/2 Romex"],["12_2","12/2 Romex"],["10_2","10/2 Romex"]].map(([v,l])=><button key={v} onClick={()=>setWireType(v)} className={chip(wireType===v)}>{l}</button>)}</div>
@@ -1184,13 +1184,13 @@ export default function CalculatorClient({
             {/* HVAC ROUGH-IN */}
             {trade === "hvac" && sub === "rough_in" && (<>
               <div><label className={labelCls}>Square Footage</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Ceiling Height (ft)</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder="9" className={inputCls}/></div>
+              <div><label className={labelCls}>Ceiling Height</label><input type="number" inputMode="decimal" value={hgt} onChange={e=>setHgt(e.target.value)} placeholder="9" className={inputCls}/></div>
               <div><label className={labelCls}>Number of Zones</label><input type="number" inputMode="numeric" value={lf} onChange={e=>setLf(e.target.value)} placeholder="1" className={inputCls}/></div>
             </>)}
 
             {/* FIRE & FLOOD */}
             {trade === "fire_flood" && (<>
-              <div><label className={labelCls}>Affected Area (sq ft)</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Affected Area</label><input type="number" inputMode="decimal" value={wallSqft} onChange={e=>setWallSqft(e.target.value)} placeholder="0" className={inputCls}/></div>
             </>)}
 
             {/* DECKING BOARDS */}
@@ -1214,13 +1214,13 @@ export default function CalculatorClient({
                   <button onClick={()=>setDeckSpacing("tight")} className={chip(deckSpacing==="tight")}>Tight (flush)</button>
                 </div>
               </div>
-              <div><label className={labelCls}>Deck Sq Ft</label><input type="number" inputMode="decimal" value={deckSqft} onChange={e=>setDeckSqft(e.target.value)} placeholder="e.g. 320" className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Area</label><input type="number" inputMode="decimal" value={deckSqft} onChange={e=>setDeckSqft(e.target.value)} placeholder="e.g. 320" className={inputCls}/></div>
             </>)}
 
             {/* DECKING FRAMING */}
             {trade === "decking" && sub === "framing" && (<>
-              <div><label className={labelCls}>Deck Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Deck Width ({dimUnit})</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Joist Size</label>
                 <div className="flex gap-2">
@@ -1238,13 +1238,13 @@ export default function CalculatorClient({
             {/* DECKING FOOTINGS */}
             {trade === "decking" && sub === "footings" && (<>
               <div><label className={labelCls}>Number of Posts</label><input type="number" inputMode="numeric" value={postCount} onChange={e=>setPostCount(e.target.value)} placeholder="4" className={inputCls}/></div>
-              <div><label className={labelCls}>Footing Depth (inches)</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="24" className={inputCls}/></div>
+              <div><label className={labelCls}>Footing Depth</label><input type="number" inputMode="decimal" value={depth} onChange={e=>setDepth(e.target.value)} placeholder="24" className={inputCls}/></div>
             </>)}
 
             {/* DECKING HARDWARE */}
             {trade === "decking" && sub === "hardware" && (<>
-              <div><label className={labelCls}>Deck Length ({dimUnit})</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder="0" className={inputCls}/></div>
-              <div><label className={labelCls}>Deck Width ({dimUnit})</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder="0" className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Length</label><input type="number" inputMode="decimal" value={len} onChange={e=>setLen(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
+              <div><label className={labelCls}>Deck Width</label><input type="number" inputMode="decimal" value={wid} onChange={e=>setWid(e.target.value)} placeholder={`0 ${dimUnit}`} className={inputCls}/></div>
               <div>
                 <label className={labelCls}>Joist Spacing (OC)</label>
                 <div className="flex gap-2">
