@@ -148,6 +148,9 @@ export interface ExtractedReceiptItem {
   line_total: number | null;
   checked: boolean;
   linked_material_id?: string | null;
+  category?: string | null;
+  sku?: string | null;
+  is_discount?: boolean;
 }
 
 export interface DuplicateReceiptInfo {
@@ -166,6 +169,13 @@ export interface ReceiptExtractionResult {
   image_unclear: boolean;
   auto_confirm: boolean;
   duplicate_receipt?: DuplicateReceiptInfo | null;
+  store_location?: string | null;
+  subtotal?: number | null;
+  tax?: number | null;
+  confidence?: "high" | "medium" | "low" | null;
+  job_name?: string | null;
+  suggested_job?: string | null;
+  unreadable_sections?: string[] | null;
 }
 
 export interface QuoteAddon {

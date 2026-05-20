@@ -8,42 +8,57 @@ import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
 import { computePriceFlag, savePriceFlag } from "@/lib/price-flag-utils";
+import { similarity } from "@/lib/fuzzy-match";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const VISION_PROMPT = `You are analyzing a contractor's material purchase receipt. This may be a printed receipt, handwritten receipt, or supplier invoice from stores like Home Depot, Parr Lumber, ABC Supply, Fastenal, 84 Lumber, Menards, Lowe's, Ferguson, Wesco, or any local supplier.
+const SYSTEM_PROMPT = `You are an expert OCR system specialized in reading contractor purchase receipts from hardware stores including Home Depot, Lowes, Parr Lumber, ABC Supply, Menards, Fastenal, and SRS Distribution. You must extract data even from imperfect photos — slightly blurry, angled, hand-held, or crinkled receipts are normal in construction field conditions. Make your best effort to read every line. Never refuse to process a receipt due to photo quality — always return whatever you can extract.
 
-Extract every line item visible on the receipt.
-
-Return ONLY valid JSON in this exact structure (no markdown, no explanation):
+Extract and return only valid JSON with no markdown and no explanation in this exact format:
 {
   "vendor": "Store Name or null",
-  "date": "YYYY-MM-DD or null",
+  "store_location": "City, State or store number or null",
+  "date": "MM/DD/YYYY or null",
   "total": 123.45,
-  "image_unclear": false,
-  "items": [
+  "subtotal": 110.00,
+  "tax": 13.45,
+  "job_name": "text from Pro Xtra job field or null",
+  "payment_last_four": "1234 or null",
+  "line_items": [
     {
-      "raw_name": "exact text from receipt",
-      "qty": 4,
-      "unit": "EA",
+      "description": "exact text from receipt",
+      "quantity": 4,
       "unit_price": 5.50,
-      "line_total": 22.00
+      "total_price": 22.00,
+      "category": "lumber|fasteners|tools|paint|plumbing|electrical|roofing|concrete|other",
+      "sku": "item number or SKU if visible or null",
+      "is_discount": false
     }
-  ]
+  ],
+  "confidence": "high|medium|low",
+  "unreadable_sections": ["section description if any part was unclear"]
 }
 
-Rules:
-- vendor: store name from header, logo, or return address — include full name (e.g. "Home Depot #1234")
-- date: transaction date in YYYY-MM-DD format, null if not found
-- total: the grand total paid (after tax), not subtotal
-- raw_name: copy the product description exactly as printed, abbreviations and all
-- qty: number only, null if not shown (for supplier invoices, "quantity" or "qty" column)
-- unit: EA, LF, SF, SQ, BDL, GAL, BAG, BOX, ROLL, SHEET, etc. — null if not shown
-- unit_price and line_total: numbers only, no dollar signs, null if not shown
-- For handwritten receipts: read carefully, include all legible items
-- For supplier invoices: each line item = one entry (item number + description)
-- If the image is blurry or unreadable, set image_unclear to true and items to []
-- Do not include tax lines, subtotals, delivery fees, or payment method lines as items`;
+Important extraction rules:
+- Pro Xtra job name: Home Depot receipts sometimes show a JOB NAME line under the barcode or under PRO XTRA — extract it exactly as printed
+- Discount lines: mark is_discount true for any line showing a savings amount, coupon, or negative price — do NOT skip these
+- Quantity: can be written as 2 EA, 2x, or just 2 — extract the number only
+- Partial OCR: if a word is partially readable, make your best guess and include it — do not skip the line
+- confidence: high if you can read more than 90% of the receipt clearly; medium if somewhat blurry or angled but mostly readable; low if heavily damaged but you can still extract something
+- Never return an empty line_items array solely because the photo is imperfect — extract whatever is visible
+- Do not include payment method lines, store address lines, or thank-you footer text as line items`;
+
+function convertDate(raw: string | null): string | null {
+  if (!raw) return null;
+  // MM/DD/YYYY → YYYY-MM-DD
+  const mmddyyyy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mmddyyyy) {
+    const [, m, d, y] = mmddyyyy;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  // Already ISO or other — return as-is
+  return raw;
+}
 
 export async function extractReceiptItems(
   jobId: string,
@@ -70,24 +85,45 @@ export async function extractReceiptItems(
 
   if (uploadError) return { error: uploadError.message };
 
-  // Get base64 for vision
   const {
     data: { publicUrl },
   } = supabase.storage.from("job-photos").getPublicUrl(path);
 
-  let parsed: {
+  type ParsedReceipt = {
     vendor: string | null;
+    store_location: string | null;
     date: string | null;
     total: number | null;
-    image_unclear: boolean;
-    items: Array<{
-      raw_name: string;
-      qty: number | null;
-      unit: string | null;
+    subtotal: number | null;
+    tax: number | null;
+    job_name: string | null;
+    payment_last_four: string | null;
+    line_items: Array<{
+      description: string;
+      quantity: number | null;
       unit_price: number | null;
-      line_total: number | null;
+      total_price: number | null;
+      category: string | null;
+      sku: string | null;
+      is_discount: boolean;
     }>;
-  } = { vendor: null, date: null, total: null, image_unclear: false, items: [] };
+    confidence: "high" | "medium" | "low" | null;
+    unreadable_sections: string[] | null;
+  };
+
+  let parsed: ParsedReceipt = {
+    vendor: null,
+    store_location: null,
+    date: null,
+    total: null,
+    subtotal: null,
+    tax: null,
+    job_name: null,
+    payment_last_four: null,
+    line_items: [],
+    confidence: null,
+    unreadable_sections: null,
+  };
 
   try {
     const imgResp = await fetch(publicUrl);
@@ -98,8 +134,9 @@ export async function extractReceiptItems(
     ) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
     const msg = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-6",
       max_tokens: 2048,
+      system: SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -108,7 +145,7 @@ export async function extractReceiptItems(
               type: "image",
               source: { type: "base64", media_type: mimeType, data: base64 },
             },
-            { type: "text", text: VISION_PROMPT },
+            { type: "text", text: "Extract all data from this receipt." },
           ],
         },
       ],
@@ -118,47 +155,34 @@ export async function extractReceiptItems(
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) parsed = JSON.parse(match[0]);
   } catch {
-    // Vision failed — save receipt anyway, return image_unclear
-    const { data: receipt } = await supabase
-      .from("receipts")
-      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null, category: "other" })
-      .select()
-      .single();
-
-    return {
-      result: {
-        receipt_id: receipt?.id ?? "",
-        vendor: null,
-        receipt_date: null,
-        items: [],
-        total: null,
-        image_unclear: true,
-        auto_confirm: false,
-      },
-    };
+    // Vision failed — save receipt row, return empty result (never block user)
   }
 
-  if (parsed.image_unclear) {
-    const { data: receipt } = await supabase
-      .from("receipts")
-      .insert({ job_id: jobId, storage_path: path, amount: null, vendor: null, ocr_raw: null, category: "other" })
-      .select()
-      .single();
+  const isoDate = convertDate(parsed.date);
 
-    return {
-      result: {
-        receipt_id: receipt?.id ?? "",
-        vendor: parsed.vendor,
-        receipt_date: parsed.date,
-        items: [],
-        total: null,
-        image_unclear: true,
-        auto_confirm: false,
-      },
-    };
+  // Fuzzy-match Pro Xtra job_name against user's active jobs
+  let suggestedJob: string | null = null;
+  if (parsed.job_name) {
+    const { data: activeJobs } = await supabase
+      .from("jobs")
+      .select("name")
+      .eq("user_id", user.id)
+      .eq("status", "active");
+    if (activeJobs?.length) {
+      let bestScore = 0;
+      let bestName: string | null = null;
+      for (const j of activeJobs) {
+        const score = similarity(parsed.job_name, j.name);
+        if (score > bestScore) {
+          bestScore = score;
+          bestName = j.name;
+        }
+      }
+      if (bestScore >= 0.55) suggestedJob = bestName;
+    }
   }
 
-  // Save receipt row (we'll update amount/vendor after confirmation)
+  // Save receipt row
   const { data: receipt, error: dbError } = await supabase
     .from("receipts")
     .insert({
@@ -166,7 +190,7 @@ export async function extractReceiptItems(
       storage_path: path,
       amount: parsed.total,
       vendor: parsed.vendor,
-      receipt_date: parsed.date ?? null,
+      receipt_date: isoDate ?? null,
       category: detectCategoryFromVendor(parsed.vendor),
       ocr_raw: JSON.stringify(parsed),
     })
@@ -175,15 +199,15 @@ export async function extractReceiptItems(
 
   if (dbError) return { error: dbError.message };
 
-  // Scenario 4 — duplicate receipt check (same vendor + same date on this job)
+  // Duplicate check (same vendor + same date on this job)
   let duplicateReceipt = null;
-  if (parsed.vendor && parsed.date) {
+  if (parsed.vendor && isoDate) {
     const { data: existingDup } = await supabase
       .from("receipts")
       .select("id, vendor, amount, receipt_date")
       .eq("job_id", jobId)
       .eq("vendor", parsed.vendor)
-      .eq("receipt_date", parsed.date)
+      .eq("receipt_date", isoDate)
       .neq("id", receipt!.id)
       .limit(1)
       .maybeSingle();
@@ -202,7 +226,7 @@ export async function extractReceiptItems(
       .map((p) => p.normalized_name as string)
   );
 
-  // Check auto-confirm status
+  // Auto-confirm status
   const { data: confirmRow } = await supabase
     .from("receipt_confirmations")
     .select("total_confirmations, auto_confirm_enabled")
@@ -212,17 +236,21 @@ export async function extractReceiptItems(
 
   const autoConfirm = confirmRow?.auto_confirm_enabled === true;
 
-  // Build items with normalization + checked state
-  const items: ExtractedReceiptItem[] = (parsed.items ?? []).map((item) => {
-    const normalizedName = normalize(item.raw_name);
+  // Map line_items → ExtractedReceiptItem[]
+  const items: ExtractedReceiptItem[] = (parsed.line_items ?? []).map((item) => {
+    const rawName = item.description ?? "";
+    const normalizedName = normalize(rawName);
     return {
-      raw_name: item.raw_name,
+      raw_name: rawName,
       normalized_name: normalizedName,
-      qty: item.qty,
-      unit: item.unit,
+      qty: item.quantity,
+      unit: null,
       unit_price: item.unit_price,
-      line_total: item.line_total,
-      checked: !excludedSet.has(normalizedName),
+      line_total: item.total_price,
+      checked: !excludedSet.has(normalizedName) && !item.is_discount,
+      category: item.category ?? null,
+      sku: item.sku ?? null,
+      is_discount: item.is_discount ?? false,
     };
   });
 
@@ -230,12 +258,19 @@ export async function extractReceiptItems(
     result: {
       receipt_id: receipt!.id,
       vendor: parsed.vendor,
-      receipt_date: parsed.date,
+      receipt_date: isoDate,
       items,
       total: parsed.total,
       image_unclear: false,
       auto_confirm: autoConfirm,
       duplicate_receipt: duplicateReceipt ?? null,
+      store_location: parsed.store_location ?? null,
+      subtotal: parsed.subtotal ?? null,
+      tax: parsed.tax ?? null,
+      confidence: parsed.confidence ?? null,
+      job_name: parsed.job_name ?? null,
+      suggested_job: suggestedJob,
+      unreadable_sections: parsed.unreadable_sections ?? null,
     },
   };
 }
@@ -260,10 +295,10 @@ export async function confirmReceiptItems(
   if (editedDate !== undefined) updateFields.receipt_date = editedDate || null;
   await supabase.from("receipts").update(updateFields).eq("id", receiptId);
 
-  const checkedItems = items.filter((i) => i.checked);
-  const uncheckedItems = items.filter((i) => !i.checked);
+  const checkedItems = items.filter((i) => i.checked && !i.is_discount);
+  const uncheckedItems = items.filter((i) => !i.checked && !i.is_discount);
 
-  // Scenario 1/3: items linked to existing materials — just attach receipt proof, no new row
+  // Items linked to existing materials — just attach receipt proof
   const itemsToLink = checkedItems.filter((i) => i.linked_material_id);
   const itemsToInsert = checkedItems.filter((i) => !i.linked_material_id);
 
@@ -273,7 +308,6 @@ export async function confirmReceiptItems(
       .eq("id", item.linked_material_id!);
   }
 
-  // Create material entries for new (unlinked) checked items
   if (itemsToInsert.length > 0) {
     const materialRows = itemsToInsert.map((item) => ({
       job_id: jobId,
@@ -291,7 +325,6 @@ export async function confirmReceiptItems(
     const { error: matError } = await supabase.from("materials").insert(materialRows);
     if (matError) return { error: matError.message };
 
-    // Write each confirmed item to user material history with fuzzy dedup
     for (const item of itemsToInsert) {
       void writeUserMaterialHistory(
         supabase,
@@ -303,7 +336,6 @@ export async function confirmReceiptItems(
       );
     }
 
-    // Compute and persist price flags for newly inserted materials
     const { data: newMats } = await supabase
       .from("materials")
       .select("id, normalized_name, unit_cost, job_id")
@@ -327,7 +359,6 @@ export async function confirmReceiptItems(
     }
   }
 
-  // Update uncheck counts and auto-exclude flags
   for (const item of uncheckedItems) {
     const { data: existing } = await supabase
       .from("receipt_item_preferences")
@@ -352,7 +383,6 @@ export async function confirmReceiptItems(
     }
   }
 
-  // Increment confirmation count; enable auto-confirm at 20
   const vendorKey = vendor ?? "__global__";
   const { data: confirmRow } = await supabase
     .from("receipt_confirmations")

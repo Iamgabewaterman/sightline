@@ -19,7 +19,7 @@ function TrashIcon() {
 }
 import { extractReceiptItems, confirmReceiptItems } from "@/app/actions/receipts-vision";
 import { Receipt, ReceiptExtractionResult } from "@/types";
-import { compressImage } from "@/lib/compress-image";
+import { preprocessReceiptImage } from "@/lib/compress-image";
 import ReceiptConfirmationModal from "./ReceiptConfirmationModal";
 import { useJobCost } from "@/components/JobCostContext";
 
@@ -105,9 +105,9 @@ export default function ReceiptsSection({
 
     let fileToUpload: Blob = file;
     try {
-      fileToUpload = await compressImage(file);
+      fileToUpload = await preprocessReceiptImage(file);
     } catch {
-      // compression failed — upload original
+      // preprocessing failed — upload original
     }
 
     const fd = new FormData();
@@ -124,12 +124,6 @@ export default function ReceiptsSection({
     }
 
     if (!result.result) return;
-
-    if (result.result.image_unclear) {
-      setError("Image is unclear — please retake the photo in better lighting.");
-      await refreshMaterialCost();
-      return;
-    }
 
     // Fetch fresh job materials for reconciliation check
     const { data: freshMats } = await supabase
@@ -427,6 +421,7 @@ export default function ReceiptsSection({
           existingMaterials={jobMaterials}
           onDone={handleModalDone}
           onCancel={() => setExtraction(null)}
+          onRetry={() => { setExtraction(null); cameraRef.current?.click(); }}
         />
       )}
     </div>
