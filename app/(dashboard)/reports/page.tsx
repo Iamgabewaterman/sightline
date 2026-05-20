@@ -18,7 +18,7 @@ export default async function ReportsPage() {
       .order("name"),
     supabase
       .from("report_templates")
-      .select("*")
+      .select("id, user_id, name, config, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
     getBusinessProfile(),

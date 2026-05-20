@@ -81,8 +81,8 @@ export async function writeUserMaterialHistory(
       normalized_name: normalizedNew,
       last_used_at: new Date().toISOString(),
     });
-  } catch (err) {
-    console.error("[writeUserMaterialHistory] failed:", err);
+  } catch {
+    // background operation — silently ignore
   }
 }
 
@@ -215,12 +215,10 @@ export async function addMaterial(jobId: string, formData: FormData) {
     .single();
 
   if (error) {
-    console.error("[addMaterial] Supabase insert error:", error.code, error.message, error.details);
     return { error: error.message };
   }
 
   if (!data) {
-    console.error("[addMaterial] Insert returned no data — possible RLS block on SELECT after INSERT");
     return { error: "Material was not saved. Please try again." };
   }
 
@@ -373,7 +371,7 @@ export async function getMaterialSuggestions(): Promise<MaterialSuggestion[]> {
     .order("last_used_at", { ascending: false })
     .limit(200);
 
-  if (histErr) console.error("[getMaterialSuggestions] history error:", histErr.message);
+  if (histErr) return [];
 
   const historySuggestions: MaterialSuggestion[] = (history ?? []).map((r) => ({
     name: r.name as string,

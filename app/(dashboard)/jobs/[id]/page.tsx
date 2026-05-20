@@ -52,7 +52,7 @@ export default async function JobDetailPage({
     { data: punchListPhotos },
     { data: dailyLogs },
   ] = await Promise.all([
-    supabase.from("jobs").select("*").eq("id", params.id).single<Job>(),
+    supabase.from("jobs").select("id, user_id, name, types, status, address, notes, lockbox_code, dim_length, dim_width, dim_height, calculated_sqft, client_id, start_date, completed_date, total_days, paused_at, total_paused_days, estimated_completion_date, portal_token, portal_enabled, job_lat, job_lng, job_number, insurance_claim, created_at, updated_at").eq("id", params.id).single<Job>(),
     supabase
       .from("photos")
       .select("id, job_id, category, storage_path, created_at, lat, lng, taken_at, accuracy, job_number")

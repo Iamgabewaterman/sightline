@@ -10,7 +10,7 @@ export default async function BusinessProfilePage() {
 
   const { data: businessProfile } = await supabase
     .from("business_profiles")
-    .select("*")
+    .select("id, user_id, business_name, owner_name, license_number, address, phone, email, logo_path, default_payment_terms, created_at")
     .eq("user_id", user.id)
     .maybeSingle<BusinessProfile>();
 

@@ -11,7 +11,7 @@ export default async function PeoplePage() {
   const [{ data: contacts }, { data: crews }, { data: coiRecords }] = await Promise.all([
     supabase
       .from("contacts")
-      .select("*")
+      .select("id, user_id, name, phone, trade, hourly_rate, notes, avatar_path, is_subcontractor, created_at")
       .eq("user_id", user!.id)
       .order("name")
       .returns<Contact[]>(),
@@ -23,7 +23,7 @@ export default async function PeoplePage() {
       .returns<CrewWithMembers[]>(),
     supabase
       .from("contact_coi")
-      .select("*")
+      .select("id, contact_id, user_id, carrier_name, policy_number, coverage_amount, expiration_date, document_path, created_at, updated_at")
       .eq("user_id", user!.id)
       .returns<ContactCOI[]>(),
   ]);

@@ -10,7 +10,7 @@ export default async function PortfolioPage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("*")
+    .select("id, user_id, name, types, status, address, notes, lockbox_code, dim_length, dim_width, dim_height, calculated_sqft, client_id, start_date, completed_date, total_days, paused_at, total_paused_days, estimated_completion_date, portal_token, portal_enabled, job_lat, job_lng, job_number, insurance_claim, created_at, updated_at")
     .eq("status", "completed")
     .order("updated_at", { ascending: false })
     .returns<Job[]>();
@@ -21,7 +21,7 @@ export default async function PortfolioPage() {
   if (jobIds.length > 0) {
     const { data: estimates } = await supabase
       .from("estimates")
-      .select("*")
+      .select("id, job_id, user_id, type, material_total, labor_total, profit_margin_pct, final_quote, addons, quote_status, signature_token, signed_at, signed_by_name, signed_by_ip, signature_data, quote_display_show_address, quote_display_show_valid_until, quote_display_collapse_to_total, quote_display_notes, quote_client_line_items, created_at")
       .in("job_id", jobIds)
       .eq("type", "job_quote")
       .order("created_at", { ascending: false })
@@ -40,7 +40,7 @@ export default async function PortfolioPage() {
 
   if (jobIds.length > 0) {
     const [{ data: invoices }, { data: punchItems }] = await Promise.all([
-      supabase.from("invoices").select("*").in("job_id", jobIds).returns<Invoice[]>(),
+      supabase.from("invoices").select("id, job_id, user_id, client_id, status, payment_terms, due_date, notes, sent_at, paid_at, total_amount, created_at, client_line_items").in("job_id", jobIds).returns<Invoice[]>(),
       supabase.from("punch_list_items").select("job_id, completed").in("job_id", jobIds),
     ]);
     for (const inv of invoices ?? []) {

@@ -56,7 +56,11 @@
       "PowerShell(git add *)",
       "Bash(git restore *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "PowerShell(npm run *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\" -Recurse -Filter \"*.ts\" -Filter \"*.tsx\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 50)",
+      "Bash(findstr anthropic *)"
     ]
   }
 }

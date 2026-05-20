@@ -27,7 +27,6 @@ export async function getMaterialsLibrary(): Promise<LibraryMaterial[]> {
     .limit(500);
 
   if (error) {
-    console.error("[getMaterialsLibrary]", error.message);
     return [];
   }
 
