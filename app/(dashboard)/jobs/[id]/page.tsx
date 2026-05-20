@@ -12,7 +12,6 @@ import PunchListSection from "@/components/PunchListSection";
 import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import DocumentsSection from "@/components/DocumentsSection";
-import WeatherWidget from "@/components/WeatherWidget";
 import LaborSubsSection from "@/components/LaborSubsSection";
 import DailyLogsSection from "@/components/DailyLogsSection";
 import ChangeOrdersSection from "@/components/ChangeOrdersSection";
@@ -282,14 +281,7 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 3 — Weather (always open, only if geocoded) */}
-          {job.job_lat && job.job_lng && (
-            <div className="mb-4">
-              <WeatherWidget lat={job.job_lat} lng={job.job_lng} jobStatus={job.status ?? "active"} />
-            </div>
-          )}
-
-          {/* 4 — Client Portal (always open) */}
+          {/* 3 — Client Portal (always open) */}
           <div className="mb-4">
             <PortalToggle
               jobId={job.id}
@@ -298,7 +290,7 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 5 — Invoice & Payments (always open) */}
+          {/* 4 — Invoice & Payments (always open) */}
           <div className="mb-4">
             <InvoiceSection
               jobId={job.id}

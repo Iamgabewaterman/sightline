@@ -9,6 +9,8 @@ import { computeInsights } from "@/lib/insights";
 import InsightsSection from "@/components/InsightsSection";
 import { getMaterialCostTrends } from "@/app/actions/price-flags";
 import InfoTooltip from "@/components/InfoTooltip";
+import { getWeather } from "@/lib/weather";
+import DashboardWeatherBar from "@/components/DashboardWeatherBar";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,13 @@ function fmt$(n: number) {
 }
 function todayLabel() {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+function extractCity(address: string | null): string | null {
+  if (!address) return null;
+  const parts = address.split(",");
+  if (parts.length >= 2) return parts[1].trim();
+  return parts[0].trim();
 }
 
 export default async function DashboardPage() {
@@ -150,6 +159,8 @@ export default async function DashboardPage() {
     invoiceStats,
     insightsData,
     materialTrends,
+    { data: geoJob },
+    { data: bizProfile },
   ] = await Promise.all([
     supabase.from("jobs").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("status", "active"),
     supabase.from("estimates").select("final_quote").eq("user_id", user!.id).gte("created_at", monthStartISO),
@@ -158,7 +169,14 @@ export default async function DashboardPage() {
     getInvoiceDashboardStats(user!.id),
     computeInsights(user!.id),
     getMaterialCostTrends(user!.id),
+    supabase.from("jobs").select("job_lat, job_lng").eq("user_id", user!.id).not("job_lat", "is", null).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("business_profiles").select("address").eq("user_id", user!.id).maybeSingle(),
   ]);
+
+  const dashboardWeather = geoJob?.job_lat && geoJob?.job_lng
+    ? await getWeather(geoJob.job_lat as number, geoJob.job_lng as number)
+    : null;
+  const dashboardCity = extractCity(bizProfile?.address ?? null);
 
   // Monthly profit: paid invoices on jobs completed this month - materials - labor
   const completedIds = (completedThisMonth ?? []).map((j) => j.id);
@@ -205,6 +223,9 @@ export default async function DashboardPage() {
             + New Job
           </Link>
         </div>
+
+        {/* Weather bar */}
+        <DashboardWeatherBar weather={dashboardWeather} city={dashboardCity} />
 
         {/* Primary Stats — Monthly Profit + Estimated Revenue */}
         <div className="flex items-center justify-between mb-2">
