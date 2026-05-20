@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/server";
+import dynamic from "next/dynamic";
 import { X, Check } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
-import ContactForm from "@/components/ContactForm";
-import IdeaBox from "@/components/IdeaBox";
+
+const ContactForm = dynamic(() => import("@/components/ContactForm"));
+const IdeaBox = dynamic(() => import("@/components/IdeaBox"));
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -84,11 +85,7 @@ const INCLUDED = [
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function LandingPage() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isLoggedIn = !!user;
-
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white">
       {/* Redirect PWA (standalone) users straight to the dashboard */}
@@ -120,29 +117,20 @@ export default async function LandingPage() {
 
           {/* CTA buttons */}
           <div className="flex items-center gap-2">
-            {isLoggedIn ? (
+            <>
               <Link
-                href="/jobs"
+                href="/login"
+                className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/signup"
                 className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
               >
-                Go to App →
+                Start Free
               </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
-                >
-                  Log In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
-                >
-                  Start Free
-                </Link>
-              </>
-            )}
+            </>
           </div>
         </div>
       </header>

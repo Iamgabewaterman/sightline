@@ -17,7 +17,7 @@ function TrashIcon() {
     </svg>
   );
 }
-import { extractReceiptItems, confirmReceiptItems } from "@/app/actions/receipts-vision";
+import { confirmReceiptItems } from "@/app/actions/receipts-vision";
 import { Receipt, ReceiptExtractionResult } from "@/types";
 import { preprocessReceiptImage } from "@/lib/compress-image";
 import ReceiptConfirmationModal from "./ReceiptConfirmationModal";
@@ -112,7 +112,15 @@ export default function ReceiptsSection({
 
     const fd = new FormData();
     fd.append("receipt", fileToUpload, "receipt.jpg");
-    const result = await extractReceiptItems(jobId, fd);
+    fd.append("jobId", jobId);
+
+    let result: { result?: import("@/types").ReceiptExtractionResult; error?: string };
+    try {
+      const resp = await fetch("/api/receipts-vision", { method: "POST", body: fd });
+      result = await resp.json();
+    } catch {
+      result = { error: "Network error — please try again." };
+    }
 
     setUploading(false);
     if (cameraRef.current) cameraRef.current.value = "";
