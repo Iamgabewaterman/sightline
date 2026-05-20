@@ -12,51 +12,44 @@ import { similarity } from "@/lib/fuzzy-match";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are an expert OCR system specialized in reading contractor purchase receipts from hardware stores including Home Depot, Lowes, Parr Lumber, ABC Supply, Menards, Fastenal, and SRS Distribution. You must extract data even from imperfect photos — slightly blurry, angled, hand-held, or crinkled receipts are normal in construction field conditions. Make your best effort to read every line. Never refuse to process a receipt due to photo quality — always return whatever you can extract.
+const SYSTEM_PROMPT = `You are a receipt OCR specialist. Extract every line item from this receipt photo. Return only JSON, no other text.`;
 
-Extract and return only valid JSON with no markdown and no explanation in this exact format:
+const USER_PROMPT = `This is a receipt photo from a hardware store. Extract ALL line items visible. For each item extract the description, quantity, unit price, and total price. Also extract the store name, date, grand total, store location, and any job name or PO number shown (look for PRO XTRA JOB NAME field on Home Depot receipts).
+
+Return this exact JSON structure with no markdown fences, no explanation, just the raw JSON object:
 {
-  "vendor": "Store Name or null",
-  "store_location": "City, State or store number or null",
+  "vendor": "store name or null",
+  "store_location": "city and state or store number or null",
   "date": "MM/DD/YYYY or null",
   "total": 123.45,
   "subtotal": 110.00,
   "tax": 13.45,
-  "job_name": "text from Pro Xtra job field or null",
-  "payment_last_four": "1234 or null",
+  "job_name": "job name from PRO XTRA section or null",
+  "payment_last_four": "last 4 digits or null",
   "line_items": [
     {
-      "description": "exact text from receipt",
-      "quantity": 4,
-      "unit_price": 5.50,
-      "total_price": 22.00,
-      "category": "lumber|fasteners|tools|paint|plumbing|electrical|roofing|concrete|other",
-      "sku": "item number or SKU if visible or null",
+      "description": "item description exactly as printed",
+      "quantity": 1,
+      "unit_price": 9.99,
+      "total_price": 9.99,
+      "category": "lumber or fasteners or tools or paint or plumbing or electrical or roofing or concrete or other",
+      "sku": "item number if visible or null",
       "is_discount": false
     }
   ],
-  "confidence": "high|medium|low",
-  "unreadable_sections": ["section description if any part was unclear"]
+  "confidence": "high or medium or low",
+  "unreadable_sections": []
 }
 
-Important extraction rules:
-- Pro Xtra job name: Home Depot receipts sometimes show a JOB NAME line under the barcode or under PRO XTRA — extract it exactly as printed
-- Discount lines: mark is_discount true for any line showing a savings amount, coupon, or negative price — do NOT skip these
-- Quantity: can be written as 2 EA, 2x, or just 2 — extract the number only
-- Partial OCR: if a word is partially readable, make your best guess and include it — do not skip the line
-- confidence: high if you can read more than 90% of the receipt clearly; medium if somewhat blurry or angled but mostly readable; low if heavily damaged but you can still extract something
-- Never return an empty line_items array solely because the photo is imperfect — extract whatever is visible
-- Do not include payment method lines, store address lines, or thank-you footer text as line items`;
+If you cannot read a value clearly make your best estimate based on context. Never return an empty line_items array if there are visible purchases on the receipt. Look for the itemized section between the store header and the subtotal line — every row in that section is a line item. Mark savings lines and coupon lines as is_discount true.`;
 
 function convertDate(raw: string | null): string | null {
   if (!raw) return null;
-  // MM/DD/YYYY → YYYY-MM-DD
   const mmddyyyy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mmddyyyy) {
     const [, m, d, y] = mmddyyyy;
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
-  // Already ISO or other — return as-is
   return raw;
 }
 
@@ -73,21 +66,30 @@ export async function extractReceiptItems(
   const file = formData.get("receipt") as File;
   if (!file || file.size === 0) return { error: "No file selected" };
 
-  // Upload to storage
+  // Read the file buffer BEFORE uploading — this is the canonical image data
+  // Never fetch from a public URL after upload (race condition + extra latency)
+  const fileBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(fileBuffer).toString("base64");
+
+  // Validate the base64 represents a real image (a blank canvas produces ~5-10KB)
+  const minExpectedLength = 5000;
+  if (base64.length < minExpectedLength) {
+    console.error(`[receipts-vision] Suspiciously small base64: ${base64.length} chars — may be blank image`);
+  }
+
+  // Upload to storage for record-keeping (parallel with OCR)
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${jobId}/receipts/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage
+  const uploadPromise = supabase.storage
     .from("job-photos")
     .upload(path, file, { contentType: file.type || "image/jpeg" });
 
-  if (uploadError) return { error: uploadError.message };
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("job-photos").getPublicUrl(path);
+  const mimeType = (
+    file.type && file.type.startsWith("image/") ? file.type : "image/jpeg"
+  ) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
   type ParsedReceipt = {
     vendor: string | null;
@@ -125,17 +127,12 @@ export async function extractReceiptItems(
     unreadable_sections: null,
   };
 
-  try {
-    const imgResp = await fetch(publicUrl);
-    const imgBuffer = await imgResp.arrayBuffer();
-    const base64 = Buffer.from(imgBuffer).toString("base64");
-    const mimeType = (
-      file.type && file.type.startsWith("image/") ? file.type : "image/jpeg"
-    ) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+  let rawResponseText = "";
 
+  try {
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -143,20 +140,52 @@ export async function extractReceiptItems(
           content: [
             {
               type: "image",
-              source: { type: "base64", media_type: mimeType, data: base64 },
+              source: {
+                type: "base64",
+                media_type: mimeType,
+                data: base64,
+              },
             },
-            { type: "text", text: "Extract all data from this receipt." },
+            {
+              type: "text",
+              text: USER_PROMPT,
+            },
           ],
         },
       ],
     });
 
-    const raw = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) parsed = JSON.parse(match[0]);
-  } catch {
-    // Vision failed — save receipt row, return empty result (never block user)
+    rawResponseText = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
+
+    // Log raw response for Vercel function debugging
+    console.error(`[receipts-vision] base64 length: ${base64.length} | raw response: ${rawResponseText.slice(0, 500)}`);
+
+    // Strip markdown fences if present
+    const cleaned = rawResponseText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    // Extract the JSON object
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (parseErr) {
+        console.error(`[receipts-vision] JSON parse failed: ${parseErr} | text: ${cleaned.slice(0, 300)}`);
+      }
+    } else {
+      console.error(`[receipts-vision] No JSON object found in response: ${cleaned.slice(0, 300)}`);
+    }
+  } catch (apiErr) {
+    console.error(`[receipts-vision] Anthropic API error: ${apiErr}`);
+    // Fall through — save receipt with whatever we have
   }
+
+  // Wait for upload to complete
+  const { error: uploadError } = await uploadPromise;
+  if (uploadError) return { error: uploadError.message };
 
   const isoDate = convertDate(parsed.date);
 
@@ -192,7 +221,7 @@ export async function extractReceiptItems(
       vendor: parsed.vendor,
       receipt_date: isoDate ?? null,
       category: detectCategoryFromVendor(parsed.vendor),
-      ocr_raw: JSON.stringify(parsed),
+      ocr_raw: JSON.stringify({ ...parsed, _raw_response: rawResponseText.slice(0, 500) }),
     })
     .select()
     .single();
@@ -289,7 +318,6 @@ export async function confirmReceiptItems(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Update receipt with any user-edited values
   const updateFields: Record<string, unknown> = { vendor };
   if (editedAmount !== undefined) updateFields.amount = editedAmount;
   if (editedDate !== undefined) updateFields.receipt_date = editedDate || null;
@@ -298,7 +326,6 @@ export async function confirmReceiptItems(
   const checkedItems = items.filter((i) => i.checked && !i.is_discount);
   const uncheckedItems = items.filter((i) => !i.checked && !i.is_discount);
 
-  // Items linked to existing materials — just attach receipt proof
   const itemsToLink = checkedItems.filter((i) => i.linked_material_id);
   const itemsToInsert = checkedItems.filter((i) => !i.linked_material_id);
 
@@ -384,19 +411,19 @@ export async function confirmReceiptItems(
   }
 
   const vendorKey = vendor ?? "__global__";
-  const { data: confirmRow } = await supabase
+  const { data: existingConfirmRow } = await supabase
     .from("receipt_confirmations")
     .select("id, total_confirmations")
     .eq("user_id", user.id)
     .eq("vendor_name", vendorKey)
     .maybeSingle();
 
-  if (confirmRow) {
-    const newTotal = (confirmRow.total_confirmations ?? 0) + 1;
+  if (existingConfirmRow) {
+    const newTotal = (existingConfirmRow.total_confirmations ?? 0) + 1;
     await supabase
       .from("receipt_confirmations")
       .update({ total_confirmations: newTotal, auto_confirm_enabled: newTotal >= 20 })
-      .eq("id", confirmRow.id);
+      .eq("id", existingConfirmRow.id);
   } else {
     await supabase.from("receipt_confirmations").insert({
       user_id: user.id,
