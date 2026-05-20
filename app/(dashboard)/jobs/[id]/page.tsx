@@ -281,12 +281,20 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 3 — Client Portal (always open) */}
+          {/* 3 — Client Portal & Payment (always open) */}
           <div className="mb-4">
             <PortalToggle
               jobId={job.id}
               initialEnabled={job.portal_enabled ?? false}
               initialToken={job.portal_token ?? null}
+              invoice={invoice ?? null}
+              estimate={estimate ?? null}
+              changeOrders={(changeOrders ?? []).map((co) => ({ description: co.description, amount: Number(co.amount) }))}
+              milestones={invoiceMilestones ?? []}
+              jobName={job.name}
+              jobAddress={job.address ?? null}
+              jobNumber={job.job_number ?? null}
+              jobClient={jobClient ?? null}
             />
           </div>
 

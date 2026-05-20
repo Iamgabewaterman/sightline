@@ -171,8 +171,6 @@ export default function InvoiceSection({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // No-estimate path: manual invoice total
   const [manualTotal, setManualTotal] = useState(
@@ -348,90 +346,6 @@ export default function InvoiceSection({
     setSplitMode(detectSplitMode(liveMilestones));
     setMilestoneRows(initMilestoneRows(liveMilestones));
     setEditingSchedule(false);
-  }
-
-  async function handleShareLink() {
-    const url = `${window.location.origin}/pay/${invoice!.id}`;
-    if (navigator.share) {
-      await navigator.share({ title: invoiceNumber, url });
-      return;
-    }
-    let success = false;
-    if (navigator.clipboard) {
-      try { await navigator.clipboard.writeText(url); success = true; } catch { /* fallthrough */ }
-    }
-    if (!success) {
-      const ta = document.createElement("textarea");
-      ta.value = url;
-      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
-      document.body.appendChild(ta);
-      ta.focus(); ta.select();
-      try { document.execCommand("copy"); success = true; } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    }
-    if (success) { setCopied(true); setTimeout(() => setCopied(false), 2500); }
-  }
-
-  async function handleDownloadPDF() {
-    if (!estimate) return; // PDF requires quote data
-    setPdfLoading(true);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: bp } = await supabase
-        .from("business_profiles")
-        .select("business_name,owner_name,license_number,address,phone,email,logo_path")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-
-      let logoUrl: string | null = null;
-      if (bp?.logo_path) {
-        const { data: signed } = await supabase.storage
-          .from("business-logos")
-          .createSignedUrl(bp.logo_path, 300);
-        logoUrl = signed?.signedUrl ?? null;
-      }
-
-      const baseAddons = addons
-        .filter((a) => a.name && Number(a.amount) !== 0)
-        .map((a) => ({ name: a.name, amount: Number(a.amount) }));
-      const coLineItems = changeOrders.map((o) => ({ name: `CO: ${o.description}`, amount: Number(o.amount) }));
-
-      const inv = invoice!;
-      const dueDate = inv.due_date
-        ? new Date(inv.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-        : null;
-      const paidDate = inv.paid_at
-        ? new Date(inv.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-        : null;
-
-      const { generateAndDownloadInvoicePDF } = await import("@/lib/generateInvoicePDF");
-      await generateAndDownloadInvoicePDF({
-        contractorEmail: user?.email ?? "",
-        jobName,
-        jobAddress,
-        jobNumber,
-        date: todayStr(),
-        invoiceNumber,
-        invoiceId: inv.id,
-        addons: [...baseAddons, ...coLineItems],
-        grandTotal,
-        businessProfile: bp,
-        logoUrl,
-        client: jobClient
-          ? { name: jobClient.name, company: jobClient.company, address: jobClient.address, phone: jobClient.phone, email: jobClient.email }
-          : null,
-        paymentTermsLabel: termsLabel(inv.payment_terms),
-        dueDate,
-        notes: inv.notes,
-        status: inv.status,
-        paidDate,
-        clientLineItems: inv.client_line_items,
-        milestones: liveMilestones.length > 0 ? liveMilestones : undefined,
-      });
-    } finally {
-      setPdfLoading(false);
-    }
   }
 
   async function handleSaveEditInvoice() {
@@ -987,20 +901,6 @@ export default function InvoiceSection({
         </div>
       )}
 
-      {/* Share + PDF */}
-      <button
-        onClick={handleShareLink}
-        disabled={!stripeConnected}
-        className="w-full mt-4 flex items-center justify-center gap-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-        {copied ? "Link Copied!" : "Share Payment Link"}
-      </button>
-
-      <button onClick={handleDownloadPDF} disabled={pdfLoading} className="w-full mt-2 flex items-center justify-center gap-2 bg-[#242424] border border-[#2a2a2a] text-white font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        {pdfLoading ? "Building PDF…" : "Download Invoice PDF"}
-      </button>
     </div>
   );
 }
