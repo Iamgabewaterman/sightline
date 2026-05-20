@@ -6,6 +6,7 @@ import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client, Pay
 import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions/invoices";
 import { saveMilestones } from "@/app/actions/milestones";
 import { createClient } from "@/lib/supabase/client";
+import { enablePortal, disablePortal } from "@/app/actions/portal";
 import { useJobCost } from "./JobCostContext";
 import { useRole } from "@/hooks/useRole";
 import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
@@ -152,6 +153,8 @@ export default function InvoiceSection({
   jobClient,
   initialMilestones = [],
   stripeConnected = false,
+  initialEnabled,
+  initialToken,
 }: {
   jobId: string;
   jobName: string;
@@ -162,49 +165,43 @@ export default function InvoiceSection({
   jobClient: Pick<Client, "id" | "name" | "company" | "phone" | "email" | "address"> | null;
   initialMilestones?: PaymentMilestone[];
   stripeConnected?: boolean;
+  initialEnabled: boolean;
+  initialToken: string | null;
 }) {
   const { role, can_see_financials } = useRole();
   const { changeOrders } = useJobCost();
 
-  // All hooks before any conditional returns
+  // Invoice state
   const [invoice, setInvoice] = useState<Invoice | null>(initialInvoice);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  // No-estimate path: manual invoice total
   const [manualTotal, setManualTotal] = useState(
     !estimate && initialInvoice ? initialInvoice.total_amount.toString() : ""
   );
-
-  // Per-milestone link copy state
   const [copiedMilestone, setCopiedMilestone] = useState<string | null>(null);
-
-  // Edit invoice panel
   const [editingInvoice, setEditingInvoice] = useState(false);
   const [editTermsDraft, setEditTermsDraft] = useState<PaymentTerms>("net_30");
   const [editNotesDraft, setEditNotesDraft] = useState("");
   const [editTotalDraft, setEditTotalDraft] = useState("");
-
-  // Pre-creation form state
   const [terms, setTerms] = useState<PaymentTerms>("net_30");
   const [notes, setNotes] = useState("");
-
-  // Client line items
   const [clientLineItems, setClientLineItems] = useState<LineItemRow[]>(() => initClientRows(initialInvoice));
-
-  // Payment schedule
   const [splitMode, setSplitMode] = useState<SplitMode>(() => detectSplitMode(initialMilestones));
   const [milestoneRows, setMilestoneRows] = useState<MilestoneRow[]>(() => initMilestoneRows(initialMilestones));
   const [liveMilestones, setLiveMilestones] = useState<PaymentMilestone[]>(initialMilestones);
-
-  // Post-creation edit state
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(initialInvoice?.notes ?? "");
   const [editingDisplay, setEditingDisplay] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
 
-  // Guards
+  // Portal state
+  const [portalEnabled, setPortalEnabled] = useState(initialEnabled);
+  const [portalToken, setPortalToken] = useState<string | null>(initialToken);
+  const [portalSaving, setPortalSaving] = useState(false);
+  const [portalCopied, setPortalCopied] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   if (role === "field_member" && !can_see_financials) return null;
 
   // Calculations
@@ -216,15 +213,17 @@ export default function InvoiceSection({
     : (invoice ? Number(invoice.total_amount) : parseFloat(manualTotal) || 0);
   const invoiceNumber = `INV-${jobId.slice(0, 8).toUpperCase()}`;
 
-  // Client line items totals
   const clientLineItemsTotal = clientLineItems.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
   const hasClientItems = clientLineItems.some((r) => r.name.trim());
   const totalMismatch = hasClientItems && Math.abs(clientLineItemsTotal - grandTotal) > 0.01;
 
-  // Milestone totals
   const milestonesTotal = milestoneRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
   const paidMilestones = liveMilestones.filter((m) => m.status === "paid");
   const milestoneMismatch = splitMode !== "full" && milestoneRows.length > 0 && Math.abs(milestonesTotal - grandTotal) > 0.01;
+
+  // Portal computed
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const portalUrl = portalToken ? `${origin}/portal/${jobId}/${portalToken}` : null;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -264,10 +263,8 @@ export default function InvoiceSection({
     const labelNames = clientLineItems.map((r) => r.name).filter(Boolean);
     if (labelNames.length) upsertLineItemLabels(labelNames);
 
-    // Save milestones if split mode is not full
     if (splitMode !== "full" && milestoneRows.length > 0) {
       await saveMilestones(inv.id, milestoneRowsToSave(milestoneRows));
-      // Reflect paid milestones in live state
       setLiveMilestones(milestoneRows.map((r, i) => ({
         id: `new-${i}`,
         invoice_id: inv.id,
@@ -318,7 +315,6 @@ export default function InvoiceSection({
     const toSave = splitMode === "full" ? [] : milestoneRowsToSave(milestoneRows);
     const schedRes = await saveMilestones(invoice.id, toSave);
     if (schedRes?.error) { setError(schedRes.error); return; }
-    // Update live milestones (keep paid ones, replace unpaid with new rows)
     setLiveMilestones([
       ...paidMilestones,
       ...milestoneRows.filter(r => r.label.trim()).map((r, i) => ({
@@ -392,40 +388,118 @@ export default function InvoiceSection({
     }
   }
 
-  // ── Shared render helpers ─────────────────────────────────────────────────
-
-  function renderInternalBreakdown() {
-    if (!estimate) return null;
-    return (
-      <div className="mb-5 bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-3">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Your Internal Breakdown</p>
-        <div className="flex justify-between text-sm mb-1.5">
-          <span className="text-gray-400">Materials</span>
-          <span className="text-white">{fmtNum(estimate.material_total)}</span>
-        </div>
-        <div className="flex justify-between text-sm mb-1.5">
-          <span className="text-gray-400">Labor</span>
-          <span className="text-white">{fmtNum(estimate.labor_total)}</span>
-        </div>
-        {addonsTotal !== 0 && (
-          <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-gray-400">Add-ons</span>
-            <span className="text-white">{fmtNum(addonsTotal)}</span>
-          </div>
-        )}
-        {changeOrdersTotal !== 0 && (
-          <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-gray-400">Change Orders</span>
-            <span className="text-white">{fmtNum(changeOrdersTotal)}</span>
-          </div>
-        )}
-        <div className="flex justify-between text-sm mt-2 pt-2 border-t border-[#2a2a2a]">
-          <span className="text-gray-300 font-semibold">Margin</span>
-          <span className="text-orange-400 font-semibold">{estimate.profit_margin_pct}%</span>
-        </div>
-      </div>
-    );
+  // Portal handlers
+  async function handlePortalToggle() {
+    setPortalSaving(true);
+    if (portalEnabled) {
+      const res = await disablePortal(jobId);
+      if (!res?.error) setPortalEnabled(false);
+    } else {
+      const res = await enablePortal(jobId);
+      if (res.token) { setPortalToken(res.token); setPortalEnabled(true); }
+    }
+    setPortalSaving(false);
   }
+
+  async function handlePortalShare() {
+    if (!portalUrl) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Your Project Portal",
+          text: "Here's your project link — view progress, sign your quote, and make payments.",
+          url: portalUrl,
+        });
+      } catch { /* dismissed */ }
+      return;
+    }
+    handlePortalCopy();
+  }
+
+  async function handlePortalCopy() {
+    if (!portalUrl) return;
+    let success = false;
+    if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(portalUrl); success = true; } catch { /* fallthrough */ }
+    }
+    if (!success) {
+      const ta = document.createElement("textarea");
+      ta.value = portalUrl;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand("copy"); success = true; } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (success) { setPortalCopied(true); setTimeout(() => setPortalCopied(false), 2500); }
+  }
+
+  async function handleDownloadInvoicePDF() {
+    if (!invoice) return;
+    setPdfLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: bp } = await supabase
+        .from("business_profiles")
+        .select("business_name,owner_name,license_number,address,phone,email,logo_path")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      let logoUrl: string | null = null;
+      if (bp?.logo_path) {
+        const { data: signed } = await supabase.storage
+          .from("business-logos")
+          .createSignedUrl(bp.logo_path, 300);
+        logoUrl = signed?.signedUrl ?? null;
+      }
+
+      const addonLines = estimate
+        ? ((estimate.addons as QuoteAddon[]) ?? [])
+            .filter((a) => a.name && Number(a.amount) !== 0)
+            .map((a) => ({ name: a.name, amount: Number(a.amount) }))
+        : [];
+      const coLines = changeOrders.map((o) => ({ name: `CO: ${o.description}`, amount: Number(o.amount) }));
+
+      const todayFull = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const dueDate = invoice.due_date
+        ? new Date(invoice.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+        : null;
+      const paidDate = invoice.paid_at
+        ? new Date(invoice.paid_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+        : null;
+
+      const { generateAndDownloadInvoicePDF } = await import("@/lib/generateInvoicePDF");
+      await generateAndDownloadInvoicePDF({
+        contractorEmail: user?.email ?? "",
+        jobName,
+        jobAddress: jobAddress ?? "",
+        jobNumber: jobNumber ?? null,
+        date: todayFull,
+        invoiceNumber: `INV-${jobId.slice(0, 8).toUpperCase()}`,
+        invoiceId: invoice.id,
+        addons: [...addonLines, ...coLines],
+        grandTotal: invoice.total_amount,
+        businessProfile: bp,
+        logoUrl,
+        client: jobClient
+          ? { name: jobClient.name, company: jobClient.company, address: jobClient.address, phone: jobClient.phone, email: jobClient.email }
+          : null,
+        paymentTermsLabel: termsLabel(invoice.payment_terms),
+        dueDate,
+        notes: invoice.notes ?? null,
+        status: invoice.status,
+        paidDate,
+        clientLineItems: invoice.client_line_items,
+        milestones: liveMilestones.length > 0 ? liveMilestones : undefined,
+      });
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  // ── Shared render helpers ─────────────────────────────────────────────────
 
   function renderPaymentSchedule() {
     const SPLIT_OPTIONS: { mode: SplitMode; label: string; sub: string }[] = [
@@ -440,7 +514,6 @@ export default function InvoiceSection({
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Payment Schedule</p>
         <p className="text-gray-500 text-xs mb-3">Split the total into milestones. The invoice total never changes.</p>
 
-        {/* Mode selector */}
         <div className="grid grid-cols-4 gap-1.5 mb-4">
           {SPLIT_OPTIONS.map((opt) => (
             <button
@@ -459,7 +532,6 @@ export default function InvoiceSection({
           ))}
         </div>
 
-        {/* Paid milestones (locked) */}
         {paidMilestones.length > 0 && (
           <div className="mb-3">
             {paidMilestones.map((m) => (
@@ -474,7 +546,6 @@ export default function InvoiceSection({
           </div>
         )}
 
-        {/* Editable milestone rows */}
         {splitMode !== "full" && (
           <>
             <div className="flex flex-col gap-2 mb-3">
@@ -517,7 +588,6 @@ export default function InvoiceSection({
               ))}
             </div>
 
-            {/* Custom add row */}
             {splitMode === "custom" && (
               <button
                 type="button"
@@ -528,7 +598,6 @@ export default function InvoiceSection({
               </button>
             )}
 
-            {/* Total check */}
             <div className={`flex justify-between items-center px-4 py-2.5 rounded-xl text-sm ${milestoneMismatch ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-[#1a1a1a] border border-[#2a2a2a]"}`}>
               <span className={milestoneMismatch ? "text-yellow-300" : "text-gray-500"}>
                 {milestoneMismatch ? "⚠ Milestone total mismatch" : "Milestones total"}
@@ -543,6 +612,99 @@ export default function InvoiceSection({
       </div>
     );
   }
+
+  // Portal download button (only available when invoice exists)
+  const downloadInvoiceBtn = invoice ? (
+    <button
+      onClick={handleDownloadInvoicePDF}
+      disabled={pdfLoading}
+      className="w-full flex items-center justify-center gap-2 bg-[#242424] border border-[#2a2a2a] text-white font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      {pdfLoading ? "Building PDF…" : "Download Invoice"}
+    </button>
+  ) : null;
+
+  // Portal section — rendered at the bottom of the card in both create and exists views
+  const portalSection = (
+    <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
+      <div className="flex items-center justify-between">
+        <p className="text-white font-semibold text-base">Client Portal</p>
+        <button
+          onClick={handlePortalToggle}
+          disabled={portalSaving}
+          aria-label={portalEnabled ? "Disable portal" : "Enable portal"}
+          style={{
+            position: "relative",
+            width: 44,
+            height: 24,
+            borderRadius: 12,
+            flexShrink: 0,
+            transition: "background-color 0.2s",
+            backgroundColor: portalEnabled ? "#F97316" : "#333",
+            opacity: portalSaving ? 0.6 : 1,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 2,
+              left: 2,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              backgroundColor: "white",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+              transition: "transform 0.2s",
+              transform: portalEnabled ? "translateX(20px)" : "translateX(0)",
+            }}
+          />
+        </button>
+      </div>
+
+      {!portalEnabled && (
+        <>
+          <p className="text-gray-600 text-xs mt-2 leading-relaxed">
+            Enable to give your client a link to view job progress, sign their quote, and make payments.
+          </p>
+          {downloadInvoiceBtn && <div className="mt-3">{downloadInvoiceBtn}</div>}
+        </>
+      )}
+
+      {portalEnabled && portalUrl && (
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            onClick={handlePortalShare}
+            className="w-full flex items-center justify-center gap-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share Client Link
+          </button>
+          <button
+            onClick={handlePortalCopy}
+            className="w-full flex items-center justify-center gap-2 bg-[#242424] border border-[#2a2a2a] text-white font-semibold text-sm py-3.5 rounded-xl active:scale-95 transition-transform"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+            {portalCopied ? "Copied!" : "Copy Link"}
+          </button>
+          {downloadInvoiceBtn}
+          <p className="text-gray-600 text-xs mt-1 text-center leading-relaxed">
+            Your client can sign the quote, view photos, and pay from this link.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   // ── No invoice yet (create mode) ──────────────────────────────────────────
 
@@ -567,7 +729,6 @@ export default function InvoiceSection({
           </div>
         )}
 
-        {/* No-estimate path: manual total entry */}
         {!estimate ? (
           <div className="mb-5">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Invoice Total</p>
@@ -586,11 +747,10 @@ export default function InvoiceSection({
           <p className="text-gray-500 text-sm mb-5">Total: <span className="text-white font-bold">{fmtNum(grandTotal)}</span></p>
         )}
 
-        {renderInternalBreakdown()}
         {renderPaymentSchedule()}
 
         <div className="mb-5">
-          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client Display Settings</p>
           <p className="text-gray-500 text-xs mb-3">What the client sees. Total should match {fmtNum(grandTotal)}.</p>
           <LineItemBuilder items={clientLineItems} onItemsChange={setClientLineItems} totalToMatch={grandTotal} />
         </div>
@@ -626,6 +786,8 @@ export default function InvoiceSection({
         >
           {creating ? "Creating…" : "Generate Invoice"}
         </button>
+
+        {portalSection}
       </div>
     );
   }
@@ -721,6 +883,7 @@ export default function InvoiceSection({
         </div>
       )}
 
+      {/* Invoice number + total */}
       <div className="flex justify-between items-center mb-1">
         <span className="text-gray-500 text-sm font-mono">{invoiceNumber}</span>
         <span className="text-white font-black text-2xl">{fmtNum(grandTotal)}</span>
@@ -737,39 +900,43 @@ export default function InvoiceSection({
         )}
       </div>
 
-      {/* Internal breakdown */}
-      {renderInternalBreakdown()}
-
-      {/* Status selector — manual statuses only; pending/partial set by webhook */}
-      <div className="flex gap-2 mb-4">
-        {(["unpaid", "sent", "paid"] as InvoiceStatus[]).map((s) => {
-          const c = STATUS_CONFIG[s];
-          const active = invoice.status === s;
-          return (
-            <button
-              key={s}
-              onClick={() => handleStatusChange(s)}
-              disabled={isPending}
-              className={`flex-1 py-3 rounded-xl font-semibold text-sm border transition-colors active:scale-95 disabled:opacity-60 ${active ? `${c.bg} ${c.color}` : "bg-[#242424] text-gray-400 border-[#2a2a2a]"}`}
-            >
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {invoice.status !== "paid" && (
+      {/* Client Display Settings (collapsible) */}
+      <div className="pt-4 border-t border-[#2a2a2a]">
         <button
-          onClick={() => handleStatusChange("paid")}
-          disabled={isPending}
-          className="w-full mb-3 bg-green-600 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          onClick={() => setEditingDisplay((v) => !v)}
+          className="w-full flex items-center justify-between mb-3 active:opacity-70"
         >
-          Record Payment
+          <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Client Display Settings</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`text-gray-500 transition-transform ${editingDisplay ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-      )}
 
-      {invoice.sent_at && <p className="text-gray-500 text-xs mb-1">Sent {fmtDate(invoice.sent_at)}</p>}
-      {invoice.paid_at && <p className="text-green-400 text-xs font-semibold mb-1">Paid {fmtDate(invoice.paid_at)}</p>}
+        {editingDisplay ? (
+          <>
+            <div className="mb-5">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
+              <p className="text-gray-500 text-xs mb-3">What the client sees. Total should match {fmtNum(grandTotal)}.</p>
+              <LineItemBuilder items={clientLineItems} onItemsChange={setClientLineItems} totalToMatch={grandTotal} />
+            </div>
+            <div className="flex gap-2 mt-1 mb-4">
+              <button onClick={handleSaveDisplaySettings} className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">Save Settings</button>
+              <button onClick={() => cancelDisplayEdit(invoice)} className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold py-3 rounded-xl text-sm active:scale-95 transition-transform">Cancel</button>
+            </div>
+          </>
+        ) : (
+          <div className="mb-1">
+            {invoice.client_line_items?.length > 0 ? (
+              invoice.client_line_items.map((item, i) => (
+                <div key={i} className="flex justify-between text-sm py-1">
+                  <span className="text-gray-400">{item.name}</span>
+                  <span className="text-gray-300 font-mono">{fmtNum(item.amount)}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-600 text-xs mb-2">No client line items set.</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Payment Schedule (collapsible) */}
       <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
@@ -833,43 +1000,36 @@ export default function InvoiceSection({
         )}
       </div>
 
-      {/* Client Display Settings (collapsible) */}
-      <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
-        <button
-          onClick={() => setEditingDisplay((v) => !v)}
-          className="w-full flex items-center justify-between mb-3 active:opacity-70"
-        >
-          <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Client Display Settings</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`text-gray-500 transition-transform ${editingDisplay ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-
-        {editingDisplay ? (
-          <>
-            <div className="mb-5">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Client-Facing Line Items</p>
-              <p className="text-gray-500 text-xs mb-3">What the client sees. Total should match {fmtNum(grandTotal)}.</p>
-              <LineItemBuilder items={clientLineItems} onItemsChange={setClientLineItems} totalToMatch={grandTotal} />
-            </div>
-            <div className="flex gap-2 mt-1 mb-4">
-              <button onClick={handleSaveDisplaySettings} className="flex-1 bg-orange-500 text-white font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">Save Settings</button>
-              <button onClick={() => cancelDisplayEdit(invoice)} className="flex-1 bg-[#242424] border border-[#2a2a2a] text-gray-400 font-semibold py-3 rounded-xl text-sm active:scale-95 transition-transform">Cancel</button>
-            </div>
-          </>
-        ) : (
-          <div className="mb-1">
-            {invoice.client_line_items?.length > 0 ? (
-              invoice.client_line_items.map((item, i) => (
-                <div key={i} className="flex justify-between text-sm py-1">
-                  <span className="text-gray-400">{item.name}</span>
-                  <span className="text-gray-300 font-mono">{fmtNum(item.amount)}</span>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-600 text-xs mb-2">No client line items set.</p>
-            )}
-          </div>
-        )}
+      {/* Status selector */}
+      <div className="flex gap-2 mt-4 mb-4">
+        {(["unpaid", "sent", "paid"] as InvoiceStatus[]).map((s) => {
+          const c = STATUS_CONFIG[s];
+          const active = invoice.status === s;
+          return (
+            <button
+              key={s}
+              onClick={() => handleStatusChange(s)}
+              disabled={isPending}
+              className={`flex-1 py-3 rounded-xl font-semibold text-sm border transition-colors active:scale-95 disabled:opacity-60 ${active ? `${c.bg} ${c.color}` : "bg-[#242424] text-gray-400 border-[#2a2a2a]"}`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
+
+      {invoice.status !== "paid" && (
+        <button
+          onClick={() => handleStatusChange("paid")}
+          disabled={isPending}
+          className="w-full mb-3 bg-green-600 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+        >
+          Record Payment
+        </button>
+      )}
+
+      {invoice.sent_at && <p className="text-gray-500 text-xs mb-1">Sent {fmtDate(invoice.sent_at)}</p>}
+      {invoice.paid_at && <p className="text-green-400 text-xs font-semibold mb-1">Paid {fmtDate(invoice.paid_at)}</p>}
 
       {/* Notes */}
       <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
@@ -901,6 +1061,7 @@ export default function InvoiceSection({
         </div>
       )}
 
+      {portalSection}
     </div>
   );
 }

@@ -9,7 +9,6 @@ import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
 import { JobCostProvider } from "@/components/JobCostContext";
 import InvoiceSection from "@/components/InvoiceSection";
 import PunchListSection from "@/components/PunchListSection";
-import PortalToggle from "@/components/PortalToggle";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 import DocumentsSection from "@/components/DocumentsSection";
 import LaborSubsSection from "@/components/LaborSubsSection";
@@ -282,25 +281,8 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 3 — Client Portal & Payment (always open) */}
+          {/* 3 — Invoice & Payments + Client Portal (always open) */}
           <p className="text-orange-500 text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Client Facing</p>
-          <div className="mb-4">
-            <PortalToggle
-              jobId={job.id}
-              initialEnabled={job.portal_enabled ?? false}
-              initialToken={job.portal_token ?? null}
-              invoice={invoice ?? null}
-              estimate={estimate ?? null}
-              changeOrders={(changeOrders ?? []).map((co) => ({ description: co.description, amount: Number(co.amount) }))}
-              milestones={invoiceMilestones ?? []}
-              jobName={job.name}
-              jobAddress={job.address ?? null}
-              jobNumber={job.job_number ?? null}
-              jobClient={jobClient ?? null}
-            />
-          </div>
-
-          {/* 4 — Invoice & Payments (always open) */}
           <div className="mb-4">
             <InvoiceSection
               jobId={job.id}
@@ -312,6 +294,8 @@ export default async function JobDetailPage({
               jobClient={jobClient ?? null}
               initialMilestones={invoiceMilestones ?? []}
               stripeConnected={stripeConnected}
+              initialEnabled={job.portal_enabled ?? false}
+              initialToken={job.portal_token ?? null}
             />
           </div>
 
