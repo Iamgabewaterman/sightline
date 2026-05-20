@@ -271,6 +271,7 @@ export default async function JobDetailPage({
           />
 
           {/* 2 — Profitability (always open) */}
+          <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Job Profitability — Internal</p>
           <div className="mb-4">
             <QuoteProfitSection
               job={job}
@@ -282,6 +283,7 @@ export default async function JobDetailPage({
           </div>
 
           {/* 3 — Client Portal & Payment (always open) */}
+          <p className="text-orange-500 text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Client Facing</p>
           <div className="mb-4">
             <PortalToggle
               jobId={job.id}

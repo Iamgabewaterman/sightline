@@ -97,7 +97,7 @@ export default async function PortalPage({
       : Promise.resolve({ data: null }),
     supabase
       .from("estimates")
-      .select("id, final_quote, quote_status, signature_token")
+      .select("id, final_quote, quote_status, signature_token, signed_at, signed_by_name, addons, created_at")
       .eq("job_id", job.id)
       .eq("type", "job_quote")
       .order("created_at", { ascending: false })
@@ -157,7 +157,19 @@ export default async function PortalPage({
   const signUrl = estimate?.signature_token
     ? `/sign/${estimate.id}/${estimate.signature_token}`
     : null;
-  const quoteIsUnsigned = estimate && estimate.quote_status !== "accepted";
+  const quoteIsSigned = estimate?.quote_status === "accepted";
+  const quoteIsUnsigned = estimate && !quoteIsSigned;
+  const quoteNumber = estimate ? `QUO-${estimate.id.slice(0, 8).toUpperCase()}` : null;
+
+  type QuoteAddon = { name?: string; amount?: number | string };
+  const addonLines: QuoteAddon[] = Array.isArray(estimate?.addons)
+    ? (estimate.addons as QuoteAddon[]).filter((a) => a.name && Number(a.amount) !== 0)
+    : [];
+
+  type ClientLineItem = { description: string; amount: number };
+  const clientLineItems: ClientLineItem[] = Array.isArray(invoice?.client_line_items)
+    ? (invoice.client_line_items as ClientLineItem[]).filter((l) => l.description)
+    : [];
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-10 pb-20">
@@ -216,6 +228,173 @@ export default async function PortalPage({
           </div>
         </div>
 
+        {/* Quote section */}
+        {estimate && (
+          <div className={`bg-[#1A1A1A] border rounded-2xl overflow-hidden mb-5 ${quoteIsSigned ? "border-[#2a2a2a]" : "border-orange-500/30"}`}>
+            <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Project Quote</p>
+                {quoteNumber && (
+                  <p className="text-gray-600 text-xs font-mono mt-0.5">{quoteNumber}</p>
+                )}
+              </div>
+              {quoteIsSigned ? (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">
+                  Signed
+                </span>
+              ) : (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                  Awaiting Signature
+                </span>
+              )}
+            </div>
+            <div className="px-5 py-4">
+              {estimate.created_at && (
+                <p className="text-gray-500 text-xs mb-3">Issued {fmtDate(estimate.created_at)}</p>
+              )}
+
+              {/* Line items */}
+              {addonLines.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-4">
+                  {addonLines.map((a, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3">
+                      <p className="text-gray-400 text-sm flex-1 min-w-0">{a.name}</p>
+                      <p className="text-white text-sm font-medium shrink-0">
+                        ${Number(a.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  ))}
+                  <div className="border-t border-[#2a2a2a] mt-2 pt-2 flex items-baseline justify-between">
+                    <p className="text-gray-400 text-sm font-semibold">Total</p>
+                    <p className="text-orange-500 font-black text-xl">
+                      ${Number(estimate.final_quote).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {addonLines.length === 0 && (
+                <div className="flex items-baseline justify-between mb-4">
+                  <p className="text-gray-400 text-sm">Project Total</p>
+                  <p className="text-orange-500 font-black text-2xl">
+                    ${Number(estimate.final_quote).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+
+              {quoteIsSigned ? (
+                <div className="flex flex-col gap-2">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 text-center">
+                    <p className="text-green-400 font-bold text-sm">Quote Signed</p>
+                    {estimate.signed_at && (
+                      <p className="text-green-500 text-xs mt-0.5">
+                        {estimate.signed_by_name ? `${estimate.signed_by_name} · ` : ""}
+                        {fmtDate(estimate.signed_at)}
+                      </p>
+                    )}
+                  </div>
+                  {signUrl && (
+                    <Link
+                      href={signUrl}
+                      className="block w-full text-center text-orange-400 text-sm font-semibold py-2"
+                    >
+                      Download Quote PDF →
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                signUrl && (
+                  <Link
+                    href={signUrl}
+                    className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
+                  >
+                    Review &amp; Sign Quote →
+                  </Link>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Invoice section */}
+        {invoice && (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice</p>
+              <div className="flex items-center gap-2">
+                {invoiceIsOverdue && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400">
+                    Overdue
+                  </span>
+                )}
+                {isPaid ? (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">
+                    Paid
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                    Unpaid
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-gray-500 text-sm font-mono">{invoiceNumber}</p>
+                <p className="text-orange-500 font-black text-2xl">
+                  ${Number(invoice.total_amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+
+              {/* Client line items */}
+              {clientLineItems.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-4 border-t border-[#2a2a2a] pt-3">
+                  {clientLineItems.map((item, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3">
+                      <p className="text-gray-400 text-sm flex-1 min-w-0">{item.description}</p>
+                      <p className="text-white text-sm font-medium shrink-0">
+                        ${Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {invoice.due_date && (
+                <p className={`text-sm mb-4 ${invoiceIsOverdue ? "text-red-400" : "text-gray-400"}`}>
+                  Due {fmtDate(invoice.due_date)}
+                </p>
+              )}
+
+              {isPaid ? (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-4 text-center">
+                  <p className="text-green-400 font-bold">Payment Received</p>
+                  {invoice.paid_at && (
+                    <p className="text-green-500 text-xs mt-1">
+                      Paid {fmtDate(invoice.paid_at)}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={`/pay/${invoice.id}`}
+                  className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
+                >
+                  Pay Now
+                </Link>
+              )}
+
+              <Link
+                href={`/pay/${invoice.id}`}
+                className="block w-full text-center text-orange-400 text-sm font-semibold py-2 mt-1"
+              >
+                Download Invoice PDF →
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Photo gallery */}
         <PortalPhotoGallery
           photos={(photos ?? []).map((p) => ({
@@ -262,90 +441,6 @@ export default async function PortalPage({
           </div>
         )}
 
-        {/* Invoice section */}
-        {invoice && (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
-            <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice</p>
-              <div className="flex items-center gap-2">
-                {invoiceIsOverdue && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400">
-                    Overdue
-                  </span>
-                )}
-                {isPaid ? (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/40 text-green-400">
-                    Paid
-                  </span>
-                ) : (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
-                    Unpaid
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-gray-500 text-sm font-mono">{invoiceNumber}</p>
-                <p className="text-orange-500 font-black text-2xl">
-                  ${Number(invoice.total_amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              {invoice.due_date && (
-                <p className={`text-sm mb-4 ${invoiceIsOverdue ? "text-red-400" : "text-gray-400"}`}>
-                  Due {fmtDate(invoice.due_date)}
-                </p>
-              )}
-
-              {isPaid ? (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-4 text-center">
-                  <p className="text-green-400 font-bold">Payment Received</p>
-                  {invoice.paid_at && (
-                    <p className="text-green-500 text-xs mt-1">
-                      Paid {fmtDate(invoice.paid_at)}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  href={`/pay/${invoice.id}`}
-                  className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
-                >
-                  Pay Now
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Quote section — show Sign Quote if unsigned */}
-        {quoteIsUnsigned && estimate && signUrl && (
-          <div className="bg-[#1A1A1A] border border-orange-500/30 rounded-2xl overflow-hidden mb-5">
-            <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Project Quote</p>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
-                Awaiting Signature
-              </span>
-            </div>
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-sm">Project Total</p>
-                <p className="text-orange-500 font-black text-2xl">
-                  ${Number(estimate.final_quote).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <Link
-                href={signUrl}
-                className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
-              >
-                Review &amp; Sign Quote →
-              </Link>
-            </div>
-          </div>
-        )}
-
         {/* Documents section */}
         {(documents ?? []).length > 0 && (
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
@@ -375,7 +470,10 @@ export default async function PortalPage({
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Contact</p>
             <p className="text-white font-semibold text-sm mb-2">{bp.business_name ?? bp.owner_name ?? "Contractor"}</p>
             {bp.phone && (
-              <a href={`tel:${bp.phone}`} className="flex items-center gap-2 text-gray-400 text-sm mb-1.5 active:text-white">
+              <a
+                href={`sms:+1${bp.phone.replace(/\D/g, "")}`}
+                className="flex items-center gap-2 text-gray-400 text-sm mb-1.5 active:text-white"
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.19 2 2 0 012.1 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
                 </svg>
