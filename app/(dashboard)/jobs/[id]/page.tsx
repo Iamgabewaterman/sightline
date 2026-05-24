@@ -246,7 +246,7 @@ export default async function JobDetailPage({
           </Link>
           <Link
             href={`/jobs/${job.id}/edit`}
-            className="text-white border border-[#2a2a2a] font-semibold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
+            className="text-white border border-[#2a2a2a] font-semibold text-sm px-4 py-4 rounded-xl active:scale-95 transition-transform"
           >
             Edit
           </Link>

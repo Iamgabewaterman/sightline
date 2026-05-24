@@ -220,7 +220,7 @@ export default async function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <Link href="/jobs/new" className="bg-orange-500 text-white font-bold text-base px-5 py-3 rounded-xl active:scale-95 transition-transform">
+          <Link href="/jobs/new" className="bg-orange-500 text-white font-bold text-base px-5 py-4 rounded-xl active:scale-95 transition-transform">
             + New Job
           </Link>
         </div>

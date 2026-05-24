@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { X, Check } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
 
-const ContactForm = dynamic(() => import("@/components/ContactForm"));
-const IdeaBox = dynamic(() => import("@/components/IdeaBox"));
+export const dynamic = "force-static";
+
+const ContactForm = nextDynamic(() => import("@/components/ContactForm"));
+const IdeaBox = nextDynamic(() => import("@/components/IdeaBox"));
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -374,9 +376,18 @@ export default function LandingPage() {
           <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
             Get in touch
           </h2>
-          <p className="text-gray-500 text-center mb-10 max-w-md mx-auto">
+          <p className="text-gray-500 text-center mb-4 max-w-md mx-auto">
             Questions about pricing, features, or getting started? We&rsquo;ll reply same day.
           </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+            <a href="mailto:sightlinesupport@gmail.com" className="text-orange-400 font-semibold text-sm hover:text-orange-300 transition-colors">
+              sightlinesupport@gmail.com
+            </a>
+            <span className="hidden sm:block text-gray-700">·</span>
+            <a href="sms:9714697274" className="text-orange-400 font-semibold text-sm hover:text-orange-300 transition-colors">
+              Text: 971-469-7274
+            </a>
+          </div>
           <ContactForm variant="landing" />
 
           <div className="mt-12 bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-7 py-8">
@@ -396,7 +407,6 @@ export default function LandingPage() {
               <span className="text-white font-black text-lg">Sightline</span>
             </div>
             <p className="text-gray-600 text-xs">Every job. One view.</p>
-            <p className="text-gray-700 text-xs mt-1">Powered by Sightline</p>
           </div>
 
           {/* Links */}

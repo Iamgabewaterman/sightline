@@ -56,11 +56,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  console.error("RECEIPT SCAN STARTED");
-
-  // Fail fast if API key is missing — prevents silent no-op
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("API KEY MISSING — ANTHROPIC_API_KEY is not set in environment");
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
@@ -70,45 +66,29 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    console.error("RECEIPT SCAN ABORTED — not authenticated");
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-
-  console.error(`RECEIPT SCAN — authenticated as user: ${user.id}`);
 
   let formData: FormData;
   try {
     formData = await request.formData();
-  } catch (e) {
-    console.error(`RECEIPT SCAN ABORTED — formData parse failed: ${e}`);
+  } catch {
     return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
   }
 
   const jobId = formData.get("jobId") as string;
   const file = formData.get("receipt") as File | null;
 
-  const formKeys: string[] = [];
-  formData.forEach((_, k) => formKeys.push(k));
-  console.error(`RECEIPT SCAN — jobId: ${jobId} | file: ${file?.name ?? "null"} | size: ${file?.size ?? 0} | keys: ${formKeys.join(", ")}`);
-
   if (!jobId) {
-    console.error("RECEIPT SCAN ABORTED — missing jobId");
     return NextResponse.json({ error: "jobId is required" }, { status: 400 });
   }
   if (!file || file.size === 0) {
-    console.error("MISSING FILE — receipt field is absent or empty in FormData");
     return NextResponse.json({ error: "No file selected" }, { status: 400 });
   }
 
   // Read buffer BEFORE uploading — guaranteed to be the actual image bytes
   const fileBuffer = await file.arrayBuffer();
   const base64 = Buffer.from(fileBuffer).toString("base64");
-
-  console.log(`[receipts-vision] file size: ${file.size} bytes | base64 length: ${base64.length} chars | mime: ${file.type}`);
-
-  if (base64.length < 5000) {
-    console.error(`[receipts-vision] base64 suspiciously short (${base64.length}) — possible blank image from canvas preprocessing`);
-  }
 
   // Upload to storage and run OCR in parallel
   const ext = file.name.split(".").pop() || "jpg";
@@ -153,7 +133,6 @@ export async function POST(request: Request) {
   let rawResponseText = "";
 
   try {
-    console.error(`CALLING ANTHROPIC — base64 length: ${base64.length} | mime: ${mimeType}`);
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
@@ -173,7 +152,6 @@ export async function POST(request: Request) {
     });
 
     rawResponseText = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
-    console.error(`ANTHROPIC RETURNED — response length: ${rawResponseText.length} chars | first 600: ${rawResponseText.slice(0, 600)}`);
 
     const cleaned = rawResponseText
       .replace(/^```json\s*/i, "")
@@ -185,21 +163,17 @@ export async function POST(request: Request) {
     if (match) {
       try {
         parsed = JSON.parse(match[0]);
-        console.log(`[receipts-vision] Parsed OK — vendor: ${parsed.vendor} | items: ${parsed.line_items?.length ?? 0} | total: ${parsed.total}`);
-      } catch (parseErr) {
-        console.error(`[receipts-vision] JSON parse failed: ${parseErr} | cleaned: ${cleaned.slice(0, 400)}`);
+      } catch {
+        // malformed JSON — proceed with empty parsed, receipt still saved
       }
-    } else {
-      console.error(`[receipts-vision] No JSON object in response: ${cleaned.slice(0, 400)}`);
     }
-  } catch (apiErr) {
-    console.error(`ANTHROPIC ERROR — ${apiErr}`);
+  } catch {
+    // Anthropic API error — proceed with empty parsed, receipt still saved
   }
 
   // Wait for upload
   const { error: uploadError } = await uploadPromise;
   if (uploadError) {
-    console.error(`[receipts-vision] Storage upload error: ${uploadError.message}`);
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
@@ -240,7 +214,6 @@ export async function POST(request: Request) {
     .single();
 
   if (dbError) {
-    console.error(`[receipts-vision] DB insert error: ${dbError.message}`);
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
@@ -307,6 +280,5 @@ export async function POST(request: Request) {
     unreadable_sections: parsed.unreadable_sections ?? null,
   };
 
-  console.log(`[receipts-vision] Done — receipt_id: ${receipt!.id} | items: ${items.length}`);
   return NextResponse.json({ result });
 }

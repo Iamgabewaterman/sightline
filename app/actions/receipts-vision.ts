@@ -74,7 +74,7 @@ export async function extractReceiptItems(
   // Validate the base64 represents a real image (a blank canvas produces ~5-10KB)
   const minExpectedLength = 5000;
   if (base64.length < minExpectedLength) {
-    console.error(`[receipts-vision] Suspiciously small base64: ${base64.length} chars — may be blank image`);
+    return { error: "Image appears blank or too small — try a clearer photo" };
   }
 
   // Upload to storage for record-keeping (parallel with OCR)
@@ -157,30 +157,22 @@ export async function extractReceiptItems(
 
     rawResponseText = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
 
-    // Log raw response for Vercel function debugging
-    console.error(`[receipts-vision] base64 length: ${base64.length} | raw response: ${rawResponseText.slice(0, 500)}`);
-
-    // Strip markdown fences if present
     const cleaned = rawResponseText
       .replace(/^```json\s*/i, "")
       .replace(/^```\s*/i, "")
       .replace(/\s*```$/i, "")
       .trim();
 
-    // Extract the JSON object
     const match = cleaned.match(/\{[\s\S]*\}/);
     if (match) {
       try {
         parsed = JSON.parse(match[0]);
-      } catch (parseErr) {
-        console.error(`[receipts-vision] JSON parse failed: ${parseErr} | text: ${cleaned.slice(0, 300)}`);
+      } catch {
+        // malformed JSON — proceed with empty parsed
       }
-    } else {
-      console.error(`[receipts-vision] No JSON object found in response: ${cleaned.slice(0, 300)}`);
     }
-  } catch (apiErr) {
-    console.error(`[receipts-vision] Anthropic API error: ${apiErr}`);
-    // Fall through — save receipt with whatever we have
+  } catch {
+    // Anthropic API error — proceed with empty parsed, receipt still saved
   }
 
   // Wait for upload to complete
