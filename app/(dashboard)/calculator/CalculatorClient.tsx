@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo } from "react";
 import AIVisualEstimator from "@/components/AIVisualEstimator";
 import { addMaterialsBulk, addMaterialsAsShoppingList, BulkMaterialItem } from "@/app/actions/materials-bulk";
+import { getBrandsForType, getColorsForBrand } from "@/app/actions/material-types";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 import { fetchHistoricalCostRange } from "@/app/actions/insights";
 import type { HistoricalCostRange } from "@/lib/insights";
+import type { MaterialBrand, MaterialColor } from "@/types";
 
 // ── Oregon reference prices (used as baseline ratios only) ────────────────
 const P_OR = {
@@ -240,6 +242,107 @@ export default function CalculatorClient({
   // Historical range for adaptive estimate band
   const [histRange, setHistRange] = useState<HistoricalCostRange | null>(null);
 
+  // ── Refine Pricing ────────────────────────────────────────────────────────
+  interface ItemRefinement {
+    typeId: string; typeName: string; hasBrand: boolean; hasColor: boolean;
+    brandId: string | null; brandName: string | null;
+    colorId: string | null; colorName: string | null;
+    refinedCost: number | null;
+  }
+  const [primaryRefinement, setPrimaryRefinement] = useState<ItemRefinement | null>(null);
+  const [refineSheetOpen,   setRefineSheetOpen]   = useState(false);
+  const [refineBrands,      setRefineBrands]      = useState<MaterialBrand[]>([]);
+  const [refineColors,      setRefineColors]      = useState<MaterialColor[]>([]);
+  const [refineLoadingB,    setRefineLoadingB]    = useState(false);
+  const [refineLoadingC,    setRefineLoadingC]    = useState(false);
+  const [sheetBrand,        setSheetBrand]        = useState<MaterialBrand | null>(null);
+  const [sheetColor,        setSheetColor]        = useState<MaterialColor | null>(null);
+  const [noRegionalData,    setNoRegionalData]    = useState(false);
+
+  function getPrimaryItemType(): { typeId: string; typeName: string; hasBrand: boolean; hasColor: boolean } | null {
+    if (!trade || !sub) return null;
+    if (trade === "roofing" && sub === "shingles")
+      return roofingType === "arch"
+        ? { typeId: "5c95233c-b953-4006-ab16-fb3f439efedb", typeName: "Architectural Shingles", hasBrand: true, hasColor: true }
+        : { typeId: "83bf9b4d-edea-4b39-b3d9-90581307f43a", typeName: "3-Tab Shingles",         hasBrand: true, hasColor: true };
+    if (trade === "siding" && sub === "panel") {
+      if (sidingType === "hardie") return { typeId: "f73fc906-2ca4-450e-a715-3633451f9a47", typeName: "Fiber Cement Siding", hasBrand: true, hasColor: true };
+      if (sidingType === "lp")    return { typeId: "8dae2a48-e5c4-49cc-9d67-fa3d2413ffc9", typeName: "LP SmartSide",        hasBrand: true, hasColor: true };
+      if (sidingType === "vinyl") return { typeId: "029399c6-478c-494a-9183-8bd75bdd0256", typeName: "Vinyl Siding",         hasBrand: true, hasColor: true };
+      return null;
+    }
+    if (trade === "paint" && sub === "room")
+      return paintType === "interior"
+        ? { typeId: "7f5e9002-204d-4878-a029-a9cfeb229b5b", typeName: "Interior Paint", hasBrand: true, hasColor: true }
+        : { typeId: "b3c0f460-8675-4d7d-925e-dadba1cfad15", typeName: "Exterior Paint", hasBrand: true, hasColor: true };
+    if (trade === "insulation" && sub === "batt")
+      return { typeId: "b4e783cf-7012-4f94-9c8b-a991b83f34f4", typeName: "Batt Insulation", hasBrand: true, hasColor: false };
+    if (trade === "insulation" && sub === "rigid")
+      return { typeId: "989a1405-be32-4ffe-b1be-5ba7be36f722", typeName: "Rigid Foam",       hasBrand: true, hasColor: false };
+    if (trade === "tile" && sub === "ceramic")
+      return (tileSize === "12x12_porcelain" || tileSize === "24x24")
+        ? { typeId: "912ed5de-0047-46df-81fc-44465b2d58d5", typeName: "Porcelain Tile", hasBrand: true, hasColor: true }
+        : { typeId: "3c5ba2c7-2e95-4047-90aa-fd82d4dc4bf1", typeName: "Ceramic Tile",   hasBrand: true, hasColor: true };
+    if (trade === "tile" && sub === "lvp")
+      return { typeId: "3b9d55ac-0671-49de-af93-9e36add93d0a", typeName: "LVP Flooring",      hasBrand: true, hasColor: true };
+    if (trade === "tile" && sub === "hardwood")
+      return floorType === "hardwood"
+        ? { typeId: "370537d5-d4a1-4220-a452-6251a7a1bbc2", typeName: "Hardwood Flooring", hasBrand: true, hasColor: true }
+        : { typeId: "5b79857e-d41f-4020-9407-ab733b44fb0e", typeName: "Laminate Flooring", hasBrand: true, hasColor: true };
+    return null;
+  }
+
+  async function openRefineSheet() {
+    const typeInfo = getPrimaryItemType();
+    if (!typeInfo) return;
+    const prev = primaryRefinement?.typeId === typeInfo.typeId ? primaryRefinement : null;
+    setSheetBrand(prev?.brandId ? { id: prev.brandId, brand_name: prev.brandName! } as MaterialBrand : null);
+    setSheetColor(prev?.colorId ? { id: prev.colorId, color_name: prev.colorName! } as MaterialColor : null);
+    setNoRegionalData(false);
+    setRefineSheetOpen(true);
+    setRefineLoadingB(true);
+    const brands = await getBrandsForType(typeInfo.typeId);
+    setRefineBrands(brands);
+    setRefineLoadingB(false);
+    if (prev?.brandId && typeInfo.hasColor) {
+      setRefineLoadingC(true);
+      const colors = await getColorsForBrand(typeInfo.typeId, prev.brandId);
+      setRefineColors(colors);
+      setRefineLoadingC(false);
+    }
+  }
+
+  async function selectRefineBrand(brand: MaterialBrand) {
+    const typeInfo = getPrimaryItemType();
+    if (!typeInfo) return;
+    setSheetBrand(brand); setSheetColor(null); setNoRegionalData(false);
+    if (typeInfo.hasColor) {
+      setRefineLoadingC(true);
+      const colors = await getColorsForBrand(typeInfo.typeId, brand.id);
+      setRefineColors(colors);
+      setRefineLoadingC(false);
+    }
+  }
+
+  function selectRefineColor(color: MaterialColor) {
+    setSheetColor(color);
+    setNoRegionalData(color.avg_price_per_unit === null);
+  }
+
+  function confirmRefinement() {
+    const typeInfo = getPrimaryItemType();
+    if (!typeInfo) return;
+    setPrimaryRefinement({
+      ...typeInfo,
+      brandId:     sheetBrand?.id         ?? null,
+      brandName:   sheetBrand?.brand_name ?? null,
+      colorId:     sheetColor?.id         ?? null,
+      colorName:   sheetColor?.color_name ?? null,
+      refinedCost: sheetColor?.avg_price_per_unit != null ? Number(sheetColor.avg_price_per_unit) : null,
+    });
+    setRefineSheetOpen(false);
+  }
+
   // Build price table: regional data overrides Oregon baseline where available
   // Memoized — only recomputes when the pricing prop reference changes
   const P = useMemo(() => ({
@@ -291,6 +394,8 @@ export default function CalculatorClient({
     setDepth(""); setOpenings(""); setLf(""); setPitch("1.0");
     setToilets(""); setSinks(""); setShowers(""); setCircuit15(""); setCircuit20("");
     setSaved(false); setSaveError(""); setJobPickerOpen(false); setSaveMode("job");
+    setPrimaryRefinement(null); setRefineSheetOpen(false);
+    setSheetBrand(null); setSheetColor(null);
   }
 
   function selectTrade(t: TradeId) { setTrade(t); setSub(null); setResult(null); setStep(2); }
@@ -300,6 +405,7 @@ export default function CalculatorClient({
   function calculate() {
     if (!trade || !sub) return;
     setSaved(false); setSaveError("");
+    setPrimaryRefinement(null);
 
     const items: ResultItem[] = [];
     let note = "";
@@ -826,12 +932,18 @@ export default function CalculatorClient({
   async function handleAddToJob() {
     if (!selectedJob || !result) return;
     setSaving(true); setSaveError("");
-    const items: BulkMaterialItem[] = result.map((r) => ({
-      name: r.name,
-      unit: r.unit,
-      quantity_ordered: r.qty,
-      unit_cost: r.unitCost,
-    }));
+    const items: BulkMaterialItem[] = result.map((r, i) => {
+      const ref = i === 0 ? primaryRefinement : null;
+      return {
+        name: r.name,
+        unit: r.unit,
+        quantity_ordered: r.qty,
+        unit_cost: ref?.refinedCost != null ? ref.refinedCost : r.unitCost,
+        material_type_id: ref?.typeId  ?? null,
+        brand_name:       ref?.brandName ?? null,
+        color_name:       ref?.colorName ?? null,
+      };
+    });
     const res = saveMode === "shopping"
       ? await addMaterialsAsShoppingList(selectedJob, items)
       : await addMaterialsBulk(selectedJob, items);
@@ -840,7 +952,10 @@ export default function CalculatorClient({
     setSaved(true); setJobPickerOpen(false);
   }
 
-  const totalCost = result?.reduce((s, r) => s + r.qty * r.unitCost, 0) ?? 0;
+  const totalCost = (result ?? []).reduce((s, r, i) => {
+    const uc = (i === 0 && primaryRefinement?.refinedCost != null) ? primaryRefinement.refinedCost : r.unitCost;
+    return s + r.qty * uc;
+  }, 0);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (showAI) {
@@ -1350,17 +1465,40 @@ export default function CalculatorClient({
                   Materials — {pricingTierLabel(pricing, locationSource)}
                 </p>
               </div>
-              {result.map((item, i) => (
-                <div key={i} className={`px-5 py-4 flex items-center justify-between gap-3 ${i < result.length - 1 ? "border-b border-[#2a2a2a]" : ""}`}>
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm leading-snug">{item.name}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">{item.qty} {item.unit} × ${item.unitCost.toFixed(2)}</p>
+              {result.map((item, i) => {
+                const ref = i === 0 ? primaryRefinement : null;
+                const uc = ref?.refinedCost != null ? ref.refinedCost : item.unitCost;
+                const lineTotal = item.qty * uc;
+                const isRefineable = i === 0 && getPrimaryItemType() !== null;
+                return (
+                  <div key={i} className={`px-5 py-4 flex items-start gap-3 ${i < result.length - 1 ? "border-b border-[#2a2a2a]" : ""}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-semibold text-sm leading-snug">{item.name}</p>
+                      {ref?.brandName && (
+                        <div className="flex gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-blue-300 text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">{ref.brandName}</span>
+                          {ref.colorName && <span className="text-purple-300 text-xs bg-purple-500/10 px-1.5 py-0.5 rounded">{ref.colorName}</span>}
+                        </div>
+                      )}
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        {item.qty} {item.unit} × ${uc.toFixed(2)}
+                        {ref?.refinedCost != null && <span className="text-green-400 ml-1">(regional avg)</span>}
+                      </p>
+                      {isRefineable && (
+                        <button
+                          onClick={openRefineSheet}
+                          className="mt-1 text-orange-400 text-xs font-semibold active:opacity-70"
+                        >
+                          {ref ? "✎ Change brand/color" : "+ Refine Pricing"}
+                        </button>
+                      )}
+                    </div>
+                    <span className="text-orange-400 font-bold text-sm shrink-0 mt-0.5">
+                      ${lineTotal.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </span>
                   </div>
-                  <span className="text-orange-400 font-bold text-sm shrink-0">
-                    ${(item.qty * item.unitCost).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               {(() => {
                 // Adaptive range: narrows as contractor builds job history
                 const jobCount = histRange?.jobCount ?? 0;
@@ -1411,11 +1549,14 @@ export default function CalculatorClient({
                     </p>
                   </div>
                   <div className="px-5 py-3 font-mono text-xs flex flex-col gap-0.5">
-                    {items.map((item, i) => (
-                      <p key={i} className="text-gray-400 leading-relaxed">
-                        {item.name} — {item.qty} {item.unit} @ ${item.unitCost.toFixed(2)} = <span className="text-white font-bold">${(item.qty * item.unitCost).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-                      </p>
-                    ))}
+                    {items.map((item, i) => {
+                      const uc = (i === 0 && primaryRefinement?.refinedCost != null) ? primaryRefinement.refinedCost : item.unitCost;
+                      return (
+                        <p key={i} className="text-gray-400 leading-relaxed">
+                          {item.name} — {item.qty} {item.unit} @ ${uc.toFixed(2)} = <span className="text-white font-bold">${(item.qty * uc).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                        </p>
+                      );
+                    })}
                     <div className="border-t border-[#2a2a2a] mt-2 pt-2">
                       <p className="text-white font-bold text-sm">SUBTOTAL: ${subtotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}</p>
                       <p className="text-gray-600 text-xs mt-0.5">{pricingTierLabel(pricing, locationSource)}</p>
@@ -1484,6 +1625,99 @@ export default function CalculatorClient({
           </div>
         )}
       </div>
+
+      {/* ── Refine Pricing Sheet ── */}
+      {refineSheetOpen && (() => {
+        const typeInfo = getPrimaryItemType();
+        if (!typeInfo) return null;
+        const canConfirm = !typeInfo.hasBrand || sheetBrand !== null;
+        return (
+          <>
+            <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setRefineSheetOpen(false)} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-5 flex flex-col gap-4 overflow-y-auto"
+              style={{ maxHeight: "85vh", paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-bold text-lg">Refine Pricing</p>
+                  <p className="text-gray-500 text-sm">{typeInfo.typeName}</p>
+                </div>
+                <button onClick={() => setRefineSheetOpen(false)} className="text-gray-500 text-2xl w-9 h-9 flex items-center justify-center">×</button>
+              </div>
+
+              {typeInfo.hasBrand && (
+                <div>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Brand</p>
+                  {refineLoadingB ? (
+                    <p className="text-gray-500 text-sm">Loading…</p>
+                  ) : refineBrands.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No brands available yet.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {refineBrands.map((b) => (
+                        <button key={b.id} onClick={() => selectRefineBrand(b)}
+                          className={`px-3 py-2 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${
+                            sheetBrand?.id === b.id
+                              ? "bg-orange-500 border-orange-500 text-white"
+                              : b.is_verified
+                              ? "bg-[#242424] border-[#333] text-white"
+                              : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-400"
+                          }`}
+                        >
+                          {b.brand_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {typeInfo.hasColor && sheetBrand && (
+                <div>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Color / Style</p>
+                  {refineLoadingC ? (
+                    <p className="text-gray-500 text-sm">Loading…</p>
+                  ) : refineColors.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No colors logged yet for this brand.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {refineColors.map((c) => (
+                        <button key={c.id} onClick={() => selectRefineColor(c)}
+                          className={`px-3 py-2 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${
+                            sheetColor?.id === c.id
+                              ? "bg-orange-500 border-orange-500 text-white"
+                              : c.is_verified
+                              ? "bg-[#242424] border-[#333] text-white"
+                              : "bg-[#1A1A1A] border-[#2a2a2a] text-gray-400"
+                          }`}
+                        >
+                          {c.color_name}
+                          {c.avg_price_per_unit != null && (
+                            <span className="ml-1.5 text-orange-400">${Number(c.avg_price_per_unit).toFixed(2)}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {noRegionalData && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+                  <p className="text-yellow-300 text-sm">No regional data yet for this brand and color — original estimate will be used.</p>
+                </div>
+              )}
+
+              <button
+                onClick={confirmRefinement}
+                disabled={!canConfirm}
+                className="w-full bg-orange-500 text-white font-bold py-4 rounded-xl active:scale-95 disabled:opacity-40"
+              >
+                {canConfirm ? "Confirm Selection" : "Select a brand to continue"}
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

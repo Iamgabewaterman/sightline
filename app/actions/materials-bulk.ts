@@ -9,6 +9,9 @@ export interface BulkMaterialItem {
   unit: string;
   quantity_ordered: number;
   unit_cost: number;
+  material_type_id?: string | null;
+  brand_name?: string | null;
+  color_name?: string | null;
 }
 
 export async function addMaterialsBulk(
@@ -22,7 +25,9 @@ export async function addMaterialsBulk(
   const rows = items.map((item) => ({
     job_id: jobId,
     name: item.name,
-    normalized_name: normalizeMaterialName(item.name),
+    normalized_name: item.material_type_id
+      ? item.name.toLowerCase().trim().replace(/\s+/g, " ")
+      : normalizeMaterialName(item.name),
     unit: item.unit,
     quantity_ordered: item.quantity_ordered,
     unit_cost: item.unit_cost,
@@ -30,6 +35,9 @@ export async function addMaterialsBulk(
     length_ft: null,
     notes: "Added from calculator",
     category: "materials" as const,
+    material_type_id: item.material_type_id ?? null,
+    brand_name: item.brand_name ?? null,
+    color_name: item.color_name ?? null,
   }));
 
   const { error } = await supabase.from("materials").insert(rows);
