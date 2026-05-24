@@ -96,6 +96,46 @@ export interface Material {
   receipt_id: string | null;
   normalized_name?: string | null;
   material_category?: string | null;
+  material_type_id?: string | null;
+  brand_name?: string | null;
+  color_name?: string | null;
+  spec_text?: string | null;
+  created_at: string;
+}
+
+export interface MaterialType {
+  id: string;
+  name: string;
+  category: string;
+  has_brand: boolean;
+  has_color: boolean;
+  has_spec: boolean;
+  unit: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface MaterialBrand {
+  id: string;
+  material_type_id: string;
+  brand_name: string;
+  is_verified: boolean;
+  added_by_user_id: string | null;
+  region: string | null;
+  vote_count: number;
+  created_at: string;
+}
+
+export interface MaterialColor {
+  id: string;
+  material_brand_id: string | null;
+  material_type_id: string;
+  color_name: string;
+  color_hex: string | null;
+  sku: string | null;
+  avg_price_per_unit: number | null;
+  is_verified: boolean;
+  added_by_user_id: string | null;
   created_at: string;
 }
 

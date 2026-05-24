@@ -77,6 +77,21 @@ export function normalizeMaterialName(raw: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+// Structured normalized name — deterministic key for brand+color combos.
+// Used when a material has material_type_id set; bypasses fuzzy matching entirely.
+export function buildStructuredNormalizedName(
+  typeName: string,
+  brandName: string | null | undefined,
+  colorName: string | null | undefined,
+  specText?: string | null,
+): string {
+  const parts = [typeName.toLowerCase().trim()];
+  if (brandName) parts.push(brandName.toLowerCase().trim());
+  if (colorName) parts.push(colorName.toLowerCase().trim());
+  if (specText) parts.push(specText.toLowerCase().trim());
+  return parts.join(" ");
+}
+
 // Returns the id of the best-matching candidate at or above `threshold`, or null.
 export function fuzzyFindMatch(
   normalizedQuery: string,

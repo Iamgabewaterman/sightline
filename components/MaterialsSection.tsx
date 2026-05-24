@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { addMaterial, updateMaterial, deleteMaterial, getMaterialSuggestions, MaterialSuggestion } from "@/app/actions/materials";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { addMaterial, updateMaterial, deleteMaterial } from "@/app/actions/materials";
 import { dismissPriceFlag, getPriceFlagsForJob } from "@/app/actions/price-flags";
 import { similarity } from "@/lib/fuzzy-match";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
@@ -10,144 +10,7 @@ import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
 import JobImportModal from "@/components/JobImportModal";
 import DispositionSheet from "@/components/DispositionSheet";
-
-// ─── Material type definitions ─────────────────────────────────────────────────
-
-interface MaterialTypeConfig {
-  label: string;
-  defaultUnit: string;
-  unitOptions: string[];
-  showLength: boolean;
-  showSheetSize: boolean;
-  showDiameter: boolean;
-  placeholder: string;
-}
-
-const MATERIAL_TYPES: Record<string, MaterialTypeConfig> = {
-  lumber:     { label: "Lumber & Framing",     defaultUnit: "pcs",     unitOptions: ["pcs","BF","LF","each"],                     showLength: true,  showSheetSize: false, showDiameter: false, placeholder: "e.g. 2x4, 2x6, LVL Beam, 4x4 Post, Treated 2x6" },
-  sheet:      { label: "Sheet Goods",           defaultUnit: "sheets",  unitOptions: ["sheets","each"],                            showLength: false, showSheetSize: true,  showDiameter: false, placeholder: 'e.g. Plywood 3/4", OSB 7/16", Drywall 1/2", Cement Board' },
-  roofing:    { label: "Roofing",               defaultUnit: "squares", unitOptions: ["squares","bundles","rolls","sheets","each"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Architectural Shingles, Felt, Ridge Cap, Flashing" },
-  concrete:   { label: "Concrete & Masonry",   defaultUnit: "bags",    unitOptions: ["bags","yards","cubic yards","each","pcs"],   showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Concrete Mix 80lb, Rebar #4, Wire Mesh, CMU Block" },
-  plumbing:   { label: "Plumbing & Piping",    defaultUnit: "ft",      unitOptions: ["ft","LF","each"],                           showLength: true,  showSheetSize: false, showDiameter: true,  placeholder: 'e.g. PVC 4", Copper 3/4", PEX 1/2", Fittings, Valves' },
-  electrical: { label: "Electrical & Conduit", defaultUnit: "ft",      unitOptions: ["ft","rolls","each","box"],                  showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Romex 12/2, EMT Conduit, Breakers, Outlets, Switches" },
-  hardware:   { label: "Hardware & Fasteners", defaultUnit: "box",     unitOptions: ["box","lb","each","pcs","pack"],             showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Framing Nails, Deck Screws, Joist Hangers, Hurricane Ties" },
-  insulation: { label: "Insulation",            defaultUnit: "rolls",   unitOptions: ["rolls","bags","batts","sqft","each"],       showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. R-13 Batt, R-19 Batt, Rigid Foam, Spray Foam, House Wrap" },
-  finishing:  { label: "Finishing",             defaultUnit: "each",    unitOptions: ["each","gallons","sheets","rolls","sqft","lf"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Paint, Primer, Caulk, Trim, Molding, Flooring, Tile, Grout" },
-  barn:       { label: "Agricultural & Barn",  defaultUnit: "pcs",     unitOptions: ["pcs","sheets","panels","ft","rolls","each"], showLength: false, showSheetSize: false, showDiameter: false, placeholder: "e.g. Cattle Panels, T-Posts, Field Fence, Tin Roofing, Gate Hardware" },
-  other:      { label: "Other",                 defaultUnit: "",        unitOptions: [],                                           showLength: false, showSheetSize: false, showDiameter: false, placeholder: "Material name" },
-};
-
-const SHEET_SIZES = ["4x8", "4x10", "4x12", "5x10", "5x12", "4x9"];
-
-// Per-category autocomplete fallbacks
-const CATEGORY_FALLBACKS: Record<string, string[]> = {
-  lumber: [
-    "2x4","2x6","2x8","2x10","2x12","1x4","1x6","1x8",
-    "4x4 Post","6x6 Post","8x8 Post",
-    "Treated 2x4","Treated 2x6","Treated 2x8","Treated 4x4","Treated 6x6",
-    "LVL Beam","Microlam Beam","Glulam Beam","I-Joist","Ridge Board",
-    "Top Plate","Bottom Plate","Jack Stud","King Stud","Cripple Stud",
-    "Header Board","Blocking","Ledger Board","Rim Joist",
-    "Pole Barn Post","Post & Beam 6x6","Post & Beam 8x8",
-  ],
-  sheet: [
-    'Plywood 1/2"','Plywood 3/4"','Plywood 5/8"','Plywood 1/4"',
-    'OSB 7/16"','OSB 3/4"','OSB 1/2"',
-    'Drywall 1/2"','Drywall 5/8"','Drywall 1/4"',
-    'Cement Board 1/2"','Cement Board 1/4"','Hardie Board',
-    "Sheet Metal 26 Gauge","Sheet Metal 29 Gauge",
-    "Corrugated Metal Panel","Corrugated Polycarbonate Panel",
-    "Tin Roofing Panel","Metal Siding Panel",
-    'Advantech Subfloor 3/4"','T&G Plywood 3/4"',
-  ],
-  roofing: [
-    "Architectural Shingles","3-Tab Shingles","Metal Roofing Panel","Steel Roofing Panel",
-    "Ice & Water Shield","Roofing Felt 15lb","Roofing Felt 30lb","Synthetic Underlayment",
-    "Ridge Cap Shingles","Ridge Cap Metal","Drip Edge","Drip Edge Aluminum",
-    "Step Flashing","Valley Flashing","Pipe Boot Flashing","Skylight Flashing",
-    "Ridge Vent","Soffit Vent",'Gutter 5"','Gutter 6"',"Downspout",
-    "Roofing Nails","Starter Strip","Roofing Staples",
-  ],
-  concrete: [
-    "Concrete Mix 80lb","Concrete Mix 60lb","Quikrete 80lb","Fast-Setting Concrete 50lb",
-    "Rebar #3","Rebar #4","Rebar #5","Rebar #6",
-    "Wire Mesh 6x6","Fiber Mesh","Expansion Joint",
-    'CMU Block 8"','CMU Block 6"','CMU Block 4"',"Brick","Pavers 12x12","Pavers 16x16",
-    "Mortar Mix","Type S Mortar","Type N Mortar","Sanded Grout","Unsanded Grout",
-    "Gravel Bag","Pea Gravel","Crushed Stone","Sand Bag","Mason Sand",
-    "Post Setting Mix","Anchor Bolt","J-Bolt","Concrete Sealer",
-  ],
-  plumbing: [
-    'PVC Pipe 4"','PVC Pipe 3"','PVC Pipe 2"','PVC Pipe 1.5"','PVC Pipe 1"',
-    'ABS Pipe 4"','ABS Pipe 3"','ABS Pipe 2"',
-    'Copper Pipe 3/4"','Copper Pipe 1/2"','Copper Pipe 1"',
-    'PEX Tubing 3/4"','PEX Tubing 1/2"','PEX Tubing 1"',
-    "PVC Coupling","PVC Elbow 90","PVC Elbow 45","PVC Tee","PVC Wye",
-    'Ball Valve 3/4"','Ball Valve 1/2"',"Gate Valve","Check Valve",
-    "P-Trap","S-Trap","Floor Drain","Cleanout Plug","Water Heater",
-    "Angle Stop","Wax Ring","Fill Valve","Flush Valve","Drain Pipe","Sewer Pipe",
-    "Flex Connector","Compression Fitting",
-  ],
-  electrical: [
-    "Romex 14/2","Romex 12/2","Romex 10/2","Romex 10/3","Romex 6/3","Romex 8/3",
-    "THHN Wire 12ga","THHN Wire 10ga","THHN Wire 8ga","THHN Wire 6ga",
-    'EMT Conduit 1/2"','EMT Conduit 3/4"','EMT Conduit 1"',
-    'PVC Conduit 1/2"','PVC Conduit 3/4"','PVC Conduit 1"',
-    "15A Breaker","20A Breaker","30A Breaker","50A Breaker","100A Main Breaker","GFCI Breaker",
-    "GFCI Outlet","Standard Outlet","AFCI Outlet",
-    "Single Pole Switch","3-Way Switch","Dimmer Switch",
-    "Junction Box","Outlet Box","Panel","Subpanel",
-    "Wire Nuts","Electrical Tape","Cable Clamp","Conduit Strap",
-  ],
-  hardware: [
-    "Framing Nails 16d","Framing Nails 8d","Framing Nails 10d",
-    'Deck Screws 3"','Deck Screws 2.5"','Deck Screws 1.5"',
-    'Drywall Screws 1-5/8"','Drywall Screws 3"',
-    'Lag Screw 1/2x3"','Lag Screw 1/2x6"','Lag Bolt 5/16"',
-    'Carriage Bolt 1/2x6"','Carriage Bolt 3/8x4"',
-    'Structural Screw 3"','Structural Screw 5"','GRK Screw 3"',
-    "Joist Hanger","Double Joist Hanger","Post Base","Post Cap",
-    "Hurricane Tie","Rafter Tie","Twist Strap","Ridge Strap",
-    "Wedge Anchor","Concrete Anchor","Toggle Bolt",
-    "Corner Bracket","Angle Iron","Mending Plate","T-Plate",
-    'Pocket Screw 1.5"','Pocket Screw 2.5"',
-  ],
-  insulation: [
-    "R-13 Batt Insulation","R-19 Batt Insulation","R-21 Batt Insulation",
-    "R-30 Batt Insulation","R-38 Batt Insulation",
-    "R-13 Kraft Faced","R-19 Kraft Faced","R-21 Kraft Faced",
-    'Rigid Foam 1"','Rigid Foam 2"','Rigid Foam 1.5"',
-    "Spray Foam Can","Spray Foam 2-Part Kit","Open Cell Spray Foam","Closed Cell Spray Foam",
-    "House Wrap","Tyvek House Wrap","Vapor Barrier 6mil","Vapor Barrier 10mil",
-    "Foil Faced Foam","Mineral Wool Batt R-15","Blown-In Insulation",
-  ],
-  finishing: [
-    "Paint Interior","Paint Exterior","Paint Ceiling",
-    "Primer Drywall","Primer All-Purpose",
-    "Caulk Paintable","Caulk Silicone","Construction Adhesive","Liquid Nails",
-    "Joint Compound","Lightweight Joint Compound","Drywall Tape","Corner Bead Metal",
-    "Baseboard Trim","Door Casing","Window Casing","Crown Molding","Chair Rail",
-    "Hardwood Flooring","LVP Flooring","Laminate Flooring",
-    "Tile 12x12","Tile 18x18","Tile 24x24",
-    "Sanded Grout","Unsanded Grout","Thinset Mortar","Tile Spacers",
-    "Painter's Tape","Drop Cloth","Sandpaper 120","Sandpaper 80","Roller Cover",
-  ],
-  barn: [
-    "Cattle Panel 16ft","Cattle Panel 8ft","Hog Panel","Horse Panel","Goat Panel",
-    "T-Post 6ft","T-Post 7ft","T-Post 8ft",
-    'Field Fence 48"','Field Fence 32"','Woven Wire 4ft','Woven Wire 5ft',
-    "Barbed Wire 4pt","Barbed Wire 2pt","Electric Fence Wire",
-    "Gate Hardware","Gate Hinge","Gate Latch","H-Brace Assembly","Corner Post Brace",
-    "Tin Roofing Panel","Corrugated Metal Panel","Metal Siding Panel","Ridge Cap Metal",
-    "Barn Door Hardware","Barn Door Track","Sliding Door Roller","Barn Door Handle",
-    "Pole Barn Purlin 2x4","Pole Barn Purlin 2x6","Pole Barn Girt","Treated Post 6x6",
-    "Tin Roofing Screw","Metal Roofing Screw","Pole Barn Nail",
-  ],
-  other: [],
-};
-
-// Global fallback used when category is "other" or no category fallback matches
-const GLOBAL_FALLBACK: string[] = Object.values(CATEGORY_FALLBACKS).flat();
+import StructuredMaterialForm, { StructuredMaterialData } from "@/components/StructuredMaterialForm";
 
 // ─── Grouping helpers ─────────────────────────────────────────────────────────
 
@@ -260,97 +123,6 @@ function CostPerLFChip({ qtyOrdered, unitCost, lengthFt }: {
         <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total LF</p>
         <p className="text-white font-semibold">{totalLF % 1 === 0 ? totalLF : totalLF.toFixed(1)} LF</p>
       </div>
-    </div>
-  );
-}
-
-// ─── NameAutocomplete ─────────────────────────────────────────────────────────
-
-function NameAutocomplete({
-  value, onChange, onSelect, suggestions, suggestionsLoaded, onLoadSuggestions, placeholder, categoryFallback,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSelect: (s: MaterialSuggestion) => void;
-  suggestions: MaterialSuggestion[];
-  suggestionsLoaded: boolean;
-  onLoadSuggestions: () => void;
-  placeholder: string;
-  categoryFallback?: string[];
-}) {
-  const [open, setOpen] = useState(false);
-
-  const matches = useMemo(() => {
-    const q = value.trim().toLowerCase();
-    if (q.length < 2) return [];
-
-    const loaded = suggestions.filter((s) => s.name.toLowerCase().includes(q));
-    const loadedNames = new Set(loaded.map((s) => s.name.toLowerCase()));
-
-    const fallbackList = categoryFallback && categoryFallback.length > 0 ? categoryFallback : GLOBAL_FALLBACK;
-    const globalMatches: MaterialSuggestion[] = fallbackList
-      .filter((n) => n.toLowerCase().includes(q) && !loadedNames.has(n.toLowerCase()))
-      .slice(0, 5)
-      .map((n) => ({ name: n, unit: "", unit_cost: null, source: "global" as const }));
-
-    return [...loaded, ...globalMatches].slice(0, 10);
-  }, [value, suggestions, categoryFallback]);
-
-  function handleFocus() {
-    setOpen(true);
-    if (!suggestionsLoaded) onLoadSuggestions();
-  }
-
-  function handleBlur() {
-    setTimeout(() => setOpen(false), 150);
-  }
-
-  const showDropdown = open && matches.length > 0;
-
-  return (
-    <div className="relative">
-      <input
-        name="name" type="text" required autoComplete="off"
-        value={value} onChange={(e) => onChange(e.target.value)}
-        onFocus={handleFocus} onBlur={handleBlur}
-        placeholder={placeholder}
-        className="w-full bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500"
-      />
-      {showDropdown && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden z-40 shadow-xl max-h-64 overflow-y-auto">
-          {(() => {
-            let lastSource = "";
-            return matches.map((s) => {
-              const showLabel = s.source !== lastSource;
-              lastSource = s.source;
-              const sourceLabel = s.source === "history" ? "Your history" : s.source === "regional" ? "Area pricing" : "Common materials";
-              return (
-                <div key={s.name}>
-                  {showLabel && (
-                    <p className="text-gray-600 text-[10px] px-4 pt-2 pb-1 uppercase tracking-wider border-t border-[#2a2a2a] first:border-t-0">{sourceLabel}</p>
-                  )}
-                  <button
-                    type="button"
-                    onMouseDown={() => { onSelect(s); setOpen(false); }}
-                    className="w-full text-left px-4 py-3 active:bg-[#242424] transition-colors flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {s.source === "history" && <span className="text-orange-500 text-xs shrink-0">★</span>}
-                      <span className="text-white text-sm truncate">{s.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {s.unit && <span className="text-gray-500 text-xs">{s.unit}</span>}
-                      {s.unit_cost != null && (
-                        <span className="text-orange-400 text-xs font-semibold">${s.unit_cost.toFixed(2)}</span>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      )}
     </div>
   );
 }
@@ -772,14 +544,11 @@ export default function MaterialsSection({
     setActualMaterialCost(cost);
   }, [materials, setActualMaterialCost]);
 
-  const [showForm,      setShowForm]      = useState(false);
-  const [showShopping,  setShowShopping]  = useState(false);
-  const [showImport,    setShowImport]    = useState(false);
-  const [saving,        setSaving]        = useState(false);
-  const [formError,     setFormError]     = useState("");
-  const [receiptWarning, setReceiptWarning] = useState<string | null>(null);
-  const bypassReceiptCheckRef = useRef<boolean>(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [showForm,     setShowForm]     = useState(false);
+  const [showShopping, setShowShopping] = useState(false);
+  const [showImport,   setShowImport]   = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [formError,    setFormError]    = useState("");
 
   // Open form when triggered from quick-add bar
   useEffect(() => {
@@ -788,93 +557,43 @@ export default function MaterialsSection({
     setShowForm(true);
   }, [openMaterialForm, setOpenMaterialForm]);
 
-  // ── Suggestions (rich objects with name + unit + unit_cost) ──────────────
-  const [suggestions,       setSuggestions]       = useState<MaterialSuggestion[]>([]);
-  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
+  // Kept for duplicate detection (receipt-linked materials check)
+  const [receiptWarning, setReceiptWarning] = useState<string | null>(null);
+  const bypassReceiptCheckRef = useRef<boolean>(false);
+  const pendingDataRef = useRef<FormData | null>(null);
 
-  const loadSuggestions = useCallback(async () => {
-    if (suggestionsLoaded) return;
-    const data = await getMaterialSuggestions();
-    setSuggestions(data);
-    setSuggestionsLoaded(true);
-  }, [suggestionsLoaded]);
-
-  // ── Material type ─────────────────────────────────────────────────────────
-  const [materialTypeKey, setMaterialTypeKey] = useState("lumber");
-  const typeConfig = MATERIAL_TYPES[materialTypeKey];
-
-  // ── Add-form field state ──────────────────────────────────────────────────
-  const [nameVal,      setNameVal]      = useState("");
-  const [unitVal,      setUnitVal]      = useState(typeConfig.defaultUnit);
-  const [sheetSize,    setSheetSize]    = useState("4x8");
-  const [diameterVal,  setDiameterVal]  = useState("");
-  const [lengthPreset, setLengthPreset] = useState("");
-  const [customLength, setCustomLength] = useState("");
-  const [qtyOrdered,   setQtyOrdered]   = useState("");
-  const [unitCost,     setUnitCost]     = useState("");
-  const [notesVal,     setNotesVal]     = useState("");
-  const [addTrade,     setAddTrade]     = useState("");
-
-  // When material type changes, reset unit to type default
-  useEffect(() => {
-    const cfg = MATERIAL_TYPES[materialTypeKey];
-    setUnitVal(cfg.defaultUnit);
-    if (!cfg.showLength) { setLengthPreset(""); setCustomLength(""); }
-  }, [materialTypeKey]);
-
-  const effectiveLengthFt: number | null =
-    !typeConfig.showLength ? null
-    : lengthPreset === "" ? null
-    : lengthPreset === "custom" ? (parseFloat(customLength) || null)
-    : parseFloat(lengthPreset);
-
-  function resetForm() {
-    setNameVal(""); setUnitVal(MATERIAL_TYPES[materialTypeKey].defaultUnit);
-    setSheetSize("4x8"); setDiameterVal("");
-    setLengthPreset(""); setCustomLength("");
-    setQtyOrdered(""); setUnitCost(""); setNotesVal(""); setAddTrade("");
-    formRef.current?.reset();
-  }
-
-  // Build notes from extra fields (sheet size, diameter)
-  function buildNotes(): string {
-    const parts: string[] = [];
-    if (typeConfig.showSheetSize && sheetSize) parts.push(`Sheet: ${sheetSize}`);
-    if (typeConfig.showDiameter && diameterVal.trim()) parts.push(`Ø ${diameterVal.trim()}`);
-    if (notesVal.trim()) parts.push(notesVal.trim());
-    return parts.join(" · ");
-  }
-
-  async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleAdd(data: StructuredMaterialData) {
     setSaving(true); setFormError("");
 
-    const formData = new FormData(e.currentTarget);
-    formData.set("name", nameVal.trim());
-    formData.set("unit", unitVal || (formData.get("unit_free") as string) || "");
-    formData.set("material_category", typeConfig.label);
-    if (effectiveLengthFt !== null) formData.set("length_ft", effectiveLengthFt.toString());
-    if (addTrade) formData.set("trade", addTrade);
+    const fd = new FormData();
+    fd.set("name", data.name);
+    fd.set("unit", data.unit);
+    fd.set("quantity_ordered", data.quantityOrdered.toString());
+    if (data.unitCost !== null) fd.set("unit_cost", data.unitCost.toString());
+    if (data.notes)             fd.set("notes", data.notes);
+    if (data.trade)             fd.set("trade", data.trade);
+    if (data.materialTypeId)    fd.set("material_type_id", data.materialTypeId);
+    if (data.brandName)         fd.set("brand_name", data.brandName);
+    if (data.colorName)         fd.set("color_name", data.colorName);
+    if (data.specText)          fd.set("spec_text", data.specText);
+    if (data.materialCategory)  fd.set("material_category", data.materialCategory);
 
-    const combinedNotes = buildNotes();
-    if (combinedNotes) formData.set("notes", combinedNotes);
-
-    // Scenario 2: warn if a receipt-linked material already matches this name
+    // Warn if a receipt-linked material already matches this name
     if (!bypassReceiptCheckRef.current) {
       const receiptLinked = materials.filter((m) => m.receipt_id !== null);
-      const costVal = unitCost !== "" ? parseFloat(unitCost) : null;
       let warningMatch: string | null = null;
       for (const m of receiptLinked) {
-        const sim = similarity(nameVal.trim(), m.name);
+        const sim = similarity(data.name, m.name);
         if (sim < 0.8) continue;
-        if (costVal !== null && m.unit_cost !== null) {
-          const ratio = Math.min(costVal, m.unit_cost) / Math.max(costVal, m.unit_cost);
+        if (data.unitCost !== null && m.unit_cost !== null) {
+          const ratio = Math.min(data.unitCost, m.unit_cost) / Math.max(data.unitCost, m.unit_cost);
           if (ratio < 0.5) continue;
         }
         warningMatch = m.name;
         break;
       }
       if (warningMatch) {
+        pendingDataRef.current = fd;
         setReceiptWarning(warningMatch);
         setSaving(false);
         return;
@@ -883,7 +602,7 @@ export default function MaterialsSection({
     bypassReceiptCheckRef.current = false;
     setReceiptWarning(null);
 
-    const result = await addMaterial(jobId, formData);
+    const result = await addMaterial(jobId, fd);
 
     if (result.error) {
       setFormError(result.error);
@@ -898,7 +617,6 @@ export default function MaterialsSection({
       }
     }
 
-    // Confirm from DB
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
@@ -908,10 +626,6 @@ export default function MaterialsSection({
       if (!fetchErr && fresh) setMaterials(fresh as Material[]);
     } catch { /* keep optimistic */ }
 
-    // Refresh suggestions so newly-added name appears immediately on next open
-    setSuggestionsLoaded(false);
-
-    resetForm();
     setShowForm(false);
     setSaving(false);
   }
@@ -980,9 +694,6 @@ export default function MaterialsSection({
     } catch { /* keep optimistic */ }
   }
 
-  const inputClass = "bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base placeholder:text-gray-500 focus:outline-none focus:border-orange-500";
-  const typeKeys = Object.keys(MATERIAL_TYPES);
-
   return (
     <div className="mt-8">
       {/* Header */}
@@ -997,191 +708,71 @@ export default function MaterialsSection({
             className="text-gray-300 font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform">
             Import
           </button>
-          <button onClick={() => { setShowForm((s) => !s); if (!showForm) loadSuggestions(); }}
+          <button onClick={() => setShowForm((s) => !s)}
             className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl active:scale-95 transition-transform">
             {showForm ? "Cancel" : "+ Add"}
           </button>
         </div>
       </div>
 
-      {/* Add form */}
+      {/* ── Structured add form ── */}
       {showForm && (
-        <form ref={formRef} onSubmit={handleAdd}
-          className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 mb-4 flex flex-col gap-4">
-          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">New Material</p>
-
-          {/* Material type selector */}
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">Material Type</label>
-            <div className="flex flex-wrap gap-1.5">
-              {typeKeys.map((key) => (
-                <button key={key} type="button"
-                  onClick={() => setMaterialTypeKey(key)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors active:scale-95 ${
-                    materialTypeKey === key
-                      ? "bg-orange-500 text-white border-orange-500"
-                      : "bg-[#242424] text-gray-300 border-[#333333]"
-                  }`}>
-                  {MATERIAL_TYPES[key].label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Name with autocomplete */}
-          <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">Material Name *</label>
-            <NameAutocomplete
-              value={nameVal}
-              onChange={setNameVal}
-              onSelect={(s) => {
-                setNameVal(s.name);
-                if (s.unit) setUnitVal(s.unit);
-                if (s.unit_cost != null) setUnitCost(s.unit_cost.toString());
-              }}
-              suggestions={suggestions}
-              suggestionsLoaded={suggestionsLoaded}
-              onLoadSuggestions={loadSuggestions}
-              placeholder={typeConfig.placeholder}
-              categoryFallback={CATEGORY_FALLBACKS[materialTypeKey]}
-            />
-          </div>
-
-          {/* Sheet size picker (Sheet Goods only) */}
-          {typeConfig.showSheetSize && (
-            <div className="flex flex-col gap-2">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">Sheet Size</label>
-              <div className="flex gap-2 flex-wrap">
-                {SHEET_SIZES.map((sz) => (
-                  <button key={sz} type="button" onClick={() => setSheetSize(sz)}
-                    className={`px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors active:scale-95 ${
-                      sheetSize === sz ? "bg-orange-500 text-white border-orange-500" : "bg-[#242424] text-white border-[#333333]"
-                    }`}>{sz}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Diameter (Piping only) */}
-          {typeConfig.showDiameter && (
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">Diameter / Size</label>
-              <input type="text" value={diameterVal} onChange={(e) => setDiameterVal(e.target.value)}
-                placeholder={'e.g. 4", 3/4", 1/2"'}
-                className={inputClass} />
-            </div>
-          )}
-
-          {/* Length selector (Lumber, Piping, Barn) */}
-          {typeConfig.showLength && (
-            <LengthSelector presetKey={lengthPreset} customVal={customLength}
-              onPresetChange={setLengthPreset} onCustomChange={setCustomLength} />
-          )}
-
-          {/* Qty + Unit row */}
-          <div className="flex gap-3">
-            <div className="flex-1 flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Ordered *</label>
-              <input name="quantity_ordered" type="number" min="0" step="any" required
-                value={qtyOrdered} onChange={(e) => setQtyOrdered(e.target.value)}
-                placeholder="0" className={inputClass} />
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">Unit</label>
-              {typeConfig.unitOptions.length > 0 ? (
-                <select value={unitVal} onChange={(e) => setUnitVal(e.target.value)}
-                  className={inputClass}>
-                  {typeConfig.unitOptions.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              ) : (
-                <input name="unit_free" type="text" required
-                  value={unitVal} onChange={(e) => setUnitVal(e.target.value)}
-                  placeholder="pcs, bags, rolls…" className={inputClass} />
-              )}
-            </div>
-          </div>
-
-          {/* Unit cost */}
-          <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">Unit Cost $</label>
-            <input name="unit_cost" type="number" min="0" step="any"
-              value={unitCost} onChange={(e) => setUnitCost(e.target.value)}
-              placeholder="0.00 — fill from receipt later" className={inputClass} />
-          </div>
-
-          {/* Qty used */}
-          <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">Qty Used <span className="text-gray-600 normal-case">(optional)</span></label>
-            <input name="quantity_used" type="number" min="0" step="any"
-              placeholder="Fill in after job" className={inputClass} />
-          </div>
-
-          {/* Notes */}
-          <div className="flex flex-col gap-1">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">
-              Notes <span className="text-gray-600 normal-case">(optional)</span>
-            </label>
-            <input name="notes_extra" type="text" value={notesVal}
-              onChange={(e) => setNotesVal(e.target.value)}
-              placeholder="pressure treated, primed, grade, brand…"
-              className={inputClass} />
-          </div>
-
-          {/* Trade tag */}
-          {jobTypes.length >= 2 && (
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs uppercase tracking-wider">
-                Trade <span className="text-gray-600 normal-case">(optional)</span>
-              </label>
-              <select value={addTrade} onChange={(e) => setAddTrade(e.target.value)}
-                className={inputClass}>
-                <option value="">— None —</option>
-                {jobTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* $/LF preview */}
-          {typeConfig.showLength && (
-            <CostPerLFChip qtyOrdered={qtyOrdered} unitCost={unitCost} lengthFt={effectiveLengthFt} />
-          )}
-
+        <>
+          <StructuredMaterialForm
+            jobTypes={jobTypes as string[]}
+            onSubmit={handleAdd}
+            onCancel={() => setShowForm(false)}
+            saving={saving}
+            error={formError}
+          />
+          {/* Receipt duplicate warning overlay */}
           {receiptWarning && (
-            <div className="bg-yellow-950/50 border border-yellow-700/40 rounded-xl px-4 py-3">
-              <p className="text-yellow-300 text-sm font-semibold mb-1">Receipt already logged</p>
-              <p className="text-yellow-200/70 text-xs mb-3">
-                &ldquo;{receiptWarning}&rdquo; is already documented by a receipt. Adding another entry may double-count this cost on the profitability bar.
-              </p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setReceiptWarning(null)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#242424] border border-[#333] text-gray-400 active:scale-95 transition-transform">
-                  Cancel
-                </button>
-                <button type="button"
-                  onClick={() => { bypassReceiptCheckRef.current = true; formRef.current?.requestSubmit(); }}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-yellow-600/20 border border-yellow-700/40 text-yellow-300 active:scale-95 transition-transform">
-                  Add anyway
-                </button>
+            <>
+              <div className="fixed inset-0 z-50 bg-black/70" onClick={() => setReceiptWarning(null)} />
+              <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-6 pb-10">
+                <p className="text-white font-bold text-lg mb-2">Receipt already logged</p>
+                <p className="text-gray-400 text-sm mb-5">
+                  &ldquo;{receiptWarning}&rdquo; is already documented by a receipt. Adding another entry may double-count this cost on the profitability bar.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setReceiptWarning(null)}
+                    className="flex-1 py-4 rounded-xl text-sm font-bold bg-[#1A1A1A] border border-[#2a2a2a] text-gray-400 active:scale-95 transition-transform">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!pendingDataRef.current) return;
+                      bypassReceiptCheckRef.current = true;
+                      setReceiptWarning(null);
+                      const fd = pendingDataRef.current;
+                      pendingDataRef.current = null;
+                      setSaving(true);
+                      const result = await addMaterial(jobId, fd);
+                      if (result.error) { setFormError(result.error); setSaving(false); return; }
+                      if (result.material) {
+                        setMaterials((prev) => [result.material as Material, ...prev]);
+                        if (result.priceFlag) {
+                          setPriceFlagsMap((prev) => new Map(prev).set((result.material as Material).id, result.priceFlag!));
+                        }
+                      }
+                      setShowForm(false);
+                      setSaving(false);
+                    }}
+                    className="flex-1 py-4 rounded-xl text-sm font-bold bg-yellow-600/20 border border-yellow-700/40 text-yellow-300 active:scale-95 transition-transform">
+                    Add anyway
+                  </button>
+                </div>
               </div>
-            </div>
+            </>
           )}
-
-          {formError && (
-            <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-xl px-4 py-3">{formError}</p>
-          )}
-
-          <button type="submit" disabled={saving}
-            className="bg-orange-500 text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50">
-            {saving ? "Adding..." : "Add Material"}
-          </button>
-        </form>
+        </>
       )}
 
       {/* Materials list */}
       {materials.length === 0 ? (
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-10 flex flex-col items-center gap-3">
           <p className="text-gray-500 text-sm">No materials logged yet</p>
-          <button onClick={() => { setShowForm(true); loadSuggestions(); }}
+          <button onClick={() => setShowForm(true)}
             className="bg-orange-500 text-white font-bold text-base px-6 py-3 rounded-xl active:scale-95 transition-transform">
             Add your first material
           </button>

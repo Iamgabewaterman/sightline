@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseAddress } from "@/lib/address-parser";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
-import { normalizeMaterialName, fuzzyFindMatch } from "@/lib/material-normalizer";
+import { normalizeMaterialName, fuzzyFindMatch, buildStructuredNormalizedName } from "@/lib/material-normalizer";
 import { computePriceFlag, savePriceFlag } from "@/lib/price-flag-utils";
 import { SupabaseClient } from "@supabase/supabase-js";
 
@@ -191,14 +191,22 @@ export async function addMaterial(jobId: string, formData: FormData) {
   const length_ft_raw     = formData.get("length_ft") as string;
   const notes_raw         = formData.get("notes") as string;
   const trade_raw         = formData.get("trade") as string;
-  const category_raw      = formData.get("material_category") as string;
+  const category_raw        = formData.get("material_category") as string;
+  const material_type_id_raw = formData.get("material_type_id") as string | null;
+  const brand_name_raw       = formData.get("brand_name") as string | null;
+  const color_name_raw       = formData.get("color_name") as string | null;
+  const spec_text_raw        = formData.get("spec_text") as string | null;
 
-  const quantity_used = quantity_used_raw ? parseFloat(quantity_used_raw) : null;
-  const unit_cost     = unit_cost_raw     ? parseFloat(unit_cost_raw)     : null;
-  const length_ft     = length_ft_raw     ? parseFloat(length_ft_raw)     : null;
-  const notes         = notes_raw?.trim() || null;
-  const trade         = trade_raw?.trim()  || null;
-  const category      = category_raw?.trim() || null;
+  const quantity_used    = quantity_used_raw ? parseFloat(quantity_used_raw) : null;
+  const unit_cost        = unit_cost_raw     ? parseFloat(unit_cost_raw)     : null;
+  const length_ft        = length_ft_raw     ? parseFloat(length_ft_raw)     : null;
+  const notes            = notes_raw?.trim() || null;
+  const trade            = trade_raw?.trim()  || null;
+  const category         = category_raw?.trim() || null;
+  const material_type_id = material_type_id_raw?.trim() || null;
+  const brand_name       = brand_name_raw?.trim() || null;
+  const color_name       = color_name_raw?.trim() || null;
+  const spec_text        = spec_text_raw?.trim() || null;
 
   if (!name || !unit || isNaN(quantity_ordered)) {
     return { error: "Name, unit, and quantity ordered are required." };
@@ -206,11 +214,22 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const normalized_name = normalizeMaterialName(name);
+  // Structured types: deterministic key = composed name lowercased (no fuzzy needed)
+  // Custom types: existing fuzzy normalization
+  const normalized_name = material_type_id
+    ? name.toLowerCase().trim().replace(/\s+/g, " ")
+    : normalizeMaterialName(name);
 
   const { data, error } = await supabase
     .from("materials")
-    .insert({ job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade, normalized_name, material_category: category })
+    .insert({
+      job_id: jobId, name, unit, quantity_ordered, quantity_used, unit_cost,
+      length_ft, notes, trade, normalized_name, material_category: category,
+      material_type_id: material_type_id || null,
+      brand_name: brand_name || null,
+      color_name: color_name || null,
+      spec_text: spec_text || null,
+    })
     .select()
     .single();
 
