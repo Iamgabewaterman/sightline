@@ -25,7 +25,8 @@ export default function MaterialsLibraryClient({
       ? materials.filter(
           (m) =>
             m.name.toLowerCase().includes(q) ||
-            m.alternate_names.some((a) => a.toLowerCase().includes(q))
+            m.alternate_names.some((a) => a.toLowerCase().includes(q)) ||
+            (m.category ?? "").toLowerCase().includes(q)
         )
       : materials;
 
@@ -40,6 +41,18 @@ export default function MaterialsLibraryClient({
     }
     return list;
   }, [materials, search, sort]);
+
+  const groupedByCategory = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, typeof filtered>();
+    for (const m of filtered) {
+      const cat = m.category ?? "Other";
+      const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+      if (!map.has(label)) { map.set(label, []); order.push(label); }
+      map.get(label)!.push(m);
+    }
+    return order.map((cat) => ({ cat, items: map.get(cat)! }));
+  }, [filtered]);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -222,81 +235,88 @@ export default function MaterialsLibraryClient({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {filtered.map((m) => {
-            const isSelected = selected.has(m.id);
-            return (
-              <div
-                key={m.id}
-                className={`bg-[#1A1A1A] border rounded-xl px-4 py-4 transition-colors ${
-                  isSelected ? "border-orange-500/60" : "border-[#2a2a2a]"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Select checkbox */}
-                  <button
-                    onClick={() => toggleSelect(m.id)}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center active:scale-95 transition-all ${
-                      isSelected
-                        ? "border-orange-500 bg-orange-500"
-                        : "border-[#333]"
-                    }`}
-                  >
-                    {isSelected && (
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                        <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </button>
+        <div className="flex flex-col gap-6">
+          {groupedByCategory.map(({ cat, items }) => (
+            <div key={cat}>
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2 px-1">{cat}</p>
+              <div className="flex flex-col gap-2">
+                {items.map((m) => {
+                  const isSelected = selected.has(m.id);
+                  return (
+                    <div
+                      key={m.id}
+                      className={`bg-[#1A1A1A] border rounded-xl px-4 py-4 transition-colors ${
+                        isSelected ? "border-orange-500/60" : "border-[#2a2a2a]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Select checkbox */}
+                        <button
+                          onClick={() => toggleSelect(m.id)}
+                          className={`mt-0.5 w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center active:scale-95 transition-all ${
+                            isSelected
+                              ? "border-orange-500 bg-orange-500"
+                              : "border-[#333]"
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                              <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-white font-semibold text-base leading-tight">{m.name}</p>
-                        {m.alternate_names.length > 0 && (
-                          <p className="text-gray-500 text-xs mt-0.5 truncate">
-                            Also: {m.alternate_names.slice(0, 3).join(", ")}
-                            {m.alternate_names.length > 3 && ` +${m.alternate_names.length - 3}`}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleDelete(m.id)}
-                        disabled={busy}
-                        className="text-gray-600 text-xs px-3 py-1.5 rounded-lg border border-[#2a2a2a] active:scale-95 shrink-0 disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold text-base leading-tight">{m.name}</p>
+                              {m.alternate_names.length > 0 && (
+                                <p className="text-gray-500 text-xs mt-0.5 truncate">
+                                  Also: {m.alternate_names.slice(0, 3).join(", ")}
+                                  {m.alternate_names.length > 3 && ` +${m.alternate_names.length - 3}`}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleDelete(m.id)}
+                              disabled={busy}
+                              className="text-gray-600 text-xs px-3 py-1.5 rounded-lg border border-[#2a2a2a] active:scale-95 shrink-0 disabled:opacity-40"
+                            >
+                              Remove
+                            </button>
+                          </div>
 
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="bg-[#242424] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
-                        <span className="text-gray-400 text-xs">Used</span>
-                        <span className="text-white font-bold text-sm">{m.use_count}×</span>
-                      </div>
-                      {m.unit_cost != null && (
-                        <div className="bg-[#242424] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
-                          <span className="text-orange-500 font-bold text-sm">
-                            ${m.unit_cost.toFixed(2)}
-                          </span>
-                          <span className="text-gray-500 text-xs">/{m.unit || "ea"}</span>
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className="bg-[#242424] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                              <span className="text-gray-400 text-xs">Used</span>
+                              <span className="text-white font-bold text-sm">{m.use_count}×</span>
+                            </div>
+                            {m.unit_cost != null && (
+                              <div className="bg-[#242424] rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                                <span className="text-orange-500 font-bold text-sm">
+                                  ${m.unit_cost.toFixed(2)}
+                                </span>
+                                <span className="text-gray-500 text-xs">/{m.unit || "ea"}</span>
+                              </div>
+                            )}
+                            {m.last_used_at && (
+                              <span className="text-gray-600 text-xs">
+                                {new Date(m.last_used_at).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      {m.last_used_at && (
-                        <span className="text-gray-600 text-xs">
-                          {new Date(m.last_used_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 

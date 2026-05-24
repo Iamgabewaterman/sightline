@@ -21,9 +21,11 @@ function fmtCost(n: number) {
 }
 
 interface ShoppingItem {
-  id: string;       // normalized key (for grouped items) or material id
-  name: string;     // display name (most common brand or single name)
-  brands: string[]; // all brand names when multiple are grouped
+  id: string;
+  name: string;
+  brands: string[];
+  brandName: string | null;
+  colorName: string | null;
   qtyNeeded: number;
   unit: string;
   unitCost: number | null;
@@ -59,10 +61,13 @@ function getShoppingItems(materials: Material[]): ShoppingItem[] {
     const costs = group.filter((n) => n.unitCost !== null).map((n) => n.unitCost as number);
     const avgCost = costs.length > 0 ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
     const names = Array.from(new Set(group.map((n) => n.name)));
+    const firstMat = materials.find((m) => m.id === group[0].matId);
     return {
       id: group.length === 1 ? group[0].matId : key,
       name: names[0],
       brands: names,
+      brandName: firstMat?.brand_name ?? null,
+      colorName: firstMat?.color_name ?? null,
       qtyNeeded: totalQty,
       unit: group[0].unit,
       unitCost: avgCost,
@@ -125,7 +130,8 @@ export default function ShoppingListModal({
           ? `× ${item.qtyNeeded % 1 === 0 ? item.qtyNeeded : item.qtyNeeded.toFixed(2)}`
           : "";
         const brandNote = item.brands.length > 1 ? ` (${item.brands.join(" / ")})` : "";
-        lines.push(`□ ${item.name}${brandNote} ${item.unit} ${qty}`.trim());
+        const colorNote = item.colorName ? ` · ${item.colorName}` : "";
+        lines.push(`□ ${item.name}${brandNote}${colorNote} ${item.unit} ${qty}`.trim());
       }
       lines.push("");
     });
@@ -250,7 +256,17 @@ export default function ShoppingListModal({
                         <p className={`font-semibold text-sm leading-snug ${isChecked ? "text-white" : "text-gray-500"}`}>
                           {item.name}
                         </p>
-                        {item.brands.length > 1 && (
+                        {(item.brandName || item.colorName) && (
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {item.brandName && (
+                              <span className="text-blue-300 text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">{item.brandName}</span>
+                            )}
+                            {item.colorName && (
+                              <span className="text-purple-300 text-xs bg-purple-500/10 px-1.5 py-0.5 rounded">{item.colorName}</span>
+                            )}
+                          </div>
+                        )}
+                        {!item.brandName && item.brands.length > 1 && (
                           <p className="text-gray-600 text-xs mt-0.5 truncate">
                             +{item.brands.slice(1).join(", ")}
                           </p>
