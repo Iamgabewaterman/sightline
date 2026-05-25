@@ -11,6 +11,7 @@ import { useJobCost } from "./JobCostContext";
 import { useRole } from "@/hooks/useRole";
 import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
 import { upsertLineItemLabels } from "@/app/actions/line-items";
+import { addChangeOrder, deleteChangeOrder } from "@/app/actions/change-orders";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export default function InvoiceSection({
   initialToken: string | null;
 }) {
   const { role, can_see_financials } = useRole();
-  const { changeOrders } = useJobCost();
+  const { changeOrders, setChangeOrders } = useJobCost();
 
   // Invoice state
   const [invoice, setInvoice] = useState<Invoice | null>(initialInvoice);
@@ -202,12 +203,22 @@ export default function InvoiceSection({
   const [portalCopied, setPortalCopied] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // Change order form state
+  const [coSheetOpen, setCoSheetOpen] = useState(false);
+  const [coDesc, setCoDesc] = useState("");
+  const [coAmount, setCoAmount] = useState("");
+  const [coRequiresApproval, setCoRequiresApproval] = useState(true);
+  const [coNotes, setCoNotes] = useState("");
+  const [coAdding, setCoAdding] = useState(false);
+
   if (role === "field_member" && !can_see_financials) return null;
 
   // Calculations
   const addons = estimate ? ((estimate.addons as QuoteAddon[]) ?? []) : [];
   const addonsTotal = addons.reduce((s, a) => s + Number(a.amount), 0);
-  const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
+  const changeOrdersTotal = changeOrders
+    .filter((o) => o.status === "approved")
+    .reduce((s, o) => s + Number(o.amount), 0);
   const grandTotal = estimate
     ? estimate.final_quote + addonsTotal + changeOrdersTotal
     : (invoice ? Number(invoice.total_amount) : parseFloat(manualTotal) || 0);
@@ -226,6 +237,28 @@ export default function InvoiceSection({
   const portalUrl = portalToken ? `${origin}/portal/${jobId}/${portalToken}` : null;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  async function handleAddChangeOrder() {
+    if (!coDesc.trim() || !coAmount.trim()) return;
+    setCoAdding(true);
+    const amount = parseFloat(coAmount.replace(/[^0-9.-]/g, ""));
+    if (isNaN(amount)) { setCoAdding(false); return; }
+    const res = await addChangeOrder(jobId, coDesc.trim(), amount, coRequiresApproval, coNotes.trim() || undefined);
+    if (res.order) {
+      setChangeOrders([res.order, ...changeOrders]);
+      setCoSheetOpen(false);
+      setCoDesc("");
+      setCoAmount("");
+      setCoNotes("");
+      setCoRequiresApproval(true);
+    }
+    setCoAdding(false);
+  }
+
+  async function handleDeleteChangeOrder(id: string) {
+    setChangeOrders(changeOrders.filter((o) => o.id !== id));
+    await deleteChangeOrder(id);
+  }
 
   function applySplitMode(mode: SplitMode) {
     setSplitMode(mode);
@@ -629,6 +662,74 @@ export default function InvoiceSection({
     </button>
   ) : null;
 
+  // Change orders section — rendered above portal in both create and exists views
+  const changeOrdersSection = (
+    <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Change Orders</span>
+          {changeOrders.length > 0 && (
+            <span className="bg-[#2a2a2a] text-gray-400 text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {changeOrders.length}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setCoSheetOpen(true)}
+          className="text-orange-400 text-xs font-semibold active:opacity-70"
+        >
+          + Add
+        </button>
+      </div>
+
+      {changeOrders.length === 0 ? (
+        <p className="text-gray-600 text-xs mb-1">No change orders — add one if scope changes.</p>
+      ) : (
+        <div className="flex flex-col mb-1">
+          {changeOrders.map((co) => (
+            <div key={co.id} className="flex items-start gap-3 py-2 border-b border-[#242424] last:border-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold leading-snug">{co.description}</p>
+                {co.notes && <p className="text-gray-500 text-xs mt-0.5 truncate">{co.notes}</p>}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-sm font-bold font-mono ${Number(co.amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {Number(co.amount) >= 0 ? "+" : ""}{fmtNum(Number(co.amount))}
+                </span>
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full border ${
+                  co.status === "approved"
+                    ? "bg-green-500/20 border-green-500/40 text-green-400"
+                    : co.status === "declined"
+                    ? "bg-red-500/20 border-red-500/40 text-red-400"
+                    : "bg-yellow-500/20 border-yellow-500/40 text-yellow-400"
+                }`}>
+                  {co.status === "approved" ? "Approved" : co.status === "declined" ? "Declined" : "Pending"}
+                </span>
+                <button
+                  onClick={() => handleDeleteChangeOrder(co.id)}
+                  className="text-gray-600 active:text-red-400 p-1"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {changeOrders.some((co) => co.status === "approved" && Number(co.amount) !== 0) && (
+        <p className="text-gray-500 text-xs mt-1">
+          Approved total:{" "}
+          <span className={`font-semibold ${changeOrdersTotal >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {changeOrdersTotal >= 0 ? "+" : ""}{fmtNum(changeOrdersTotal)}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+
   // Portal section — rendered at the bottom of the card in both create and exists views
   const portalSection = (
     <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
@@ -706,12 +807,103 @@ export default function InvoiceSection({
     </div>
   );
 
+  // ── Change Order Bottom Sheet (shared by both views) ─────────────────────
+
+  const coSheet = coSheetOpen ? (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setCoSheetOpen(false)} />
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+      >
+        <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mt-3 mb-5" />
+        <p className="text-white font-bold text-lg px-5 mb-4">Add Change Order</p>
+        <div className="px-5 flex flex-col gap-3 overflow-y-auto max-h-[70vh] pb-2">
+          <div>
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Description</p>
+            <input
+              value={coDesc}
+              onChange={(e) => setCoDesc(e.target.value)}
+              placeholder="Describe the scope change"
+              className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500"
+            />
+          </div>
+          <div>
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Amount</p>
+            <p className="text-gray-600 text-xs mb-1.5">Positive for additions, negative for reductions</p>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold pointer-events-none">$</span>
+              <input
+                value={coAmount}
+                onChange={(e) => setCoAmount(e.target.value)}
+                placeholder="0.00"
+                inputMode="decimal"
+                className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-orange-500"
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Notes (optional)</p>
+            <textarea
+              value={coNotes}
+              onChange={(e) => setCoNotes(e.target.value)}
+              placeholder="Any additional details…"
+              rows={2}
+              className="w-full bg-[#242424] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <p className="text-white text-sm font-semibold">Requires client approval</p>
+              <p className="text-gray-500 text-xs mt-0.5">Show in portal for client to approve or decline</p>
+            </div>
+            <button
+              onClick={() => setCoRequiresApproval((v) => !v)}
+              aria-label="Toggle client approval"
+              style={{
+                position: "relative",
+                width: 44,
+                height: 24,
+                borderRadius: 12,
+                flexShrink: 0,
+                transition: "background-color 0.2s",
+                backgroundColor: coRequiresApproval ? "#F97316" : "#333",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  backgroundColor: "white",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                  transition: "transform 0.2s",
+                  transform: coRequiresApproval ? "translateX(20px)" : "translateX(0)",
+                }}
+              />
+            </button>
+          </div>
+          <button
+            onClick={handleAddChangeOrder}
+            disabled={coAdding || !coDesc.trim() || !coAmount.trim()}
+            className="w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {coAdding ? "Adding…" : "Add Change Order"}
+          </button>
+        </div>
+      </div>
+    </>
+  ) : null;
+
   // ── No invoice yet (create mode) ──────────────────────────────────────────
 
   if (!invoice) {
     const previewDue = calcDueDate(terms);
     const canGenerate = estimate ? grandTotal > 0 : parseFloat(manualTotal) > 0;
-    return (
+    return (<>
       <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Invoice & Payments</p>
 
@@ -787,9 +979,11 @@ export default function InvoiceSection({
           {creating ? "Creating…" : "Generate Invoice"}
         </button>
 
+        {changeOrdersSection}
         {portalSection}
       </div>
-    );
+      {coSheet}
+    </>);
   }
 
   // ── Invoice exists ────────────────────────────────────────────────────────
@@ -800,7 +994,7 @@ export default function InvoiceSection({
     ? new Date(invoice.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : null;
 
-  return (
+  return (<>
     <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -1061,7 +1255,9 @@ export default function InvoiceSection({
         </div>
       )}
 
+      {changeOrdersSection}
       {portalSection}
     </div>
-  );
+    {coSheet}
+  </>);
 }

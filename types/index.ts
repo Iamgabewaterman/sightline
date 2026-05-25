@@ -361,6 +361,9 @@ export interface ChangeOrder {
   description: string;
   amount: number;
   category: ExpenseCategory;
+  status: "pending_approval" | "approved" | "declined";
+  requires_approval: boolean;
+  notes: string | null;
   created_at: string;
 }
 

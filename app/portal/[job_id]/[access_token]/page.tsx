@@ -6,6 +6,7 @@ import Link from "next/link";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSendWithTTL } from "@/lib/notif-dedup";
 import PortalPhotoGallery from "@/components/PortalPhotoGallery";
+import { approveChangeOrderPortal, declineChangeOrderPortal } from "@/app/actions/change-orders";
 
 function adminClient() {
   return createClient(
@@ -79,6 +80,7 @@ export default async function PortalPage({
     { data: client },
     { data: estimate },
     { data: documents },
+    { data: pendingChangeOrders },
   ] = await Promise.all([
     supabase.from("business_profiles").select("*").eq("user_id", job.user_id).maybeSingle(),
     supabase
@@ -107,6 +109,12 @@ export default async function PortalPage({
       .from("documents")
       .select("id, name, category, storage_path, created_at")
       .eq("job_id", job.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("change_orders")
+      .select("id, description, amount, notes")
+      .eq("job_id", job.id)
+      .eq("status", "pending_approval")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -398,6 +406,43 @@ export default async function PortalPage({
             </div>
           </div>
         )}
+
+        {/* Pending change orders */}
+        {(pendingChangeOrders ?? []).map((co) => {
+          const amt = Number(co.amount);
+          const sign = amt >= 0 ? "+" : "";
+          const approveAction = approveChangeOrderPortal.bind(null, co.id, params.job_id, params.access_token);
+          const declineAction = declineChangeOrderPortal.bind(null, co.id, params.job_id, params.access_token);
+          return (
+            <div key={co.id} className="bg-[#1A1A1A] border border-orange-500/30 rounded-2xl overflow-hidden mb-5">
+              <div className="px-5 py-4 border-b border-[#2a2a2a]">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                  Scope Change Proposed
+                </span>
+                <p className="text-gray-400 text-xs mt-2">Your contractor has proposed a change to the project scope.</p>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-white font-semibold text-base mb-1">{co.description}</p>
+                {co.notes && <p className="text-gray-400 text-sm mb-3">{co.notes}</p>}
+                <p className={`font-black text-2xl mb-4 ${amt >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {sign}${Math.abs(amt).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </p>
+                <div className="flex gap-3">
+                  <form action={approveAction} className="flex-1">
+                    <button type="submit" className="w-full bg-green-600 text-white font-bold text-base py-3.5 rounded-xl active:scale-95 transition-transform">
+                      Approve
+                    </button>
+                  </form>
+                  <form action={declineAction} className="flex-1">
+                    <button type="submit" className="w-full bg-[#242424] border border-[#2a2a2a] text-gray-300 font-bold text-base py-3.5 rounded-xl active:scale-95 transition-transform">
+                      Decline
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
         {/* Photo gallery */}
         <PortalPhotoGallery

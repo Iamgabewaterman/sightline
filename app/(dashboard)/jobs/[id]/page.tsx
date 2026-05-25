@@ -20,9 +20,6 @@ const DocumentsSection = dynamic(() => import("@/components/DocumentsSection"), 
 const DailyLogsSection = dynamic(() => import("@/components/DailyLogsSection"), {
   loading: () => <div className="skeleton h-14 w-full mt-3" />,
 });
-const ChangeOrdersSection = dynamic(() => import("@/components/ChangeOrdersSection"), {
-  loading: () => <div className="skeleton h-14 w-full mt-3" />,
-});
 import { getPriceFlagsForJob } from "@/app/actions/price-flags";
 import PerfMark from "@/components/PerfMark";
 import CollapsibleSection from "@/components/CollapsibleSection";
@@ -400,14 +397,6 @@ export default async function JobDetailPage({
               jobId={job.id}
               initialLogs={dailyLogs ?? []}
             />
-          </CollapsibleSection>
-
-          {/* 13 — Change Orders */}
-          <CollapsibleSection
-            title="Change Orders"
-            count={(changeOrders ?? []).length}
-          >
-            <ChangeOrdersSection jobId={job.id} />
           </CollapsibleSection>
 
           {/* Footer */}
