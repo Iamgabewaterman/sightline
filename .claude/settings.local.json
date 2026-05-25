@@ -60,7 +60,11 @@
       "PowerShell(npm run *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\" -Recurse -Filter \"*.ts\" -Filter \"*.tsx\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -First 50)",
-      "Bash(findstr anthropic *)"
+      "Bash(findstr anthropic *)",
+      "Bash(git -C C:/Users/gabew/sightline log --oneline -10)",
+      "Bash(git -C C:/Users/gabew/sightline show --stat HEAD)",
+      "Bash(git -C C:/Users/gabew/sightline show --stat HEAD~1)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel"
     ]
   }
 }

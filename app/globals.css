@@ -66,6 +66,36 @@ button, a, input, textarea, select {
   }
 }
 
+/* ── View Transitions API — native-feeling page changes ──────────────── */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: vt-fade-out 0.15s ease-out both;
+}
+::view-transition-new(root) {
+  animation: vt-fade-in 0.15s ease-out both;
+}
+
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Button press animation — every tap produces instant physical feedback ── */
+/* Applied via Tailwind active:scale-[0.96] active:brightness-90 on buttons */
+/* Global fallback for buttons without explicit classes */
+button:not([disabled]):active,
+a:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease-out;
+}
+
 /* ── Micro-interaction animations ──────────────────────────────────────── */
 
 /* Shimmer skeleton — use class="skeleton" + explicit h/w */

@@ -48,6 +48,8 @@ export default function ReceiptsSection({
 }) {
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const [uploading, setUploading] = useState(false);
+  const [scanStep, setScanStep] = useState<string | null>(null);
+  const [scanPct, setScanPct] = useState(0);
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -96,11 +98,20 @@ export default function ReceiptsSection({
     }
   }
 
+  const SCAN_STEPS: Record<string, number> = {
+    received: 20,
+    extracting: 45,
+    organizing: 70,
+    checking: 88,
+  };
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
+    setScanStep("Preparing image...");
+    setScanPct(5);
     setError("");
 
     let fileToUpload: Blob = file;
@@ -114,18 +125,59 @@ export default function ReceiptsSection({
     fd.append("receipt", fileToUpload, "receipt.jpg");
     fd.append("jobId", jobId);
 
-    let result: { result?: import("@/types").ReceiptExtractionResult; error?: string };
+    let result: { result?: import("@/types").ReceiptExtractionResult; error?: string } | null = null;
+
     try {
       const resp = await fetch("/api/receipts-vision", { method: "POST", body: fd });
-      result = await resp.json();
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          const lines = part.split("\n");
+          let eventType = "message";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataStr = line.slice(6).trim();
+          }
+          if (!dataStr) continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventType === "progress") {
+              setScanStep(data.message);
+              setScanPct(SCAN_STEPS[data.step] ?? scanPct);
+            } else if (eventType === "complete") {
+              result = data;
+              setScanPct(100);
+            } else if (eventType === "error") {
+              result = { error: data.error };
+            }
+          } catch { /* ignore */ }
+        }
+      }
     } catch {
       result = { error: "Network error — please try again." };
     }
 
     setUploading(false);
+    setScanStep(null);
+    setScanPct(0);
     if (cameraRef.current) cameraRef.current.value = "";
     if (libraryRef.current) libraryRef.current.value = "";
 
+    if (!result) return;
     if (result.error) {
       setError(result.error);
       return;
@@ -253,7 +305,18 @@ export default function ReceiptsSection({
       <input ref={libraryRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
 
       {uploading && (
-        <p className="text-gray-400 text-sm mb-4 animate-pulse">Scanning receipt with AI...</p>
+        <div className="mb-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-white text-sm font-semibold">{scanStep ?? "Scanning..."}</p>
+            <span className="text-orange-500 text-xs font-bold">{scanPct}%</span>
+          </div>
+          <div className="h-1.5 bg-[#242424] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-orange-500 rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${scanPct}%` }}
+            />
+          </div>
+        </div>
       )}
 
       {error && (
