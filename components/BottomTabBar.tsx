@@ -56,15 +56,13 @@ function PersonIcon({ active }: { active: boolean }) {
 }
 
 const MORE_ITEMS = [
-  { label: "Calculator",         href: "/calculator" },
-  { label: "Reports",            href: "/reports" },
-  { label: "Mileage Tracker",    href: "/mileage" },
-  { label: "Shop Inventory",     href: "/inventory" },
-  { label: "People and Crews",   href: "/people" },
-  { label: "Calendar",           href: "/calendar" },
-  { label: "Clients",            href: "/clients" },
-  { label: "Portfolio",          href: "/portfolio" },
-  { label: "Tax Report",         href: "/tax" },
+  { label: "Calculator",       href: "/calculator" },
+  { label: "Shop Inventory",   href: "/inventory" },
+  { label: "Mileage Tracker",  href: "/mileage" },
+  { label: "People and Crews", href: "/people" },
+  { label: "Clients",          href: "/clients" },
+  { label: "Calendar",         href: "/calendar" },
+  { label: "Reports",          href: "/reports-hub" },
 ];
 
 export default function BottomTabBar() {
@@ -102,8 +100,9 @@ export default function BottomTabBar() {
 
   const isHome    = pathname === "/jobs" || (pathname.startsWith("/jobs") && !pathname.startsWith("/jobs/all") && !pathname.startsWith("/jobs/new"));
   const isJobs    = pathname.startsWith("/jobs/all");
-  const isAccount = pathname.startsWith("/account");
-  const isMore    = MORE_ITEMS.some((i) => pathname.startsWith(i.href));
+  const isAccount = pathname.startsWith("/account") || pathname.startsWith("/portfolio");
+  const isMore    = MORE_ITEMS.some((i) => pathname.startsWith(i.href))
+    || ["/reports", "/tax", "/profit"].some((p) => pathname.startsWith(p));
 
   const tabClass = "flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] active:opacity-70 transition-opacity";
   const labelClass = (active: boolean) =>

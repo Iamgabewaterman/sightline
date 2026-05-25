@@ -67,6 +67,10 @@ export default async function AccountPage({
             <span className="text-white font-semibold text-base">Business Profile</span>
             {chevron}
           </Link>
+          <Link href="/portfolio" className={rowClass}>
+            <span className="text-white font-semibold text-base">Portfolio</span>
+            {chevron}
+          </Link>
         </div>
 
         {/* Sign Out */}
