@@ -59,7 +59,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    console.error("[receipts-vision] ANTHROPIC_API_KEY is not configured");
+    return NextResponse.json({ error: "API key not configured" }, { status: 500 });
   }
 
   const supabase = createClient();
@@ -85,20 +86,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "jobId is required" }, { status: 400 });
   }
   if (!file || file.size === 0) {
-    return NextResponse.json({ error: "No file selected" }, { status: 400 });
+    console.error("[receipts-vision] No file received. formData keys:", Array.from(formData.keys()));
+    return NextResponse.json({ error: "No image received" }, { status: 400 });
   }
-
-  // Read buffer BEFORE uploading — guaranteed to be the actual image bytes
-  const fileBuffer = await file.arrayBuffer();
-  const base64 = Buffer.from(fileBuffer).toString("base64");
-
-  // Upload to storage and run OCR in parallel
-  const ext = file.name.split(".").pop() || "jpg";
-  const storagePath = `${jobId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
   const mimeType = (
     file.type && file.type.startsWith("image/") ? file.type : "image/jpeg"
   ) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+  // Read buffer BEFORE uploading — guaranteed to be the actual image bytes
+  const fileBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(fileBuffer).toString("base64");
+  console.error("[receipts-vision] base64 length:", base64.length, "| mimeType:", mimeType, "| fileSize:", file.size, "| fileName:", file.name);
+  if (base64.length < 1000) {
+    console.error("[receipts-vision] WARNING: base64 is suspiciously short — image may not have been read correctly");
+  }
+
+  // Upload to storage and run OCR in parallel
+  const ext = file.name.split(".").pop() || "jpg";
+  const storagePath = `${jobId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
   const uploadPromise = supabase.storage
     .from("job-photos")
@@ -134,6 +140,8 @@ export async function POST(request: Request) {
 
   let rawResponseText = "";
 
+  console.error("[receipts-vision] sending to Anthropic — model: claude-sonnet-4-6, max_tokens: 4096, image mediaType:", mimeType, "base64Chars:", base64.length);
+
   try {
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -154,6 +162,7 @@ export async function POST(request: Request) {
     });
 
     rawResponseText = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
+    console.error("[receipts-vision] Anthropic responded, rawText length:", rawResponseText.length, "| first 200 chars:", rawResponseText.slice(0, 200));
 
     const cleaned = rawResponseText
       .replace(/^```json\s*/i, "")
@@ -162,15 +171,20 @@ export async function POST(request: Request) {
       .trim();
 
     const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) {
+    if (!match) {
+      console.error("[receipts-vision] No JSON object found in Anthropic response. Full response:", rawResponseText.slice(0, 500));
+    } else {
       try {
         parsed = JSON.parse(match[0]);
-      } catch {
-        // malformed JSON — proceed with empty parsed, receipt still saved
+        console.error("[receipts-vision] Parsed OK — line_items count:", parsed.line_items?.length ?? 0, "vendor:", parsed.vendor, "total:", parsed.total);
+      } catch (parseErr) {
+        console.error("[receipts-vision] JSON.parse failed:", parseErr, "| matched text:", match[0].slice(0, 200));
       }
     }
-  } catch {
-    // Anthropic API error — proceed with empty parsed, receipt still saved
+  } catch (err: unknown) {
+    const e = err as { message?: string; status?: number; error?: unknown };
+    console.error("[receipts-vision] Anthropic API error:", { message: e?.message, status: e?.status, error: e?.error, raw: String(err) });
+    return NextResponse.json({ error: `Anthropic API error: ${e?.message ?? String(err)}` }, { status: 500 });
   }
 
   // Wait for upload
