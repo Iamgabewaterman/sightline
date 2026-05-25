@@ -4,6 +4,7 @@
   "short_name": "Sightline",
   "description": "Every job. One view.",
   "start_url": "/jobs",
+  "offline_start_url": "/jobs",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

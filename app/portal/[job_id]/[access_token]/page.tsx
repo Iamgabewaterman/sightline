@@ -180,10 +180,14 @@ export default async function PortalPage({
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt="" className="h-16 w-auto object-contain mb-3" />
-          ) : (
+          ) : bp?.business_name ? (
             <div className="flex items-center gap-2 mb-3">
               <div className="w-3 h-3 rounded-full bg-orange-500" />
-              <span className="text-white font-bold text-xl">{bp?.business_name ?? "Sightline"}</span>
+              <span className="text-white font-bold text-xl">{bp.business_name}</span>
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mb-3">
+              <div className="w-3 h-3 rounded-full bg-orange-500" />
             </div>
           )}
           {bp?.business_name && logoUrl && (

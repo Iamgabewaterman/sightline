@@ -443,7 +443,7 @@ export default function QuoteProfitSection({
               {isSigned ? (
                 <button
                   disabled
-                  className="text-gray-600 text-xs font-semibold border border-[#2a2a2a] px-3 py-1.5 rounded-lg min-h-[36px] flex items-center gap-1.5 opacity-50 cursor-not-allowed"
+                  className="text-gray-600 text-xs font-semibold border border-[#2a2a2a] px-3 py-2.5 rounded-lg min-h-[48px] flex items-center gap-1.5 opacity-50 cursor-not-allowed"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
                   Locked
@@ -451,7 +451,7 @@ export default function QuoteProfitSection({
               ) : (
                 <button
                   onClick={handleOpen}
-                  className="text-gray-500 text-xs font-semibold border border-[#333] px-3 py-1.5 rounded-lg active:scale-95 transition-transform min-h-[36px]"
+                  className="text-gray-500 text-xs font-semibold border border-[#333] px-3 py-2.5 rounded-lg active:scale-95 transition-transform min-h-[48px]"
                 >
                   Edit Quote
                 </button>
@@ -630,7 +630,7 @@ export default function QuoteProfitSection({
               <button
                 onClick={handleDuplicate}
                 disabled={duplicating}
-                className="text-gray-500 text-xs font-semibold border border-[#2a2a2a] px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[36px] disabled:opacity-50"
+                className="text-gray-500 text-xs font-semibold border border-[#2a2a2a] px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[48px] disabled:opacity-50"
               >
                 {duplicating ? "…" : "Duplicate Quote"}
               </button>

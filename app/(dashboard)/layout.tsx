@@ -5,7 +5,7 @@ import ClockWidget from "@/components/ClockWidget";
 import { DriveProvider } from "@/components/DriveContext";
 import DriveWidget from "@/components/DriveWidget";
 import { RoleProvider, RoleData } from "@/components/RoleContext";
-import OfflineIndicator from "@/components/OfflineIndicator";
+import OfflineBanner from "@/components/OfflineBanner";
 import { createClient } from "@/lib/supabase/server";
 
 async function fetchRoleData(userId: string): Promise<RoleData> {
@@ -51,7 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <RoleProvider value={roleData}>
       <ClockProvider>
         <DriveProvider>
-          <OfflineIndicator />
+          <OfflineBanner />
           <Nav />
           <div className="pb-[calc(56px+env(safe-area-inset-bottom))]">
             {children}

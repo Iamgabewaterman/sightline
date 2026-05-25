@@ -179,14 +179,14 @@ export default function COISection({ contactId, initialCOI, onUpdated }: Props) 
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={openEdit}
-                  className="text-orange-400 text-xs font-semibold bg-orange-500/10 border border-orange-500/20 px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[36px]"
+                  className="text-orange-400 text-xs font-semibold bg-orange-500/10 border border-orange-500/20 px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[48px]"
                 >
                   {coi ? "Edit" : "+ Add COI"}
                 </button>
                 {coi?.document_path && (
                   <button
                     onClick={viewDocument}
-                    className="text-blue-400 text-xs font-semibold bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[36px]"
+                    className="text-blue-400 text-xs font-semibold bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[48px]"
                   >
                     View Document
                   </button>
@@ -194,7 +194,7 @@ export default function COISection({ contactId, initialCOI, onUpdated }: Props) 
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="text-gray-300 text-xs font-semibold bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[36px] disabled:opacity-50"
+                  className="text-gray-300 text-xs font-semibold bg-[#1A1A1A] border border-[#2a2a2a] px-3 py-2 rounded-lg active:scale-95 transition-transform min-h-[48px] disabled:opacity-50"
                 >
                   {uploading ? "Uploading..." : "Upload COI"}
                 </button>
@@ -208,7 +208,7 @@ export default function COISection({ contactId, initialCOI, onUpdated }: Props) 
                 {coi && (
                   <button
                     onClick={handleDelete}
-                    className="text-red-400 text-xs font-semibold px-3 py-2 rounded-lg border border-[#2a2a2a] active:scale-95 transition-transform min-h-[36px]"
+                    className="text-red-400 text-xs font-semibold px-3 py-2 rounded-lg border border-[#2a2a2a] active:scale-95 transition-transform min-h-[48px]"
                   >
                     Remove
                   </button>
