@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 export interface InsightBreakdownRow {
@@ -71,7 +72,7 @@ function avg(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-export async function computeInsights(userId: string): Promise<{
+export const computeInsights = cache(async function computeInsightsImpl(userId: string): Promise<{
   cards: InsightCard[];
   completedJobCount: number;
 }> {
@@ -432,7 +433,7 @@ export async function computeInsights(userId: string): Promise<{
   }
 
   return { cards, completedJobCount };
-}
+});
 
 // ── Historical cost range for quote builder ───────────────────────────────
 

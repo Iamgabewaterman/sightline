@@ -1,4 +1,5 @@
 {
+  "regions": ["iad1", "pdx1"],
   "crons": [
     {
       "path": "/api/cron/invoice-overdue",
@@ -32,5 +33,19 @@
       "path": "/api/cron/coi-expiration",
       "schedule": "0 9 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/receipts-vision/route.ts": { "maxDuration": 60 },
+    "app/api/cron/invoice-overdue/route.ts": { "maxDuration": 10 },
+    "app/api/cron/no-activity/route.ts":     { "maxDuration": 10 },
+    "app/api/cron/falling-behind/route.ts":  { "maxDuration": 10 },
+    "app/api/cron/no-crew-today/route.ts":   { "maxDuration": 10 },
+    "app/api/cron/assignment-reminder/route.ts": { "maxDuration": 10 },
+    "app/api/cron/not-clocked-in/route.ts":  { "maxDuration": 10 },
+    "app/api/cron/weather-alert/route.ts":   { "maxDuration": 10 },
+    "app/api/cron/coi-expiration/route.ts":  { "maxDuration": 10 },
+    "app/api/stripe/webhook/route.ts":       { "maxDuration": 30 },
+    "app/api/push/subscribe/route.ts":       { "maxDuration": 30 },
+    "app/api/search/route.ts":               { "maxDuration": 30 }
+  }
 }

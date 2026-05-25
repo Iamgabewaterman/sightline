@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,23 +32,22 @@ export async function GET(request: NextRequest) {
 
   if (!assignments?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
-  for (const a of assignments) {
-    const job = a.jobs as unknown as { name: string; address: string; lockbox_code: string | null } | null;
-    if (!job) continue;
-
-    const dedupKey = `assignment_reminder:${a.id}`;
-    const ok = await shouldSend(dedupKey);
-    if (!ok) continue;
-
-    const lockboxPart = job.lockbox_code ? ` Lockbox: ${job.lockbox_code}` : "";
-    await sendPushToUser(a.user_id, {
-      title: "Assignment Tomorrow",
-      body: `Tomorrow: ${job.name} at ${job.address}.${lockboxPart}`,
-      url: "/calendar",
-    }, "assignment_reminder");
-    sent++;
-  }
+  const results = await Promise.allSettled(
+    assignments.map(async (a) => {
+      const job = a.jobs as unknown as { name: string; address: string; lockbox_code: string | null } | null;
+      if (!job) return false;
+      const dedupKey = `assignment_reminder:${a.id}`;
+      if (!(await shouldSend(dedupKey))) return false;
+      const lockboxPart = job.lockbox_code ? ` Lockbox: ${job.lockbox_code}` : "";
+      await sendPushToUser(a.user_id, {
+        title: "Assignment Tomorrow",
+        body: `Tomorrow: ${job.name} at ${job.address}.${lockboxPart}`,
+        url: "/calendar",
+      }, "assignment_reminder");
+      return true;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

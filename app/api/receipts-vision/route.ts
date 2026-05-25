@@ -9,6 +9,8 @@ import { similarity } from "@/lib/fuzzy-match";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+export const maxDuration = 60;
+
 const SYSTEM_PROMPT = `You are a receipt OCR specialist. Extract every line item from this receipt photo. Return only JSON, no other text.`;
 
 const USER_PROMPT = `This is a receipt photo from a hardware store. Extract ALL line items visible. For each item extract the description, quantity, unit price, and total price. Also extract the store name, date, grand total, store location, and any job name or PO number shown (look for PRO XTRA JOB NAME field on Home Depot receipts).

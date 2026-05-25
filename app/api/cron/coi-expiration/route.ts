@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,43 +32,44 @@ export async function GET(request: NextRequest) {
 
   if (!cois?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
   const todayStr = today.toISOString().slice(0, 10);
-
-  for (const coi of cois) {
-    const expDate = new Date(coi.expiration_date + "T00:00:00");
-    const daysUntil = Math.floor((expDate.getTime() - today.getTime()) / 86400000);
-    const contactName = (coi.contacts as unknown as { name: string } | null)?.name ?? "A subcontractor";
-
-    if (daysUntil === 30) {
-      const key = `coi_30day:${coi.contact_id}:${todayStr}`;
-      if (!(await shouldSend(key))) continue;
-      await sendPushToUser(coi.user_id, {
-        title: "COI Expiring in 30 Days",
-        body: `${contactName} certificate of insurance expires in 30 days — upload a new COI in People.`,
-        url: "/people",
-      }, "coi_expiration");
-      sent++;
-    } else if (daysUntil === 7) {
-      const key = `coi_7day:${coi.contact_id}:${todayStr}`;
-      if (!(await shouldSend(key))) continue;
-      await sendPushToUser(coi.user_id, {
-        title: "COI Expiring in 7 Days",
-        body: `${contactName} certificate of insurance expires in 7 days — upload a new COI in People.`,
-        url: "/people",
-      }, "coi_expiration");
-      sent++;
-    } else if (daysUntil === 0) {
-      const key = `coi_expired:${coi.contact_id}:${todayStr}`;
-      if (!(await shouldSend(key))) continue;
-      await sendPushToUser(coi.user_id, {
-        title: "COI Expired",
-        body: `${contactName} COI has expired — do not assign to jobs until renewed.`,
-        url: "/people",
-      }, "coi_expiration");
-      sent++;
-    }
-  }
+  const results = await Promise.allSettled(
+    cois.map(async (coi) => {
+      const expDate = new Date(coi.expiration_date + "T00:00:00");
+      const daysUntil = Math.floor((expDate.getTime() - today.getTime()) / 86400000);
+      const contactName = (coi.contacts as unknown as { name: string } | null)?.name ?? "A subcontractor";
+      if (daysUntil === 30) {
+        const key = `coi_30day:${coi.contact_id}:${todayStr}`;
+        if (!(await shouldSend(key))) return false;
+        await sendPushToUser(coi.user_id, {
+          title: "COI Expiring in 30 Days",
+          body: `${contactName} certificate of insurance expires in 30 days — upload a new COI in People.`,
+          url: "/people",
+        }, "coi_expiration");
+        return true;
+      } else if (daysUntil === 7) {
+        const key = `coi_7day:${coi.contact_id}:${todayStr}`;
+        if (!(await shouldSend(key))) return false;
+        await sendPushToUser(coi.user_id, {
+          title: "COI Expiring in 7 Days",
+          body: `${contactName} certificate of insurance expires in 7 days — upload a new COI in People.`,
+          url: "/people",
+        }, "coi_expiration");
+        return true;
+      } else if (daysUntil === 0) {
+        const key = `coi_expired:${coi.contact_id}:${todayStr}`;
+        if (!(await shouldSend(key))) return false;
+        await sendPushToUser(coi.user_id, {
+          title: "COI Expired",
+          body: `${contactName} COI has expired — do not assign to jobs until renewed.`,
+          url: "/people",
+        }, "coi_expiration");
+        return true;
+      }
+      return false;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

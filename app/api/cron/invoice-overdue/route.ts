@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,24 +29,23 @@ export async function GET(request: NextRequest) {
 
   if (!invoices?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
-  for (const inv of invoices) {
-    const job = inv.jobs as unknown as { name: string } | null;
-    const dueDate = new Date(inv.due_date + "T00:00:00");
-    const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / 86400000);
-    const invNum = `INV-${inv.job_id.slice(0, 8).toUpperCase()}`;
-
-    const dedupKey = `invoice_overdue:${inv.id}:${today}`;
-    const ok = await shouldSend(dedupKey);
-    if (!ok) continue;
-
-    await sendPushToUser(inv.user_id, {
-      title: "Invoice Overdue",
-      body: `${invNum} for ${job?.name ?? "a job"} is overdue — ${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} past due`,
-      url: `/jobs`,
-    }, "invoice_overdue");
-    sent++;
-  }
+  const results = await Promise.allSettled(
+    invoices.map(async (inv) => {
+      const job = inv.jobs as unknown as { name: string } | null;
+      const dueDate = new Date(inv.due_date + "T00:00:00");
+      const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / 86400000);
+      const invNum = `INV-${inv.job_id.slice(0, 8).toUpperCase()}`;
+      const dedupKey = `invoice_overdue:${inv.id}:${today}`;
+      if (!(await shouldSend(dedupKey))) return false;
+      await sendPushToUser(inv.user_id, {
+        title: "Invoice Overdue",
+        body: `${invNum} for ${job?.name ?? "a job"} is overdue — ${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} past due`,
+        url: `/jobs`,
+      }, "invoice_overdue");
+      return true;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

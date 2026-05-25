@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,28 +29,25 @@ export async function GET(request: NextRequest) {
 
   if (!jobs?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
-  for (const job of jobs) {
-    // Check if any job_assignments exist for today
-    const { count } = await supabase
-      .from("job_assignments")
-      .select("id", { count: "exact", head: true })
-      .eq("job_id", job.id)
-      .eq("assigned_date", today);
-
-    if ((count ?? 0) > 0) continue;
-
-    const dedupKey = `no_crew_today:${job.id}:${today}`;
-    const ok = await shouldSend(dedupKey);
-    if (!ok) continue;
-
-    await sendPushToUser(job.user_id, {
-      title: "No Crew Assigned",
-      body: `${job.name} starts today and has no crew assigned`,
-      url: `/jobs/${job.id}`,
-    }, "no_crew_assigned");
-    sent++;
-  }
+  const results = await Promise.allSettled(
+    jobs.map(async (job) => {
+      const { count } = await supabase
+        .from("job_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", job.id)
+        .eq("assigned_date", today);
+      if ((count ?? 0) > 0) return false;
+      const dedupKey = `no_crew_today:${job.id}:${today}`;
+      if (!(await shouldSend(dedupKey))) return false;
+      await sendPushToUser(job.user_id, {
+        title: "No Crew Assigned",
+        body: `${job.name} starts today and has no crew assigned`,
+        url: `/jobs/${job.id}`,
+      }, "no_crew_assigned");
+      return true;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

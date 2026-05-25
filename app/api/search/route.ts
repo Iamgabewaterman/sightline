@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+export const maxDuration = 30;
+
 const MAX = 10;
 
 function serverSupabase() {
@@ -172,5 +174,7 @@ export async function GET(req: NextRequest) {
     clientName: inv.clientId ? (clientNameById[inv.clientId] ?? null) : null,
   }));
 
-  return NextResponse.json({ jobs: jobResults, clients: clientResults.data ?? [], receipts, materials, invoices });
+  return NextResponse.json({ jobs: jobResults, clients: clientResults.data ?? [], receipts, materials, invoices }, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }

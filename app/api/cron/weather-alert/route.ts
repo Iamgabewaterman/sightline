@@ -4,6 +4,8 @@ import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 import { getWeather } from "@/lib/weather";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,23 +31,22 @@ export async function GET(request: NextRequest) {
 
   if (!jobs?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
-  for (const job of jobs) {
-    const weather = await getWeather(job.job_lat, job.job_lng);
-    if (!weather) continue;
-    if (weather.precipNextDay < 60) continue;
-
-    const dedupKey = `weather_alert:${job.id}:${today}`;
-    const ok = await shouldSend(dedupKey);
-    if (!ok) continue;
-
-    await sendPushToUser(job.user_id, {
-      title: `Rain forecast at ${job.name}`,
-      body: `${weather.precipNextDay}% chance of precipitation tomorrow — plan accordingly.`,
-      url: `/jobs/${job.id}`,
-    });
-    sent++;
-  }
+  const results = await Promise.allSettled(
+    jobs.map(async (job) => {
+      const weather = await getWeather(job.job_lat, job.job_lng);
+      if (!weather) return false;
+      if (weather.precipNextDay < 60) return false;
+      const dedupKey = `weather_alert:${job.id}:${today}`;
+      if (!(await shouldSend(dedupKey))) return false;
+      await sendPushToUser(job.user_id, {
+        title: `Rain forecast at ${job.name}`,
+        body: `${weather.precipNextDay}% chance of precipitation tomorrow — plan accordingly.`,
+        url: `/jobs/${job.id}`,
+      });
+      return true;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

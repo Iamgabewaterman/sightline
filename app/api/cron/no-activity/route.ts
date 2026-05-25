@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSend } from "@/lib/notif-dedup";
 
+export const maxDuration = 10;
+
 function adminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,32 +29,29 @@ export async function GET(request: NextRequest) {
 
   if (!jobs?.length) return NextResponse.json({ sent: 0 });
 
-  let sent = 0;
-  for (const job of jobs) {
-    // Check for any activity in the last 3 days
-    const [{ count: laborCount }, { count: photoCount }, { count: logCount }] = await Promise.all([
-      supabase.from("labor_logs").select("id", { count: "exact", head: true })
-        .eq("job_id", job.id).gte("created_at", cutoff),
-      supabase.from("photos").select("id", { count: "exact", head: true })
-        .eq("job_id", job.id).gte("created_at", cutoff),
-      supabase.from("daily_logs").select("id", { count: "exact", head: true })
-        .eq("job_id", job.id).gte("created_at", cutoff),
-    ]);
-
-    const hasActivity = (laborCount ?? 0) + (photoCount ?? 0) + (logCount ?? 0) > 0;
-    if (hasActivity) continue;
-
-    const dedupKey = `no_activity:${job.id}:${today}`;
-    const ok = await shouldSend(dedupKey);
-    if (!ok) continue;
-
-    await sendPushToUser(job.user_id, {
-      title: "No Activity",
-      body: `No activity logged on ${job.name} in 3 days — is everything on track?`,
-      url: `/jobs/${job.id}`,
-    }, "no_activity_3_days");
-    sent++;
-  }
+  const results = await Promise.allSettled(
+    jobs.map(async (job) => {
+      const [{ count: laborCount }, { count: photoCount }, { count: logCount }] = await Promise.all([
+        supabase.from("labor_logs").select("id", { count: "exact", head: true })
+          .eq("job_id", job.id).gte("created_at", cutoff),
+        supabase.from("photos").select("id", { count: "exact", head: true })
+          .eq("job_id", job.id).gte("created_at", cutoff),
+        supabase.from("daily_logs").select("id", { count: "exact", head: true })
+          .eq("job_id", job.id).gte("created_at", cutoff),
+      ]);
+      const hasActivity = (laborCount ?? 0) + (photoCount ?? 0) + (logCount ?? 0) > 0;
+      if (hasActivity) return false;
+      const dedupKey = `no_activity:${job.id}:${today}`;
+      if (!(await shouldSend(dedupKey))) return false;
+      await sendPushToUser(job.user_id, {
+        title: "No Activity",
+        body: `No activity logged on ${job.name} in 3 days — is everything on track?`,
+        url: `/jobs/${job.id}`,
+      }, "no_activity_3_days");
+      return true;
+    })
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
 
   return NextResponse.json({ sent });
 }

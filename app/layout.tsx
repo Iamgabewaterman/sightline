@@ -56,6 +56,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+        <link rel="preconnect" href="https://js.stripe.com" />
+        <link rel="dns-prefetch" href="https://api.stripe.com" />
         {/* Apply saved theme before first paint — prevents flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
