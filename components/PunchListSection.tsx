@@ -43,6 +43,7 @@ export default function PunchListSection({
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -104,11 +105,18 @@ export default function PunchListSection({
   }
 
   async function handleToggle(item: PunchListItem) {
+    const newCompleted = !item.completed;
     setTogglingId(item.id);
     setItems((prev) => prev.map((i) =>
-      i.id === item.id ? { ...i, completed: !i.completed, completed_at: !i.completed ? new Date().toISOString() : null } : i
+      i.id === item.id ? { ...i, completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null } : i
     ));
-    const res = await togglePunchListItem(item.id, !item.completed);
+    if (newCompleted) {
+      setJustCompleted((prev) => new Set(Array.from(prev).concat(item.id)));
+      setTimeout(() => setJustCompleted((prev) => {
+        const next = new Set(prev); next.delete(item.id); return next;
+      }), 350);
+    }
+    const res = await togglePunchListItem(item.id, newCompleted);
     setTogglingId(null);
     if (res.item) {
       setItems((prev) => prev.map((i) => i.id === res.item!.id ? res.item! : i));
@@ -273,7 +281,7 @@ export default function PunchListSection({
                   item.completed
                     ? "bg-green-500 border-green-500"
                     : "bg-transparent border-[#444] active:border-orange-500"
-                }`}
+                } ${justCompleted.has(item.id) ? "check-pop" : ""}`}
                 aria-label={item.completed ? "Mark incomplete" : "Mark complete"}
               >
                 {item.completed && (

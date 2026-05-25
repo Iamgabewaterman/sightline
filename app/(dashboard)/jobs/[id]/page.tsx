@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
+import dynamic from "next/dynamic";
 import PhotoSection from "@/components/PhotoSection";
 import QuoteProfitSection from "@/components/QuoteProfitSection";
 import ReceiptsSection from "@/components/ReceiptsSection";
@@ -10,10 +11,18 @@ import { JobCostProvider } from "@/components/JobCostContext";
 import InvoiceSection from "@/components/InvoiceSection";
 import PunchListSection from "@/components/PunchListSection";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
-import DocumentsSection from "@/components/DocumentsSection";
 import LaborSubsSection from "@/components/LaborSubsSection";
-import DailyLogsSection from "@/components/DailyLogsSection";
-import ChangeOrdersSection from "@/components/ChangeOrdersSection";
+
+// Below-fold sections — code-split so they don't inflate the initial JS bundle
+const DocumentsSection = dynamic(() => import("@/components/DocumentsSection"), {
+  loading: () => <div className="skeleton h-14 w-full mt-3" />,
+});
+const DailyLogsSection = dynamic(() => import("@/components/DailyLogsSection"), {
+  loading: () => <div className="skeleton h-14 w-full mt-3" />,
+});
+const ChangeOrdersSection = dynamic(() => import("@/components/ChangeOrdersSection"), {
+  loading: () => <div className="skeleton h-14 w-full mt-3" />,
+});
 import { getPriceFlagsForJob } from "@/app/actions/price-flags";
 import PerfMark from "@/components/PerfMark";
 import CollapsibleSection from "@/components/CollapsibleSection";

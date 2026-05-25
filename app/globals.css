@@ -66,6 +66,70 @@ button, a, input, textarea, select {
   }
 }
 
+/* ── Micro-interaction animations ──────────────────────────────────────── */
+
+/* Shimmer skeleton — use class="skeleton" + explicit h/w */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1A1A1A 25%, #2a2a2a 50%, #1A1A1A 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 10px;
+}
+html.light .skeleton {
+  background: linear-gradient(90deg, #F0F0F0 25%, #E5E5E5 50%, #F0F0F0 75%);
+  background-size: 200% 100%;
+}
+
+/* Satisfying checkmark pop when a punch list item completes */
+@keyframes check-pop {
+  0%   { transform: scale(0.7); }
+  55%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.check-pop {
+  animation: check-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* New row slide-in — apply to newly added list items */
+@keyframes row-appear {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.row-appear {
+  animation: row-appear 0.18s ease-out both;
+}
+
+/* Subtle orange pulse on profitability bar when it updates */
+@keyframes profit-pulse {
+  0%, 100% { filter: brightness(1); }
+  45%       { filter: brightness(1.5) saturate(1.3); }
+}
+.profit-pulse {
+  animation: profit-pulse 0.45s ease-in-out;
+}
+
+/* Fade-in-up for toast / confirmation messages */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+  animation: fade-in-up 0.18s ease-out both;
+}
+
+/* Page-level section entry (collapsible content expanding) */
+@keyframes section-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.section-expand {
+  animation: section-expand 0.15s ease-out both;
+}
+
 /* ============================================================
    LIGHT MODE
    Applied via html.light class — set by ThemeProvider /
