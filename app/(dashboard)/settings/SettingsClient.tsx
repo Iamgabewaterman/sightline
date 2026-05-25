@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { updateEmail, updatePassword } from "@/app/actions/auth";
 import TeamSection from "./TeamSection";
 import { ProfileWithCompany, CompanyMember } from "@/app/actions/team";
@@ -11,6 +11,7 @@ import {
 import { NOTIF_TYPES, NotifKey } from "@/app/lib/notification-preferences-config";
 import ContactForm from "@/components/ContactForm";
 import IdeaBox from "@/components/IdeaBox";
+import { ReferralData } from "@/app/actions/referrals";
 
 interface SectionProps {
   title: string;
@@ -80,14 +81,136 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
   );
 }
 
+function ReferralSection({ referralData }: { referralData: ReferralData }) {
+  const referralLink = `https://sightline.one/?ref=${referralData.referral_code}`;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    try {
+      navigator.clipboard.writeText(referralLink).catch(() => {
+        const el = document.createElement("textarea");
+        el.value = referralLink;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      });
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = referralLink;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }, [referralLink]);
+
+  function handleShare() {
+    const text = `Hey — I've been using Sightline to run my jobs and it's been saving me serious time. Give it a try free for 30 days, no credit card needed: ${referralLink}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ title: "Try Sightline", text, url: referralLink }).catch(() => {});
+    } else {
+      handleCopy();
+    }
+  }
+
+  function fmtDate(iso: string | null) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  return (
+    <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 flex flex-col gap-5">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-orange-500 text-lg">🤝</span>
+          <p className="text-white font-bold text-base">Refer a contractor — get a free month</p>
+        </div>
+        <p className="text-gray-400 text-sm">
+          For every contractor you refer who joins and sets up their account, you get one free month added automatically.
+        </p>
+      </div>
+
+      {/* Referral link */}
+      <div className="flex gap-2">
+        <div className="flex-1 bg-[#242424] border border-[#333] rounded-xl px-4 py-3 text-gray-300 text-sm font-mono truncate select-all">
+          {referralLink}
+        </div>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 bg-orange-500 text-white font-bold text-sm px-4 py-3 rounded-xl active:scale-95 transition-transform"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+
+      {/* Share button */}
+      <button
+        onClick={handleShare}
+        className="w-full flex items-center justify-center gap-2 bg-[#242424] border border-[#333] text-white font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+          <polyline points="16 6 12 2 8 6" />
+          <line x1="12" y1="2" x2="12" y2="15" />
+        </svg>
+        Share with a contractor
+      </button>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Referrals sent", value: referralData.total_sent },
+          { label: "Completed", value: referralData.completed },
+          { label: "Free months", value: referralData.free_months_earned },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-[#242424] rounded-xl px-3 py-3 text-center">
+            <p className="text-white font-bold text-xl">{value}</p>
+            <p className="text-gray-500 text-xs mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Referred contractors list */}
+      {referralData.referrals.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Your referrals</p>
+          {referralData.referrals.map((r, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div>
+                <p className="text-white text-sm font-semibold">{r.referred_name ?? "Contractor"}</p>
+                {r.referred_joined_at && (
+                  <p className="text-gray-500 text-xs">Joined {fmtDate(r.referred_joined_at)}</p>
+                )}
+              </div>
+              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                r.reward_status === "granted"
+                  ? "bg-green-900/30 text-green-400"
+                  : "bg-orange-500/10 text-orange-400"
+              }`}>
+                {r.reward_status === "granted" ? "Free month earned" : "Pending"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsClient({
   currentEmail,
   profile,
   members,
+  referralData,
 }: {
   currentEmail: string;
   profile: ProfileWithCompany | null;
   members: CompanyMember[];
+  referralData: ReferralData | null;
 }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -294,6 +417,11 @@ export default function SettingsClient({
             </a>
           </div>
         </CollapsibleSection>
+
+        {/* Refer a Contractor */}
+        {referralData && referralData.referral_code && (
+          <ReferralSection referralData={referralData} />
+        )}
 
         {/* Contact & Support */}
         <Section title="Contact &amp; Support">

@@ -4,11 +4,13 @@ import Image from "next/image";
 import nextDynamic from "next/dynamic";
 import { X, Check } from "lucide-react";
 import StandaloneRedirect from "@/components/StandaloneRedirect";
+import { Suspense } from "react";
 
 export const dynamic = "force-static";
 
 const ContactForm = nextDynamic(() => import("@/components/ContactForm"));
 const IdeaBox = nextDynamic(() => import("@/components/IdeaBox"));
+const RefCapture = nextDynamic(() => import("@/components/RefCapture"));
 
 export const metadata: Metadata = {
   title: "Sightline — Job Management for Contractors",
@@ -92,6 +94,11 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#0F0F0F] text-white">
       {/* Redirect PWA (standalone) users straight to the dashboard */}
       <StandaloneRedirect to="/jobs" />
+
+      {/* Referral banner — shows when ?ref= param is in the URL */}
+      <Suspense>
+        <RefCapture />
+      </Suspense>
 
       {/* ── Sticky nav ── */}
       <header className="sticky top-0 z-50 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-[#1a1a1a]">

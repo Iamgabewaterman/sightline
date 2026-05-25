@@ -1,17 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import SettingsClient from "./SettingsClient";
 import { getMyProfile, getTeamMembers, ensureOwnerSetup } from "@/app/actions/team";
+import { getReferralData } from "@/app/actions/referrals";
 
 export default async function SettingsPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Ensure profile + company exist (idempotent)
   await ensureOwnerSetup();
 
-  const [profile, members] = await Promise.all([
+  const [profile, members, referralData] = await Promise.all([
     getMyProfile(),
     getTeamMembers(),
+    getReferralData(),
   ]);
 
   return (
@@ -19,6 +20,7 @@ export default async function SettingsPage() {
       currentEmail={user?.email ?? ""}
       profile={profile}
       members={members}
+      referralData={referralData}
     />
   );
 }

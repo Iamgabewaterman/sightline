@@ -5,6 +5,7 @@ import HQDashboard, {
   type HQUser,
   type FeatureRow,
   type WeeklyBucket,
+  type ReferralStats,
 } from "./HQDashboard";
 
 const ADMIN_EMAIL = "gabew595@gmail.com";
@@ -78,6 +79,7 @@ export default async function HQPage() {
     { data: documentsData },
     { data: coiData },
     { data: calcPrefsData },
+    { data: referralRewardsData },
   ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     admin.from("profiles").select("id, is_lifetime, display_name"),
@@ -103,6 +105,7 @@ export default async function HQPage() {
     admin.from("documents").select("user_id"),
     admin.from("contact_coi").select("user_id"),
     admin.from("calculator_prefs").select("user_id"),
+    admin.from("referral_rewards").select("referrer_user_id, referred_user_id, reward_status, created_at, granted_at"),
   ]);
 
   const authUsers = authResult.data?.users ?? [];
@@ -214,6 +217,38 @@ export default async function HQPage() {
     .map((f) => ({ ...f, pct: pct(f.userCount) }))
     .sort((a, b) => b.pct - a.pct);
 
+  // ── Referral stats ───────────────────────────────────────────────────────────
+  const rewards = referralRewardsData ?? [];
+  const referralCountMap = new Map<string, number>();
+  for (const r of rewards) {
+    referralCountMap.set(r.referrer_user_id, (referralCountMap.get(r.referrer_user_id) ?? 0) + 1);
+  }
+  const topReferrers = Array.from(referralCountMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([uid, count]) => {
+      const u = users.find((x) => x.id === uid);
+      return { name: u?.name || u?.email || uid, email: u?.email || "", count };
+    });
+
+  const referralStats: ReferralStats = {
+    total_links: new Set(rewards.map((r) => r.referrer_user_id)).size,
+    total_completed: rewards.filter((r) => r.reward_status === "granted").length,
+    total_pending: rewards.filter((r) => r.reward_status === "pending").length,
+    top_referrers: topReferrers,
+    log: rewards.map((r) => {
+      const referrer = users.find((x) => x.id === r.referrer_user_id);
+      const referred = users.find((x) => x.id === r.referred_user_id);
+      return {
+        referrer_name: referrer?.name || referrer?.email || r.referrer_user_id,
+        referred_name: referred?.name || referred?.email || r.referred_user_id,
+        created_at: r.created_at,
+        granted_at: r.granted_at,
+        reward_status: r.reward_status,
+      };
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+  };
+
   return (
     <HQDashboard
       userId={user.id}
@@ -224,6 +259,7 @@ export default async function HQPage() {
       users={users}
       weeklySignups={weeklySignups}
       features={features}
+      referralStats={referralStats}
     />
   );
 }

@@ -29,6 +29,14 @@ export interface WeeklyBucket {
   count: number;
 }
 
+export interface ReferralStats {
+  total_links: number;
+  total_completed: number;
+  total_pending: number;
+  top_referrers: { name: string; email: string; count: number }[];
+  log: { referrer_name: string; referred_name: string; created_at: string; granted_at: string | null; reward_status: string }[];
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | null): string {
@@ -113,6 +121,7 @@ interface Props {
   users: HQUser[];
   weeklySignups: WeeklyBucket[];
   features: FeatureRow[];
+  referralStats: ReferralStats;
 }
 
 type FilterTab = "all" | "trial" | "paying" | "expired";
@@ -126,6 +135,7 @@ export default function HQDashboard({
   users,
   weeklySignups,
   features,
+  referralStats,
 }: Props) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
@@ -551,6 +561,73 @@ export default function HQDashboard({
               )}
             </div>
           </div>
+        </div>
+
+        {/* ── Referrals ─────────────────────────────────────────────────────── */}
+        <div className="mt-8">
+          <h2 className="text-white font-bold text-xl mb-4">Referrals</h2>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[
+              { label: "Unique referrers", value: referralStats.total_links },
+              { label: "Rewards granted", value: referralStats.total_completed },
+              { label: "Pending rewards", value: referralStats.total_pending },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 text-center">
+                <p className="text-white font-bold text-2xl">{value}</p>
+                <p className="text-gray-500 text-xs mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {referralStats.top_referrers.length > 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 mb-4">
+              <p className="text-white font-semibold text-sm mb-3">Top Referrers</p>
+              <div className="flex flex-col gap-2">
+                {referralStats.top_referrers.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-300">{r.name || r.email}</span>
+                    <span className="text-orange-500 font-bold">{r.count} referral{r.count !== 1 ? "s" : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {referralStats.log.length > 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl overflow-hidden">
+              <p className="text-white font-semibold text-sm px-5 py-4 border-b border-[#2a2a2a]">Referral Log</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#2a2a2a]">
+                      {["Referrer", "Referred", "Joined", "Granted", "Status"].map((h) => (
+                        <th key={h} className="text-left text-gray-500 text-xs font-semibold px-5 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {referralStats.log.map((r, i) => (
+                      <tr key={i} className="border-b border-[#2a2a2a] last:border-0">
+                        <td className="px-5 py-3 text-gray-300">{r.referrer_name}</td>
+                        <td className="px-5 py-3 text-gray-300">{r.referred_name}</td>
+                        <td className="px-5 py-3 text-gray-500">{fmtDate(r.created_at)}</td>
+                        <td className="px-5 py-3 text-gray-500">{r.granted_at ? fmtDate(r.granted_at) : "—"}</td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                            r.reward_status === "granted"
+                              ? "bg-green-900/30 text-green-400"
+                              : "bg-orange-500/10 text-orange-400"
+                          }`}>
+                            {r.reward_status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
