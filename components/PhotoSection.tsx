@@ -7,6 +7,7 @@ import { compressImage } from "@/lib/compress-image";
 import { deletePhoto } from "@/app/actions/photos";
 import type { PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
+import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
 
 function TrashIcon() {
   return (
@@ -74,22 +75,48 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
+  // Markup queue: files waiting to be marked up before upload
+  const [markupFile, setMarkupFile] = useState<File | null>(null);
+  const markupQueueRef  = useRef<File[]>([]);   // remaining files not yet shown
+  const processedRef    = useRef<File[]>([]);   // files done with markup editor
+
   const getPublicUrl = useCallback(
     (path: string) => supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl,
     [supabase]
   );
 
-  async function handleFiles(files: FileList | null) {
+  // Called when files are selected — shows markup editor for each file before upload
+  function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+    processedRef.current = [];
+    markupQueueRef.current = arr.slice(1);
+    setMarkupFile(arr[0]);
+  }
+
+  // Called by PhotoMarkupEditor with the (possibly marked-up) file
+  function onMarkupDone(markedFile: File) {
+    processedRef.current.push(markedFile);
+    if (markupQueueRef.current.length > 0) {
+      const next = markupQueueRef.current.shift()!;
+      setMarkupFile(next);
+    } else {
+      setMarkupFile(null);
+      uploadBatch(processedRef.current);
+      processedRef.current = [];
+    }
+  }
+
+  async function uploadBatch(files: File[]) {
+    if (files.length === 0) return;
     setUploading(true);
     setError("");
 
-    // Capture location once for the whole batch (silent)
     const takenAt = new Date().toISOString();
     const loc = await getLocation();
 
     const errors: string[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       try {
         const compressed = await compressImage(file);
         const path = `${jobId}/${activeCategory}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
@@ -129,7 +156,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
     if (cameraInputRef.current)  cameraInputRef.current.value  = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
 
-    const uploaded = Array.from(files).length - errors.length;
+    const uploaded = files.length - errors.length;
     if (uploaded > 0) notifyOwnerPhotosUploaded(jobId, uploaded);
   }
 
@@ -198,6 +225,8 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
   const visiblePhotos = photos.filter((p) => p.category === activeCategory);
 
   return (
+    <>
+    {markupFile && <PhotoMarkupEditor file={markupFile} onDone={onMarkupDone} />}
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-xl">Photos</h2>
@@ -420,5 +449,6 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
         </div>
       )}
     </div>
+    </>
   );
 }

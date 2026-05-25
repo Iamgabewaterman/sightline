@@ -65,7 +65,8 @@
       "Bash(git -C C:/Users/gabew/sightline show --stat HEAD)",
       "Bash(git -C C:/Users/gabew/sightline show --stat HEAD~1)",
       "mcp__claude_ai_Vercel__deploy_to_vercel",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabew\\\\sightline\\\\app\" -Recurse -Filter \"*portal*\" -ErrorAction SilentlyContinue)"
     ]
   }
 }

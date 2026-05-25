@@ -10,6 +10,7 @@ import {
   deletePunchListItem,
   deletePunchListPhoto,
 } from "@/app/actions/punch-list";
+import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -58,6 +59,7 @@ export default function PunchListSection({
   const [fullscreenPhoto, setFullscreenPhoto] = useState<PunchListPhoto | null>(null);
   const [longPressPhotoId, setLongPressPhotoId] = useState<string | null>(null);
   const [confirmDeletePhotoId, setConfirmDeletePhotoId] = useState<string | null>(null);
+  const [markupFile, setMarkupFile] = useState<File | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,10 +133,14 @@ export default function PunchListSection({
 
   function handleFileSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const file = files[0];
+    setMarkupFile(files[0]);
+  }
+
+  function onMarkupDone(markedFile: File) {
+    setMarkupFile(null);
     if (pendingPreview) URL.revokeObjectURL(pendingPreview);
-    setPendingFile(file);
-    setPendingPreview(URL.createObjectURL(file));
+    setPendingFile(markedFile);
+    setPendingPreview(URL.createObjectURL(markedFile));
     setPhotoDesc("");
     setLinkedItemId("");
     setPhotoError("");
@@ -210,6 +216,8 @@ export default function PunchListSection({
   const itemMap = new Map(items.map((i) => [i.id, i]));
 
   return (
+    <>
+    {markupFile && <PhotoMarkupEditor file={markupFile} onDone={onMarkupDone} />}
     <div className="mt-8">
       {/* ── Task List Header ─────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
@@ -625,5 +633,6 @@ export default function PunchListSection({
         </>
       )}
     </div>
+    </>
   );
 }
