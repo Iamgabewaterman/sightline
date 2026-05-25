@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: ["@supabase/supabase-js", "@supabase/ssr", "@anthropic-ai/sdk"],
+  },
   async headers() {
     return [
       {

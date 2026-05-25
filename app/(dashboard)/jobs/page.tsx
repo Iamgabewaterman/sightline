@@ -174,9 +174,6 @@ export default async function DashboardPage() {
     supabase.from("business_profiles").select("address").eq("user_id", user!.id).maybeSingle(),
   ]);
 
-  const dashboardWeather = geoJob?.job_lat && geoJob?.job_lng
-    ? await getWeather(geoJob.job_lat as number, geoJob.job_lng as number)
-    : null;
   const dashboardCity = extractCity(bizProfile?.address ?? null);
 
   // Monthly profit: paid invoices on jobs completed this month - materials - labor
@@ -186,6 +183,7 @@ export default async function DashboardPage() {
     { data: paidInvoicesThisMonth },
     { data: completedMaterials },
     { data: completedLabor },
+    dashboardWeather,
   ] = await Promise.all([
     completedIds.length > 0
       ? supabase.from("invoices").select("total_amount").in("job_id", completedIds).eq("status", "paid")
@@ -196,6 +194,9 @@ export default async function DashboardPage() {
     completedIds.length > 0
       ? supabase.from("labor_logs").select("hours, rate").in("job_id", completedIds)
       : Promise.resolve({ data: [] }),
+    geoJob?.job_lat && geoJob?.job_lng
+      ? getWeather(geoJob.job_lat as number, geoJob.job_lng as number)
+      : Promise.resolve(null),
   ]);
 
   const monthRevenuePaid = (paidInvoicesThisMonth ?? []).reduce((s, inv) => s + Number(inv.total_amount), 0);

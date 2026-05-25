@@ -37,6 +37,10 @@ function classifyEntry(name: string): TradeKey | null {
   return null;
 }
 
+// 24-hour module-level cache — regional_materials is not user-specific
+const REGIONAL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+let _regionalCache: { data: RawEntry[]; ts: number } | null = null;
+
 function buildResult(
   entries: RawEntry[],
   location: ParsedAddress,
@@ -108,15 +112,24 @@ function buildResult(
 export async function getRegionalCalcPricing(
   location: ParsedAddress
 ): Promise<RegionalCalcPricing> {
-  const supabase = createClient();
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const now = Date.now();
+  let rawData: RawEntry[];
 
-  const { data } = await supabase
-    .from("regional_materials")
-    .select("material_name, unit_cost, zip_code, city, state")
-    .gte("recorded_at", ninetyDaysAgo)
-    .not("unit_cost", "is", null);
+  if (_regionalCache && now - _regionalCache.ts < REGIONAL_CACHE_TTL_MS) {
+    rawData = _regionalCache.data;
+  } else {
+    const supabase = createClient();
+    const ninetyDaysAgo = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("regional_materials")
+      .select("material_name, unit_cost, zip_code, city, state")
+      .gte("recorded_at", ninetyDaysAgo)
+      .not("unit_cost", "is", null);
+    rawData = (data as RawEntry[] | null) ?? [];
+    _regionalCache = { data: rawData, ts: now };
+  }
 
+  const data = rawData;
   if (!data || data.length === 0) {
     // No data at all — return all baselines with area hint
     const areaHint =
@@ -146,7 +159,7 @@ export async function getRegionalCalcPricing(
     trim:         [],
   };
 
-  for (const entry of data as RawEntry[]) {
+  for (const entry of data) {
     const trade = classifyEntry(entry.material_name);
     if (trade) byTrade[trade].push(entry);
   }
