@@ -12,6 +12,8 @@ import InfoTooltip from "@/components/InfoTooltip";
 import { getWeather } from "@/lib/weather";
 import DashboardWeatherBar from "@/components/DashboardWeatherBar";
 import { getUnreadPortalMessageCounts } from "@/app/actions/portal-messages";
+import { getTrialStatus } from "@/app/actions/trial";
+import TrialBanner from "@/components/TrialBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -188,6 +190,7 @@ export default async function DashboardPage() {
     { data: completedLabor },
     dashboardWeather,
     unreadMsgCounts,
+    trialStatus,
   ] = await Promise.all([
     completedIds.length > 0
       ? supabase.from("invoices").select("total_amount").in("job_id", completedIds).eq("status", "paid")
@@ -202,6 +205,7 @@ export default async function DashboardPage() {
       ? getWeather(geoJob.job_lat as number, geoJob.job_lng as number)
       : Promise.resolve(null),
     getUnreadPortalMessageCounts(allJobIds),
+    getTrialStatus(),
   ]);
 
   const monthRevenuePaid = (paidInvoicesThisMonth ?? []).reduce((s, inv) => s + Number(inv.total_amount), 0);
@@ -283,6 +287,15 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Trial banner — only for non-paying, non-lifetime users still in trial */}
+        {trialStatus && !trialStatus.isLifetime && !trialStatus.isPaying && !trialStatus.isExpired && (
+          <TrialBanner
+            jobsCompleted={trialStatus.jobsCompleted}
+            jobsLimit={trialStatus.jobsLimit}
+            daysLeft={trialStatus.daysLeft}
+          />
+        )}
 
         {/* Invoices */}
         {(outstanding > 0 || paidThisMonth > 0 || overdueInvoices.length > 0) && (

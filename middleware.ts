@@ -100,7 +100,7 @@ export async function middleware(request: NextRequest) {
     );
     const { data: profile } = await admin
       .from("profiles")
-      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete")
+      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete, trials_completed_jobs")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -129,9 +129,13 @@ export async function middleware(request: NextRequest) {
 
     // ── Owner subscription enforcement ───────────────────────────────────────
     if (!profile?.is_lifetime) {
+      // Hybrid trial: active only while BOTH conditions hold —
+      // time has not expired AND fewer than 3 qualifying jobs completed.
       const trialEndsAt = new Date(user.created_at);
-      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-      const onTrial = new Date() < trialEndsAt;
+      trialEndsAt.setDate(trialEndsAt.getDate() + 45);
+      const timeOk = new Date() < trialEndsAt;
+      const jobsOk = (profile?.trials_completed_jobs ?? 0) < 3;
+      const onTrial = timeOk && jobsOk;
 
       if (!onTrial) {
         const { data: sub } = await supabase

@@ -202,6 +202,12 @@ export async function updateJobStatus(id: string, status: string) {
 
   if (error) return { error: error.message };
 
+  // ── Trial qualifying check on job completion ───────────────────────────────
+  let trialJobsCompleted: number | undefined;
+  if (status === "completed") {
+    trialJobsCompleted = await runTrialQualifyingCheck(supabase, id, user.id, job?.start_date ?? null);
+  }
+
   // Notify owner if a field member put the job on hold
   if (status === "on_hold" && currentJob && currentJob.user_id !== user.id) {
     const { data: profile } = await supabase
@@ -218,5 +224,76 @@ export async function updateJobStatus(id: string, status: string) {
   }
 
   revalidatePath("/jobs");
-  return { success: true };
+  return { success: true, trialJobsCompleted };
+}
+
+// ── Trial qualifying check ─────────────────────────────────────────────────────
+// Returns the new trials_completed_jobs count after this completion (or the
+// existing count if the job didn't qualify).
+async function runTrialQualifyingCheck(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  jobId: string,
+  userId: string,
+  startDate: string | null
+): Promise<number> {
+  const logEvent = async (qualified: boolean, reason: string, count: number) => {
+    await supabase.from("trial_events").insert({
+      user_id: userId,
+      job_id: jobId,
+      qualified,
+      disqualification_reason: qualified ? null : reason,
+      trials_completed_count: count,
+    });
+  };
+
+  // Must have a start_date (went Active at some point)
+  if (!startDate) {
+    const { data: p } = await supabase.from("profiles").select("trials_completed_jobs").eq("id", userId).maybeSingle();
+    const cur = p?.trials_completed_jobs ?? 0;
+    await logEvent(false, "no_start_date", cur);
+    return cur;
+  }
+
+  // Must have been active ≥ 3 calendar days
+  const activeDays = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+
+  const [
+    { count: matCount },
+    { count: laborCount },
+    { data: profile },
+    { data: sub },
+  ] = await Promise.all([
+    supabase.from("materials").select("id", { count: "exact", head: true }).eq("job_id", jobId),
+    supabase.from("labor_logs").select("id", { count: "exact", head: true }).eq("job_id", jobId),
+    supabase.from("profiles").select("trials_completed_jobs, is_lifetime").eq("id", userId).maybeSingle(),
+    supabase.from("subscriptions").select("status").eq("user_id", userId).maybeSingle(),
+  ]);
+
+  const isLifetime = profile?.is_lifetime ?? false;
+  const isPaying   = sub?.status === "active" || sub?.status === "trialing";
+  const cur        = profile?.trials_completed_jobs ?? 0;
+
+  if (isLifetime || isPaying) {
+    await logEvent(false, isLifetime ? "lifetime_user" : "paying_user", cur);
+    return cur;
+  }
+
+  if (activeDays < 3) {
+    await logEvent(false, "active_less_than_3_days", cur);
+    return cur;
+  }
+
+  if ((matCount ?? 0) === 0 && (laborCount ?? 0) === 0) {
+    await logEvent(false, "no_materials_or_labor", cur);
+    return cur;
+  }
+
+  // Qualifies — increment
+  const newCount = cur + 1;
+  await Promise.all([
+    supabase.from("profiles").update({ trials_completed_jobs: newCount }).eq("id", userId),
+    logEvent(true, "", newCount),
+  ]);
+  return newCount;
 }

@@ -37,6 +37,16 @@ export interface ReferralStats {
   log: { referrer_name: string; referred_name: string; created_at: string; granted_at: string | null; reward_status: string }[];
 }
 
+export interface TrialMetrics {
+  avgJobsToConvert: number | null;
+  avgDaysToFirstQualJob: number | null;
+  pctJobGate: number;
+  pctTimeGate: number;
+  totalExpired: number;
+  jobGateExpired: number;
+  timeGateExpired: number;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | null): string {
@@ -122,6 +132,7 @@ interface Props {
   weeklySignups: WeeklyBucket[];
   features: FeatureRow[];
   referralStats: ReferralStats;
+  trialMetrics: TrialMetrics;
 }
 
 type FilterTab = "all" | "trial" | "paying" | "expired";
@@ -136,6 +147,7 @@ export default function HQDashboard({
   weeklySignups,
   features,
   referralStats,
+  trialMetrics,
 }: Props) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
@@ -561,6 +573,59 @@ export default function HQDashboard({
               )}
             </div>
           </div>
+        </div>
+
+        {/* ── Trial Metrics ─────────────────────────────────────────────────── */}
+        <div className="mb-8">
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
+            Trial Conversion Metrics
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Avg Jobs Before Convert</p>
+              <p className="text-3xl font-black text-white">
+                {trialMetrics.avgJobsToConvert !== null ? trialMetrics.avgJobsToConvert : "—"}
+              </p>
+              <p className="text-gray-600 text-xs mt-1">qualifying jobs by paying users</p>
+            </div>
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Avg Days to 1st Qual Job</p>
+              <p className="text-3xl font-black text-white">
+                {trialMetrics.avgDaysToFirstQualJob !== null ? trialMetrics.avgDaysToFirstQualJob : "—"}
+              </p>
+              <p className="text-gray-600 text-xs mt-1">days from signup to first qualifying job</p>
+            </div>
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
+              <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Expired Users</p>
+              <p className="text-3xl font-black text-red-400">{trialMetrics.totalExpired}</p>
+              <p className="text-gray-600 text-xs mt-1">hit trial limit</p>
+            </div>
+          </div>
+          {trialMetrics.totalExpired > 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4">
+              <p className="text-white font-semibold text-sm mb-3">Expiry Breakdown</p>
+              <div className="flex gap-6">
+                <div>
+                  <p className="text-2xl font-black text-orange-400">{trialMetrics.jobGateExpired}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">Job gate ({trialMetrics.pctJobGate}%) — hit 3 qualifying jobs</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-gray-400">{trialMetrics.timeGateExpired}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">Time gate ({trialMetrics.pctTimeGate}%) — 45 days elapsed</p>
+                </div>
+              </div>
+              <div className="mt-3 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-orange-500 rounded-full transition-all"
+                  style={{ width: `${trialMetrics.pctJobGate}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-orange-400 text-xs">Job gate</span>
+                <span className="text-gray-500 text-xs">Time gate</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Referrals ─────────────────────────────────────────────────────── */}

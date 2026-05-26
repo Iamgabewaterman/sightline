@@ -12,6 +12,8 @@ import { NOTIF_TYPES, NotifKey } from "@/app/lib/notification-preferences-config
 import ContactForm from "@/components/ContactForm";
 import IdeaBox from "@/components/IdeaBox";
 import { ReferralData } from "@/app/actions/referrals";
+import { TrialStatus } from "@/app/actions/trial";
+import Link from "next/link";
 
 interface SectionProps {
   title: string;
@@ -108,7 +110,7 @@ function ReferralSection({ referralData }: { referralData: ReferralData }) {
   }, [referralLink]);
 
   function handleShare() {
-    const text = `Hey — I've been using Sightline to run my jobs and it's been saving me serious time. Give it a try free for 30 days, no credit card needed: ${referralLink}`;
+    const text = `Hey — I've been using Sightline to run my jobs and it's been saving me serious time. First 3 jobs are free, no credit card needed: ${referralLink}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ title: "Try Sightline", text, url: referralLink }).catch(() => {});
     } else {
@@ -206,11 +208,13 @@ export default function SettingsClient({
   profile,
   members,
   referralData,
+  trialStatus,
 }: {
   currentEmail: string;
   profile: ProfileWithCompany | null;
   members: CompanyMember[];
   referralData: ReferralData | null;
+  trialStatus: TrialStatus | null;
 }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -291,6 +295,55 @@ export default function SettingsClient({
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto flex flex-col gap-6">
         <h1 className="text-3xl font-bold text-white">Settings</h1>
+
+        {/* Trial status card — shown for non-paying, non-lifetime users */}
+        {trialStatus && !trialStatus.isLifetime && !trialStatus.isPaying && (
+          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 flex flex-col gap-4">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+              {trialStatus.isExpired ? "Trial Ended" : "Your Trial"}
+            </p>
+
+            {trialStatus.isExpired ? (
+              <p className="text-gray-300 text-sm">
+                Your trial has ended. Subscribe to keep all your data and continue using Sightline.
+              </p>
+            ) : (
+              <>
+                {/* Progress bar */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-white font-semibold text-sm">
+                      {trialStatus.jobsCompleted} of {trialStatus.jobsLimit} qualifying jobs completed
+                    </p>
+                    <p className="text-gray-500 text-xs">{trialStatus.daysLeft}d left</p>
+                  </div>
+                  <div className="h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-500 rounded-full transition-all"
+                      style={{ width: `${(trialStatus.jobsCompleted / trialStatus.jobsLimit) * 100}%` }}
+                    />
+                  </div>
+                  {trialStatus.jobsCompleted === trialStatus.jobsLimit - 1 && (
+                    <p className="text-orange-400 text-xs mt-2 font-semibold">
+                      One more qualifying job and you&apos;ll be asked to subscribe.
+                    </p>
+                  )}
+                </div>
+                <p className="text-gray-500 text-xs leading-relaxed">
+                  A qualifying job must have materials or labor logged and must have been active for at least 3 days.
+                  Your trial expires when you complete 3 qualifying jobs or after {trialStatus.daysLeft} days — whichever comes first.
+                </p>
+              </>
+            )}
+
+            <Link
+              href="/subscribe"
+              className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform text-center"
+            >
+              Start Subscription — $49.99/month
+            </Link>
+          </div>
+        )}
 
         {/* Team */}
         {profile && <TeamSection profile={profile} members={members} />}

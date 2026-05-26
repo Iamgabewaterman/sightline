@@ -466,6 +466,8 @@ export interface Profile {
   display_name: string | null;
   avatar_path: string | null;
   created_at: string;
+  trials_completed_jobs: number;
+  trial_type: string;
 }
 
 export interface FieldMember extends Profile {

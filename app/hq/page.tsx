@@ -6,6 +6,7 @@ import HQDashboard, {
   type FeatureRow,
   type WeeklyBucket,
   type ReferralStats,
+  type TrialMetrics,
 } from "./HQDashboard";
 
 const ADMIN_EMAIL = "gabew595@gmail.com";
@@ -80,9 +81,10 @@ export default async function HQPage() {
     { data: coiData },
     { data: calcPrefsData },
     { data: referralRewardsData },
+    { data: trialEventsData },
   ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
-    admin.from("profiles").select("id, is_lifetime, display_name"),
+    admin.from("profiles").select("id, is_lifetime, display_name, trials_completed_jobs"),
     admin.from("subscriptions").select("user_id, status"),
     admin.from("business_profiles").select("user_id, business_name, address"),
     admin
@@ -106,6 +108,7 @@ export default async function HQPage() {
     admin.from("contact_coi").select("user_id"),
     admin.from("calculator_prefs").select("user_id"),
     admin.from("referral_rewards").select("referrer_user_id, referred_user_id, reward_status, created_at, granted_at"),
+    admin.from("trial_events").select("user_id, qualified, trials_completed_count, created_at"),
   ]);
 
   const authUsers = authResult.data?.users ?? [];
@@ -125,18 +128,21 @@ export default async function HQPage() {
   function userStatus(
     createdAt: string,
     isLifetime: boolean,
-    subStatus: string | null
+    subStatus: string | null,
+    trialsCompletedJobs: number
   ): HQUser["status"] {
     if (isLifetime) return "lifetime";
     if (subStatus === "active" || subStatus === "trialing") return "paying";
     const trialEnd = new Date(createdAt);
-    trialEnd.setDate(trialEnd.getDate() + 30);
-    return now < trialEnd ? "trial" : "expired";
+    trialEnd.setDate(trialEnd.getDate() + 45);
+    const timeOk = now < trialEnd;
+    const jobsOk = trialsCompletedJobs < 3;
+    return timeOk && jobsOk ? "trial" : "expired";
   }
 
   function daysLeft(createdAt: string): number | null {
     const trialEnd = new Date(createdAt);
-    trialEnd.setDate(trialEnd.getDate() + 30);
+    trialEnd.setDate(trialEnd.getDate() + 45);
     const d = Math.ceil((trialEnd.getTime() - now.getTime()) / 86400000);
     return d > 0 ? d : null;
   }
@@ -149,7 +155,8 @@ export default async function HQPage() {
       const bp = bpMap.get(u.id);
       const isLifetime = profile?.is_lifetime ?? false;
       const subStatus = sub?.status ?? null;
-      const status = userStatus(u.created_at, isLifetime, subStatus);
+      const trialsCompletedJobs = profile?.trials_completed_jobs ?? 0;
+      const status = userStatus(u.created_at, isLifetime, subStatus, trialsCompletedJobs);
       const signIn = u.last_sign_in_at ?? null;
       const jobTs = lastJobMap.get(u.id) ?? null;
       const lastActiveAt =
@@ -217,6 +224,60 @@ export default async function HQPage() {
     .map((f) => ({ ...f, pct: pct(f.userCount) }))
     .sort((a, b) => b.pct - a.pct);
 
+  // ── Trial conversion metrics ──────────────────────────────────────────────────
+  const authUserMap = new Map(authUsers.map((u) => [u.id, u]));
+
+  // Avg qualifying jobs for paying users at conversion time
+  const payingJobCounts = users
+    .filter((u) => u.status === "paying")
+    .map((u) => profileMap.get(u.id)?.trials_completed_jobs ?? 0);
+  const avgJobsToConvert =
+    payingJobCounts.length > 0
+      ? Math.round((payingJobCounts.reduce((a, b) => a + b, 0) / payingJobCounts.length) * 10) / 10
+      : null;
+
+  // Job gate vs time gate for expired users
+  const expiredUsers = users.filter((u) => u.status === "expired");
+  const jobGateExpired = expiredUsers.filter(
+    (u) => (profileMap.get(u.id)?.trials_completed_jobs ?? 0) >= 3
+  ).length;
+  const timeGateExpired = expiredUsers.length - jobGateExpired;
+  const pctJobGate =
+    expiredUsers.length > 0 ? Math.round((jobGateExpired / expiredUsers.length) * 100) : 0;
+  const pctTimeGate =
+    expiredUsers.length > 0 ? Math.round((timeGateExpired / expiredUsers.length) * 100) : 0;
+
+  // Avg days from signup to first qualifying job
+  const qualEvents = (trialEventsData ?? []).filter((e) => e.qualified);
+  const firstQualByUser = new Map<string, string>();
+  for (const e of qualEvents) {
+    const existing = firstQualByUser.get(e.user_id);
+    if (!existing || e.created_at < existing) firstQualByUser.set(e.user_id, e.created_at);
+  }
+  const daysToFirstQual: number[] = [];
+  for (const [uid, eventAt] of Array.from(firstQualByUser.entries())) {
+    const authUser = authUserMap.get(uid);
+    if (!authUser) continue;
+    const days = Math.floor(
+      (new Date(eventAt).getTime() - new Date(authUser.created_at).getTime()) / 86400000
+    );
+    if (days >= 0) daysToFirstQual.push(days);
+  }
+  const avgDaysToFirstQualJob =
+    daysToFirstQual.length > 0
+      ? Math.round((daysToFirstQual.reduce((a, b) => a + b, 0) / daysToFirstQual.length) * 10) / 10
+      : null;
+
+  const trialMetrics: TrialMetrics = {
+    avgJobsToConvert,
+    avgDaysToFirstQualJob,
+    pctJobGate,
+    pctTimeGate,
+    totalExpired: expiredUsers.length,
+    jobGateExpired,
+    timeGateExpired,
+  };
+
   // ── Referral stats ───────────────────────────────────────────────────────────
   const rewards = referralRewardsData ?? [];
   const referralCountMap = new Map<string, number>();
@@ -260,6 +321,7 @@ export default async function HQPage() {
       weeklySignups={weeklySignups}
       features={features}
       referralStats={referralStats}
+      trialMetrics={trialMetrics}
     />
   );
 }

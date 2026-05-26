@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateJobStatus } from "@/app/actions/jobs";
 import { JobStatus } from "@/types";
 
@@ -21,6 +22,7 @@ export default function JobStatusSelector({
   openPunchItems?: number;
   hasInvoice?: boolean;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState<JobStatus>(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
@@ -50,6 +52,11 @@ export default function JobStatusSelector({
       if (result.error) {
         setStatus(prev);
         setError(result.error);
+        return;
+      }
+      // Trial gate: redirect to subscribe when 3 qualifying jobs are done
+      if (next === "completed" && (result.trialJobsCompleted ?? 0) >= 3) {
+        router.push("/subscribe?reason=job_gate");
       }
     });
   }
