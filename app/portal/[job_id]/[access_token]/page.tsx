@@ -6,7 +6,9 @@ import Link from "next/link";
 import { sendPushToUser } from "@/lib/push";
 import { shouldSendWithTTL } from "@/lib/notif-dedup";
 import PortalPhotoGallery from "@/components/PortalPhotoGallery";
+import PortalMessageThread from "@/components/PortalMessageThread";
 import { approveChangeOrderPortal, declineChangeOrderPortal } from "@/app/actions/change-orders";
+import { getPortalMessages } from "@/app/actions/portal-messages";
 
 function adminClient() {
   return createClient(
@@ -81,6 +83,7 @@ export default async function PortalPage({
     { data: estimate },
     { data: documents },
     { data: pendingChangeOrders },
+    portalMessages,
   ] = await Promise.all([
     supabase.from("business_profiles").select("*").eq("user_id", job.user_id).maybeSingle(),
     supabase
@@ -116,6 +119,7 @@ export default async function PortalPage({
       .eq("job_id", job.id)
       .eq("status", "pending_approval")
       .order("created_at", { ascending: false }),
+    getPortalMessages(params.job_id, params.access_token),
   ]);
 
   let logoUrl: string | null = null;
@@ -455,6 +459,16 @@ export default async function PortalPage({
           jobName={job.name}
           contractorUserId={job.user_id}
           jobId={job.id}
+        />
+
+        {/* Message thread */}
+        <PortalMessageThread
+          initialMessages={portalMessages}
+          jobId={job.id}
+          portalToken={params.access_token}
+          clientName={client?.name ?? "Homeowner"}
+          contractorName={bp?.business_name ?? bp?.owner_name ?? "Your Contractor"}
+          jobName={job.name}
         />
 
         {/* Crew section */}

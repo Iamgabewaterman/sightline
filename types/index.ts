@@ -58,6 +58,19 @@ export interface Job {
   updated_at: string;
 }
 
+export interface PortalMessage {
+  id: string;
+  job_id: string;
+  portal_token: string;
+  sender_type: "contractor" | "client";
+  sender_name: string;
+  message_text: string | null;
+  created_at: string;
+  read_at: string | null;
+  has_attachment: boolean;
+  attachment_url: string | null;
+}
+
 export interface DailyLog {
   id: string;
   job_id: string;

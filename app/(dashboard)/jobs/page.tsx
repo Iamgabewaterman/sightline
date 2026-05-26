@@ -11,6 +11,7 @@ import { getMaterialCostTrends } from "@/app/actions/price-flags";
 import InfoTooltip from "@/components/InfoTooltip";
 import { getWeather } from "@/lib/weather";
 import DashboardWeatherBar from "@/components/DashboardWeatherBar";
+import { getUnreadPortalMessageCounts } from "@/app/actions/portal-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -179,11 +180,14 @@ export default async function DashboardPage() {
   // Monthly profit: paid invoices on jobs completed this month - materials - labor
   const completedIds = (completedThisMonth ?? []).map((j) => j.id);
 
+  const allJobIds = (recentJobs ?? []).map((j) => j.id);
+
   const [
     { data: paidInvoicesThisMonth },
     { data: completedMaterials },
     { data: completedLabor },
     dashboardWeather,
+    unreadMsgCounts,
   ] = await Promise.all([
     completedIds.length > 0
       ? supabase.from("invoices").select("total_amount").in("job_id", completedIds).eq("status", "paid")
@@ -197,6 +201,7 @@ export default async function DashboardPage() {
     geoJob?.job_lat && geoJob?.job_lng
       ? getWeather(geoJob.job_lat as number, geoJob.job_lng as number)
       : Promise.resolve(null),
+    getUnreadPortalMessageCounts(allJobIds),
   ]);
 
   const monthRevenuePaid = (paidInvoicesThisMonth ?? []).reduce((s, inv) => s + Number(inv.total_amount), 0);
@@ -214,6 +219,7 @@ export default async function DashboardPage() {
   const allJobs = recentJobs ?? [];
   const recentThree = allJobs.slice(0, 3);
   const hasMore = allJobs.length > 3;
+  const totalUnreadMessages = Object.values(unreadMsgCounts).reduce((s, n) => s + n, 0);
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
@@ -260,13 +266,22 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Active Jobs pill */}
-        <div className="flex justify-center mb-8">
+        {/* Active Jobs pill + unread messages */}
+        <div className="flex justify-center gap-3 mb-8">
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-full px-5 py-2 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
             <span className="text-orange-500 font-bold text-sm">{activeCount ?? 0}</span>
             <span className="text-gray-500 text-xs uppercase tracking-wider">Active Jobs</span>
           </div>
+          {totalUnreadMessages > 0 && (
+            <div className="bg-orange-500/15 border border-orange-500/30 rounded-full px-5 py-2 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span className="text-orange-400 font-bold text-sm">{totalUnreadMessages}</span>
+              <span className="text-gray-500 text-xs uppercase tracking-wider">Unread</span>
+            </div>
+          )}
         </div>
 
         {/* Invoices */}
@@ -369,23 +384,33 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <ul className="flex flex-col gap-4">
-            {recentThree.map((job) => (
-              <li key={job.id}>
-                <Link href={`/jobs/${job.id}`} className="block bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 active:scale-95 transition-transform">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <h2 className="text-white font-bold text-xl leading-tight">{job.name}</h2>
-                    <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-full ${job.status === "active" ? "bg-orange-500/20 text-orange-400" : job.status === "completed" ? "bg-green-900/30 text-green-400" : "bg-[#2a2a2a] text-gray-400"}`}>
-                      {job.status === "on_hold" ? "On Hold" : job.status === "active" ? "Active" : "Done"}
-                    </span>
-                  </div>
-                  <TypeTags types={job.types} />
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-gray-400 text-sm">{job.address}</p>
-                    <p className="text-gray-500 text-xs">{formatDate(job.updated_at)}</p>
-                  </div>
-                </Link>
-              </li>
-            ))}
+            {recentThree.map((job) => {
+              const unread = unreadMsgCounts[job.id] ?? 0;
+              return (
+                <li key={job.id}>
+                  <Link href={`/jobs/${job.id}`} className="block bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 active:scale-95 transition-transform">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h2 className="text-white font-bold text-xl leading-tight truncate">{job.name}</h2>
+                        {unread > 0 && (
+                          <span className="shrink-0 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                            {unread}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-full ${job.status === "active" ? "bg-orange-500/20 text-orange-400" : job.status === "completed" ? "bg-green-900/30 text-green-400" : "bg-[#2a2a2a] text-gray-400"}`}>
+                        {job.status === "on_hold" ? "On Hold" : job.status === "active" ? "Active" : "Done"}
+                      </span>
+                    </div>
+                    <TypeTags types={job.types} />
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-gray-400 text-sm">{job.address}</p>
+                      <p className="text-gray-500 text-xs">{formatDate(job.updated_at)}</p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
             {hasMore && (
               <li>
                 <Link href="/jobs/all" className="flex items-center justify-center bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl py-4 text-orange-500 font-semibold active:scale-95 transition-transform">

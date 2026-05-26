@@ -24,11 +24,13 @@ function ChevronIcon({ open }: { open: boolean }) {
 export default function CollapsibleSection({
   title,
   count,
+  accentCount,
   children,
   defaultOpen = false,
 }: {
   title: string;
   count?: number;
+  accentCount?: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
 }) {
@@ -43,7 +45,12 @@ export default function CollapsibleSection({
       >
         <div className="flex items-center gap-2.5">
           <span className="text-white font-bold text-lg leading-tight">{title}</span>
-          {count !== undefined && (
+          {accentCount !== undefined && accentCount > 0 && (
+            <span className="text-xs font-bold bg-orange-500 text-white px-2 py-0.5 rounded-full min-w-[1.5rem] text-center tabular-nums">
+              {accentCount}
+            </span>
+          )}
+          {count !== undefined && (accentCount === undefined || accentCount === 0) && (
             <span className="text-xs font-bold text-gray-500 bg-[#222] border border-[#2a2a2a] px-2 py-0.5 rounded-full min-w-[1.5rem] text-center tabular-nums">
               {count}
             </span>

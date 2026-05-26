@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
 import dynamic from "next/dynamic";
 import PhotoSection from "@/components/PhotoSection";
+import JobMessageThread from "@/components/JobMessageThread";
 import QuoteProfitSection from "@/components/QuoteProfitSection";
 import ReceiptsSection from "@/components/ReceiptsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
@@ -21,6 +22,7 @@ const DailyLogsSection = dynamic(() => import("@/components/DailyLogsSection"), 
   loading: () => <div className="skeleton h-14 w-full mt-3" />,
 });
 import { getPriceFlagsForJob } from "@/app/actions/price-flags";
+import { getContractorMessages } from "@/app/actions/portal-messages";
 import PerfMark from "@/components/PerfMark";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import JobOverviewCard from "@/components/JobOverviewCard";
@@ -151,6 +153,7 @@ export default async function JobDetailPage({
     completedCountResult,
     timelinesResult,
     milestonesResult,
+    jobMessages,
   ] = await Promise.all([
     getPriceFlagsForJob(params.id),
     job.client_id
@@ -183,6 +186,7 @@ export default async function JobDetailPage({
           .order("sort_order")
           .returns<PaymentMilestone[]>()
       : Promise.resolve({ data: [] as PaymentMilestone[] }),
+    getContractorMessages(params.id),
   ]);
 
   const { data: jobClient }    = clientResult;
@@ -191,6 +195,7 @@ export default async function JobDetailPage({
   const completedTimelines     = timelinesResult.data;
   const invoiceMilestones      = milestonesResult.data ?? [];
   const stripeConnected        = bpConnect?.stripe_onboarded ?? false;
+  const unreadMessageCount     = jobMessages.filter((m) => m.sender_type === "client" && !m.read_at).length;
 
   let timelineInsight: { min: number; max: number; type: string } | null = null;
   if ((completedTimelines?.length ?? 0) >= 3) {
@@ -314,6 +319,18 @@ export default async function JobDetailPage({
               jobId={job.id}
               initialItems={punchListItems ?? []}
               initialPhotos={punchListPhotos ?? []}
+            />
+          </CollapsibleSection>
+
+          {/* 6b — Client Messages */}
+          <CollapsibleSection
+            title="Messages"
+            count={jobMessages.length}
+            accentCount={unreadMessageCount}
+          >
+            <JobMessageThread
+              initialMessages={jobMessages}
+              jobId={job.id}
             />
           </CollapsibleSection>
 
