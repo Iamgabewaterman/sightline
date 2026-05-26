@@ -453,6 +453,8 @@ export default async function PortalPage({
           }))}
           jobNumber={job.job_number}
           jobName={job.name}
+          contractorUserId={job.user_id}
+          jobId={job.id}
         />
 
         {/* Crew section */}
