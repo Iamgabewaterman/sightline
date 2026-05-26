@@ -7,6 +7,7 @@ import HQDashboard, {
   type WeeklyBucket,
   type ReferralStats,
   type TrialMetrics,
+  type SignupRow,
 } from "./HQDashboard";
 
 const ADMIN_EMAIL = "gabew595@gmail.com";
@@ -84,9 +85,9 @@ export default async function HQPage() {
     { data: trialEventsData },
   ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
-    admin.from("profiles").select("id, is_lifetime, display_name, trials_completed_jobs"),
+    admin.from("profiles").select("id, is_lifetime, display_name, trials_completed_jobs, contacted_at"),
     admin.from("subscriptions").select("user_id, status"),
-    admin.from("business_profiles").select("user_id, business_name, address"),
+    admin.from("business_profiles").select("user_id, business_name, address, owner_name"),
     admin
       .from("jobs")
       .select("user_id, updated_at")
@@ -184,6 +185,33 @@ export default async function HQPage() {
     .sort(
       (a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime()
     );
+
+  // ── Recent signups (last 20, enriched) ───────────────────────────────────
+  const signups: SignupRow[] = authUsers
+    .filter((u) => u.email && !u.email.endsWith("@example.com"))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 20)
+    .map((u) => {
+      const profile = profileMap.get(u.id);
+      const bp = bpMap.get(u.id) as { user_id: string; business_name: string | null; address: string | null; owner_name?: string | null } | undefined;
+      const sub = subMap.get(u.id);
+      const isLifetime = profile?.is_lifetime ?? false;
+      const subStatus = sub?.status ?? null;
+      const trialsCompletedJobs = profile?.trials_completed_jobs ?? 0;
+      const status = userStatus(u.created_at, isLifetime, subStatus, trialsCompletedJobs);
+      return {
+        id: u.id,
+        email: u.email ?? "",
+        name: profile?.display_name || bp?.owner_name || u.email?.split("@")[0] || "",
+        businessName: bp?.business_name ?? null,
+        location: extractCityState(bp?.address ?? null),
+        joinedAt: u.created_at,
+        status,
+        trialDaysLeft: status === "trial" ? daysLeft(u.created_at) : null,
+        contactedAt: (profile as { contacted_at?: string | null } | undefined)?.contacted_at ?? null,
+        trialsCompletedJobs,
+      };
+    });
 
   // ── Summary stats ──────────────────────────────────────────────────────────
   const totalAccounts = users.length;
@@ -318,6 +346,7 @@ export default async function HQPage() {
       activeTrials={activeTrials}
       churned={churned}
       users={users}
+      signups={signups}
       weeklySignups={weeklySignups}
       features={features}
       referralStats={referralStats}

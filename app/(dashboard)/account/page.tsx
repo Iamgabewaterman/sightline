@@ -55,6 +55,12 @@ export default async function AccountPage({
 
         {/* Links */}
         <div className="flex flex-col gap-3">
+          {user.email === "gabew595@gmail.com" && (
+            <Link href="/hq" className={rowClass}>
+              <span className="text-orange-400 font-bold text-base">Sightline HQ</span>
+              {chevron}
+            </Link>
+          )}
           <Link href="/subscribe" className={rowClass}>
             <span className="text-white font-semibold text-base">Billing</span>
             {chevron}

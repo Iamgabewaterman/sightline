@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
-import { grantLifetimeAccess, sendTestPush } from "./actions";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { grantLifetimeAccess, sendTestPush, markAsContacted } from "./actions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,19 @@ export interface ReferralStats {
   total_pending: number;
   top_referrers: { name: string; email: string; count: number }[];
   log: { referrer_name: string; referred_name: string; created_at: string; granted_at: string | null; reward_status: string }[];
+}
+
+export interface SignupRow {
+  id: string;
+  email: string;
+  name: string;
+  businessName: string | null;
+  location: string;
+  joinedAt: string;
+  status: HQUser["status"];
+  trialDaysLeft: number | null;
+  contactedAt: string | null;
+  trialsCompletedJobs: number;
 }
 
 export interface TrialMetrics {
@@ -120,6 +133,192 @@ function exportCSV(users: HQUser[]) {
   URL.revokeObjectURL(url);
 }
 
+// ── Recent Signups Section ────────────────────────────────────────────────────
+
+type SignupFilter = "not_contacted" | "all" | "contacted" | "trial" | "paying";
+
+function fmtSignupTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    " at " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+}
+
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function RecentSignupsSection({ initialSignups }: { initialSignups: SignupRow[] }) {
+  const [filter, setFilter] = useState<SignupFilter>("not_contacted");
+  const [signups, setSignups] = useState<SignupRow[]>(initialSignups);
+  const [todayCount, setTodayCount] = useState(() =>
+    initialSignups.filter((s) => daysSince(s.joinedAt) === 0).length
+  );
+  const [copied, setCopied] = useState<string | null>(null);
+  const [contacting, setContacting] = useState<string | null>(null);
+
+  // Refresh today count every 60s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTodayCount(signups.filter((s) => daysSince(s.joinedAt) === 0).length);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [signups]);
+
+  const filtered = useMemo(() => {
+    switch (filter) {
+      case "not_contacted": return signups.filter((s) => !s.contactedAt);
+      case "contacted":     return signups.filter((s) => !!s.contactedAt);
+      case "trial":         return signups.filter((s) => s.status === "trial");
+      case "paying":        return signups.filter((s) => s.status === "paying" || s.status === "lifetime");
+      default:              return signups;
+    }
+  }, [signups, filter]);
+
+  function copyEmail(email: string) {
+    navigator.clipboard.writeText(email).catch(() => {});
+    setCopied(email);
+    setTimeout(() => setCopied(null), 1500);
+  }
+
+  function smsLink(name: string): string {
+    const firstName = name.split(" ")[0] || name;
+    const body = encodeURIComponent(
+      `Hey ${firstName} — it's Gabe, I built Sightline. Saw you just signed up — any questions or anything unclear just text me back. Happy to help you get your first job set up.`
+    );
+    return `sms:+19714697274&body=${body}`;
+  }
+
+  const handleContact = useCallback(async (row: SignupRow) => {
+    setContacting(row.id);
+    const result = await markAsContacted(row.id);
+    setContacting(null);
+    if (result.ok) {
+      setSignups((prev) =>
+        prev.map((s) => s.id === row.id ? { ...s, contactedAt: new Date().toISOString() } : s)
+      );
+    }
+  }, []);
+
+  const filterTabs: { id: SignupFilter; label: string }[] = [
+    { id: "not_contacted", label: "Not Contacted" },
+    { id: "all",           label: "All" },
+    { id: "contacted",     label: "Contacted" },
+    { id: "trial",         label: "Active Trial" },
+    { id: "paying",        label: "Converted" },
+  ];
+
+  return (
+    <div className="mb-10">
+      {/* Today counter */}
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Recent Signups</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-black text-white">{todayCount}</span>
+            <span className="text-gray-400 text-base font-semibold">today</span>
+          </div>
+        </div>
+        <p className="text-gray-600 text-xs">{signups.length} total (last 20) · refreshes every 60s</p>
+      </div>
+
+      {/* Filter row */}
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-4">
+        {filterTabs.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setFilter(id)}
+            className={`shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+              filter === id
+                ? "bg-orange-500 text-white"
+                : "bg-[#1A1A1A] border border-[#2a2a2a] text-gray-400"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Cards */}
+      {filtered.length === 0 ? (
+        <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-6 text-gray-600 text-sm text-center">
+          {filter === "not_contacted" ? "All signups have been contacted." : "No signups match this filter."}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filtered.map((s) => {
+            const contacted = !!s.contactedAt;
+            const days = daysSince(s.joinedAt);
+            return (
+              <div
+                key={s.id}
+                className={`border rounded-xl px-5 py-4 transition-colors ${
+                  contacted
+                    ? "bg-green-500/5 border-green-500/20"
+                    : "bg-[#1A1A1A] border-[#2a2a2a]"
+                }`}
+              >
+                {/* Top row */}
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="min-w-0">
+                    <p className="text-white font-bold text-base leading-snug truncate">
+                      {s.name || s.email.split("@")[0]}
+                    </p>
+                    {s.businessName && (
+                      <p className="text-orange-400 text-xs font-semibold mt-0.5">{s.businessName}</p>
+                    )}
+                  </div>
+                  <StatusBadge status={s.status} daysLeft={s.trialDaysLeft} />
+                </div>
+
+                {/* Meta */}
+                <p className="text-gray-400 text-xs font-mono mb-0.5">{s.email}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-3">
+                  {s.location && <span className="text-gray-500 text-xs">{s.location}</span>}
+                  <span className="text-gray-600 text-xs">{fmtSignupTime(s.joinedAt)}</span>
+                  <span className="text-gray-600 text-xs">
+                    {days === 0 ? "Signed up today" : days === 1 ? "Signed up yesterday" : `Signed up ${days} days ago`}
+                  </span>
+                  <span className="text-gray-600 text-xs">Trial — {s.trialsCompletedJobs} of 3 jobs</span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => copyEmail(s.email)}
+                    className="bg-[#242424] border border-[#333] text-gray-300 font-semibold text-xs px-3 py-2 rounded-lg active:scale-95 transition-transform"
+                  >
+                    {copied === s.email ? "Copied!" : "Copy Email"}
+                  </button>
+                  <a
+                    href={smsLink(s.name || s.email.split("@")[0])}
+                    className="bg-[#242424] border border-[#333] text-gray-300 font-semibold text-xs px-3 py-2 rounded-lg active:scale-95 transition-transform"
+                  >
+                    Send Welcome Text
+                  </a>
+                  {!contacted ? (
+                    <button
+                      onClick={() => handleContact(s)}
+                      disabled={contacting === s.id}
+                      className="bg-green-500/15 border border-green-500/30 text-green-400 font-semibold text-xs px-3 py-2 rounded-lg active:scale-95 transition-transform disabled:opacity-50"
+                    >
+                      {contacting === s.id ? "Saving…" : "Mark as Contacted"}
+                    </button>
+                  ) : (
+                    <span className="text-green-400 text-xs font-semibold py-2 px-1">
+                      ✓ Contacted {s.contactedAt ? fmtDate(s.contactedAt) : ""}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -129,6 +328,7 @@ interface Props {
   activeTrials: number;
   churned: number;
   users: HQUser[];
+  signups: SignupRow[];
   weeklySignups: WeeklyBucket[];
   features: FeatureRow[];
   referralStats: ReferralStats;
@@ -144,6 +344,7 @@ export default function HQDashboard({
   activeTrials,
   churned,
   users,
+  signups,
   weeklySignups,
   features,
   referralStats,
@@ -215,8 +416,6 @@ export default function HQDashboard({
   const maxWeekly = Math.max(...weeklySignups.map((w) => w.count), 1);
   const maxFeaturePct = Math.max(...features.map((f) => f.pct), 1);
 
-  const recentSignups = users.slice(0, 10);
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white px-4 py-8 pb-16">
@@ -247,6 +446,9 @@ export default function HQDashboard({
             </p>
           </div>
         </div>
+
+        {/* ── Section 0: Recent Signups + Outreach ── */}
+        <RecentSignupsSection initialSignups={signups} />
 
         {/* ── Section 1: Stat cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -460,37 +662,6 @@ export default function HQDashboard({
           </div>
         </div>
 
-        {/* ── Section 4: Recent signups ── */}
-        <div className="mb-8">
-          <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
-            Recent Signups
-          </p>
-          <div className="flex flex-col gap-2">
-            {recentSignups.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 text-gray-600 text-sm">
-                No signups yet.
-              </div>
-            ) : (
-              recentSignups.map((u) => (
-                <div
-                  key={u.id}
-                  className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 flex items-center justify-between gap-4"
-                >
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">
-                      {u.email}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      {u.businessName ? `${u.businessName} · ` : ""}
-                      Joined {fmtRelative(u.joinedAt)}
-                    </p>
-                  </div>
-                  <StatusBadge status={u.status} daysLeft={u.trialDaysLeft} />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
 
         {/* ── Section 5: Quick actions ── */}
         <div className="mb-8">

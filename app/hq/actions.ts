@@ -38,6 +38,23 @@ export async function grantLifetimeAccess(
   }
 }
 
+export async function markAsContacted(
+  targetUserId: string
+): Promise<{ ok?: true; error?: string }> {
+  try {
+    await assertAdmin();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("profiles")
+      .update({ contacted_at: new Date().toISOString() })
+      .eq("id", targetUserId);
+    if (error) return { error: error.message };
+    return { ok: true };
+  } catch {
+    return { error: "Unauthorized" };
+  }
+}
+
 export async function sendTestPush(
   userId: string
 ): Promise<{ ok?: true; error?: string }> {

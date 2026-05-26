@@ -1,7 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPushToUser } from "@/lib/push";
 import { cookies } from "next/headers";
+
+const ADMIN_EMAIL = "gabew595@gmail.com";
 
 export async function completeOnboarding(): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -30,5 +34,37 @@ export async function completeOnboarding(): Promise<{ error?: string }> {
     .update(updateData)
     .eq("id", user.id);
 
-  return error ? { error: error.message } : {};
+  if (error) return { error: error.message };
+
+  // Fire-and-forget: notify admin of new signup
+  notifyAdminOfSignup(user.id).catch(() => {});
+
+  return {};
+}
+
+async function notifyAdminOfSignup(newUserId: string) {
+  try {
+    const admin = createAdminClient();
+
+    // Get business name for the notification body
+    const { data: bp } = await admin
+      .from("business_profiles")
+      .select("business_name")
+      .eq("user_id", newUserId)
+      .maybeSingle();
+
+    // Find admin user ID
+    const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const adminUser = authData?.users.find((u) => u.email === ADMIN_EMAIL);
+    if (!adminUser) return;
+
+    const businessName = bp?.business_name ?? "a new contractor";
+    await sendPushToUser(adminUser.id, {
+      title: "New signup",
+      body: `${businessName} just joined Sightline`,
+      url: "/hq",
+    });
+  } catch {
+    // Never surface push errors to the user
+  }
 }

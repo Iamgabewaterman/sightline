@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
 
   // ── HQ admin route — only gabew595@gmail.com ────────────────────────────
   if (pathname.startsWith("/hq")) {
-    if (!user) return NextResponse.redirect(new URL("/", request.url));
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
     if (user.email !== "gabew595@gmail.com")
       return NextResponse.redirect(new URL("/jobs", request.url));
     return supabaseResponse;
