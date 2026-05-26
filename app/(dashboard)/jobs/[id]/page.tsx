@@ -310,7 +310,7 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 6 — Punch List & Photo Notes */}
+          {/* 4 — Punch List */}
           <CollapsibleSection
             title="Punch List"
             count={(punchListItems ?? []).length}
@@ -322,19 +322,7 @@ export default async function JobDetailPage({
             />
           </CollapsibleSection>
 
-          {/* 6b — Client Messages */}
-          <CollapsibleSection
-            title="Messages"
-            count={jobMessages.length}
-            accentCount={unreadMessageCount}
-          >
-            <JobMessageThread
-              initialMessages={jobMessages}
-              jobId={job.id}
-            />
-          </CollapsibleSection>
-
-          {/* 7 — Materials */}
+          {/* 5 — Materials */}
           <CollapsibleSection
             title="Materials"
             count={(materials ?? []).length}
@@ -378,7 +366,7 @@ export default async function JobDetailPage({
             </div>
           </CollapsibleSection>
 
-          {/* 10 — Photos */}
+          {/* 9 — Photos */}
           <CollapsibleSection
             title="Photos"
             count={(photos ?? []).length}
@@ -391,6 +379,18 @@ export default async function JobDetailPage({
               clientName={jobClient?.name ?? null}
               initialPhotos={photos ?? []}
               documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
+            />
+          </CollapsibleSection>
+
+          {/* 10 — Client Messages */}
+          <CollapsibleSection
+            title="Messages"
+            count={jobMessages.length}
+            accentCount={unreadMessageCount}
+          >
+            <JobMessageThread
+              initialMessages={jobMessages}
+              jobId={job.id}
             />
           </CollapsibleSection>
 

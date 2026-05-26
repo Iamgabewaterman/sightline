@@ -18,7 +18,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "mileage",    label: "Mileage" },
   { id: "receipts",   label: "Receipts" },
   { id: "insights",   label: "Insights" },
-  { id: "import",     label: "Import" },
+  { id: "import",     label: "MegaPort" },
 ];
 
 const TYPE_LABELS: Record<string, string> = {
