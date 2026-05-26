@@ -8,7 +8,6 @@ import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
 import { HistoricalCostRange } from "@/lib/insights";
 import { useJobCost } from "@/components/JobCostContext";
 import { useRole } from "@/hooks/useRole";
-import ChangeOrdersSection from "./ChangeOrdersSection";
 import LineItemBuilder, { LineItemRow, newLineItemRow, rowsToLineItems } from "@/components/LineItemBuilder";
 import { upsertLineItemLabels } from "@/app/actions/line-items";
 
@@ -989,9 +988,6 @@ export default function QuoteProfitSection({
                   </div>
                 )}
               </div>
-
-              {/* ── Change Orders ── */}
-              <ChangeOrdersSection jobId={job.id} />
 
               {/* ── Quote Display Settings ── */}
               <div className="mb-6">
