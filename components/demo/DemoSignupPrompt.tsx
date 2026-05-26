@@ -35,7 +35,7 @@ export default function DemoSignupPrompt({ children, label }: Props) {
               {label ?? "Track your own jobs"}
             </p>
             <p className="text-gray-400 text-sm mb-6">
-              Start your 30-day free trial — no credit card required.
+              Start your free trial — first 3 jobs free, no credit card required.
             </p>
             <Link
               href="/signup"

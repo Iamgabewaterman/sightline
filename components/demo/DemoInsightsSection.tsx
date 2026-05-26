@@ -1,7 +1,7 @@
 "use client";
 
-const MONTHS = ["Feb", "Mar", "Apr"];
-const MAT_COSTS = [8200, 12400, 6800];
+const MONTHS = ["Mar", "Apr", "May"];
+const MAT_COSTS = [8400, 12100, 6800];
 const maxCost = Math.max(...MAT_COSTS);
 
 export default function DemoInsightsSection() {
@@ -13,11 +13,14 @@ export default function DemoInsightsSection() {
       </div>
 
       {/* Alert */}
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-4 mb-5 flex items-start gap-3">
-        <span className="text-red-400 text-xl shrink-0">⚠️</span>
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4 mb-5 flex items-start gap-3">
+        <span className="text-yellow-400 text-xl shrink-0">⚠️</span>
         <div>
-          <p className="text-red-400 font-bold text-sm">Active Alert</p>
-          <p className="text-gray-300 text-sm mt-0.5">Walker Residence is trending <span className="text-red-400 font-bold">15% over</span> labor budget. 38 hrs logged vs. 33 hrs estimated.</p>
+          <p className="text-yellow-400 font-bold text-sm">Margin Alert</p>
+          <p className="text-gray-300 text-sm mt-0.5">
+            Riverside Bathroom Remodel labor is{" "}
+            <span className="text-yellow-400 font-bold">12% over estimate</span>. 32 hrs logged vs. 21 hrs estimated at quote.
+          </p>
         </div>
       </div>
 
@@ -25,19 +28,19 @@ export default function DemoInsightsSection() {
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
           <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Avg Margin</p>
-          <p className="text-white font-black text-3xl">24%</p>
-          <p className="text-green-400 text-xs mt-1">Across 3 active jobs</p>
+          <p className="text-white font-black text-3xl">21.7%</p>
+          <p className="text-green-400 text-xs mt-1">Across 3 jobs</p>
         </div>
         <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4">
-          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Top Job Type</p>
-          <p className="text-white font-bold text-base leading-tight mt-1">Fire & Flood Restoration</p>
-          <p className="text-orange-400 text-xs mt-1">30% avg margin</p>
+          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Most Profitable</p>
+          <p className="text-white font-bold text-base leading-tight mt-1">Sellwood Deck</p>
+          <p className="text-orange-400 text-xs mt-1">24% margin</p>
         </div>
       </div>
 
-      {/* Materials trend chart */}
+      {/* Revenue chart */}
       <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-5 mb-5">
-        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-4">Materials Cost — Last 3 Months</p>
+        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-4">Revenue — Last 3 Months</p>
         <div className="flex items-end gap-4" style={{ height: "96px" }}>
           {MONTHS.map((month, i) => {
             const barH = Math.round((MAT_COSTS[i] / maxCost) * 80);
@@ -65,22 +68,22 @@ export default function DemoInsightsSection() {
           <p className="text-white font-semibold text-sm">Job Profitability</p>
         </div>
         {[
-          { name: "Martinez Restoration", margin: 24, type: "Fire & Flood", status: "Active" },
-          { name: "Thompson Deck", margin: 26, type: "Decks & Patios", status: "Active" },
-          { name: "Chen Bath Remodel", margin: 30, type: "Tile & Plumbing", status: "Completed" },
+          { name: "Sellwood Deck Build", margin: 24, type: "Decks & Patios", status: "Completed" },
+          { name: "Riverside Bathroom Remodel", margin: 22, type: "Tile & Plumbing", status: "Active" },
+          { name: "Hawthorne Kitchen Renovation", margin: 19, type: "Framing & Flooring", status: "Active" },
         ].map((job) => (
           <div key={job.name} className="px-4 py-3 border-b border-[#1e1e1e] last:border-0">
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-gray-200 text-sm font-semibold truncate flex-1">{job.name}</p>
               <span className={`text-xs font-bold ml-3 shrink-0 ${
-                job.margin >= 28 ? "text-green-400" : "text-orange-400"
+                job.margin >= 23 ? "text-green-400" : "text-orange-400"
               }`}>{job.margin}%</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${job.margin >= 28 ? "bg-green-500" : "bg-orange-500"}`}
-                  style={{ width: `${(job.margin / 45) * 100}%` }}
+                  className={`h-full rounded-full ${job.margin >= 23 ? "bg-green-500" : "bg-orange-500"}`}
+                  style={{ width: `${(job.margin / 35) * 100}%` }}
                 />
               </div>
               <span className="text-gray-600 text-xs shrink-0">{job.type}</span>

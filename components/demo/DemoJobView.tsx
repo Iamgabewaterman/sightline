@@ -54,9 +54,7 @@ export default function DemoJobView({ job }: { job: DemoJob }) {
     return s + qty * (m.unit_cost ?? 0);
   }, 0);
   const laborActual = job.labor.reduce((s, l) => s + l.hours * l.rate, 0);
-  const subsActual  = job.subcontractors.reduce((s, sub) => {
-    return s + (sub.invoice_received && sub.invoice_amount != null ? sub.invoice_amount : sub.quoted_amount);
-  }, 0);
+  const subsActual  = 0;
   const totalActual = materialActual + laborActual + subsActual;
 
   const addonsTotal = job.quote.addons.reduce((s, a) => s + a.amount, 0);
@@ -329,7 +327,6 @@ export default function DemoJobView({ job }: { job: DemoJob }) {
                 Payment recorded {job.invoice.paid_at}
               </p>
             )}
-            <p className="text-gray-500 text-sm">{job.invoice.notes}</p>
           </Card>
         )}
 
@@ -413,12 +410,6 @@ export default function DemoJobView({ job }: { job: DemoJob }) {
                   <span className="text-white font-semibold text-sm">{job.completed_date}</span>
                 </div>
               )}
-              {job.status === "completed" && job.total_days !== null && (
-                <div className="flex justify-between items-center pt-1 border-t border-[#2a2a2a]">
-                  <span className="text-gray-400 text-sm">Total working days</span>
-                  <span className="text-green-400 font-bold text-sm">{job.total_days} days</span>
-                </div>
-              )}
             </div>
             <DemoWriteGuard>
               <button className="mt-3 w-full bg-[#242424] border border-[#333] text-gray-400 font-semibold text-sm py-3 rounded-xl">
@@ -428,29 +419,6 @@ export default function DemoJobView({ job }: { job: DemoJob }) {
           </Card>
         )}
 
-        {/* ── Dimensions ──────────────────────────────────────────────────── */}
-        {job.dimensions && (
-          <Card className="px-5 py-4 mb-4">
-            <SectionLabel>Dimensions</SectionLabel>
-            <div className="flex gap-3 mt-3">
-              <div className="flex-1 bg-[#242424] rounded-xl px-4 py-3 text-center">
-                <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Length</p>
-                <p className="text-white font-bold">{job.dimensions.length_ft}ft</p>
-              </div>
-              <div className="flex-1 bg-[#242424] rounded-xl px-4 py-3 text-center">
-                <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Width</p>
-                <p className="text-white font-bold">{job.dimensions.width_ft}ft</p>
-              </div>
-              <div className="flex-1 bg-[#242424] rounded-xl px-4 py-3 text-center">
-                <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Sq Ft</p>
-                <p className="text-orange-500 font-bold">{job.dimensions.sqft.toLocaleString()}</p>
-              </div>
-            </div>
-            <DemoWriteGuard>
-              <button className="mt-3 w-full bg-[#242424] border border-[#333] text-gray-500 text-sm py-3 rounded-xl border-dashed">Edit Dimensions</button>
-            </DemoWriteGuard>
-          </Card>
-        )}
 
         {/* ── Materials ───────────────────────────────────────────────────── */}
         <div className="mt-6 mb-6">
@@ -527,50 +495,6 @@ export default function DemoJobView({ job }: { job: DemoJob }) {
           </div>
         </div>
 
-        {/* ── Subcontractors ──────────────────────────────────────────────── */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-bold text-xl">Subcontractors</h2>
-            <div className="flex items-center gap-2">
-              {subsActual > 0 && <span className="text-orange-500 font-bold text-base">{fmtInt(subsActual)}</span>}
-              <DemoWriteGuard>
-                <button className="text-white font-semibold text-sm bg-[#1A1A1A] border border-[#2a2a2a] px-4 py-3 rounded-xl">+ Add</button>
-              </DemoWriteGuard>
-            </div>
-          </div>
-          {job.subcontractors.length === 0 ? (
-            <Card className="py-10 text-center">
-              <p className="text-gray-500 text-sm">No subcontractors logged</p>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {job.subcontractors.map((sub) => {
-                const amount = sub.invoice_received && sub.invoice_amount != null ? sub.invoice_amount : sub.quoted_amount;
-                const badge = sub.paid
-                  ? { label: "Paid",     cls: "bg-green-900/40 text-green-400 border-green-800" }
-                  : sub.invoice_received
-                  ? { label: "Invoiced", cls: "bg-yellow-900/40 text-yellow-400 border-yellow-800" }
-                  : { label: "Pending",  cls: "bg-[#2a2a2a] text-gray-400 border-[#3a3a3a]" };
-                return (
-                  <Card key={sub.id} className="px-4 py-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <p className="text-white font-semibold">{sub.company_name}</p>
-                        <p className="text-orange-400 text-xs mt-0.5">{sub.trade}</p>
-                      </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${badge.cls} shrink-0`}>{badge.label}</span>
-                    </div>
-                    <p className="text-gray-400 text-sm mb-3">{sub.scope_description}</p>
-                    <div className="flex justify-between text-sm border-t border-[#242424] pt-2">
-                      <span className="text-gray-500">{sub.invoice_received ? "Invoice amount" : "Quoted amount"}</span>
-                      <span className="text-white font-bold">{fmtInt(amount)}</span>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
         {/* ── Receipts ────────────────────────────────────────────────────── */}
         <div className="mb-6">

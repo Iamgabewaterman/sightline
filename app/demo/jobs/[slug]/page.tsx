@@ -4,9 +4,9 @@ import DemoJobView from "@/components/demo/DemoJobView";
 
 export function generateStaticParams() {
   return [
-    { slug: "martinez-restoration" },
-    { slug: "thompson-deck" },
-    { slug: "chen-bath" },
+    { slug: "riverside-bath" },
+    { slug: "hawthorne-kitchen" },
+    { slug: "sellwood-deck" },
   ];
 }
 

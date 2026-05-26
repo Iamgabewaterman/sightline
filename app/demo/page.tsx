@@ -2,13 +2,14 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { DEMO_JOBS } from "./_data";
+import { DEMO_JOBS, DEMO_CONTRACTOR, DemoJob, DemoMaterial, DemoLabor, calcDemoProfitability } from "./_data";
 import DemoCalculatorSection from "@/components/demo/DemoCalculatorSection";
 import DemoMileageSection from "@/components/demo/DemoMileageSection";
 import DemoReceiptsSection from "@/components/demo/DemoReceiptsSection";
 import DemoInsightsSection from "@/components/demo/DemoInsightsSection";
 import DemoImportSection from "@/components/demo/DemoImportSection";
 import DemoSignupPrompt from "@/components/demo/DemoSignupPrompt";
+import DemoJobDetail from "@/components/demo/DemoJobDetail";
 
 type Section = "jobs" | "calculator" | "mileage" | "receipts" | "insights" | "import";
 
@@ -30,23 +31,54 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function DemoPage() {
   const [active, setActive] = useState<Section>("jobs");
+  const [jobs, setJobs] = useState<DemoJob[]>(DEMO_JOBS);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
-  const activeCount  = DEMO_JOBS.filter((j) => j.status === "active").length;
-  const totalQuoted  = DEMO_JOBS.reduce((s, j) => s + j.quote.final_quote + j.quote.addons.reduce((a, b) => a + b.amount, 0), 0);
-  const paidTotal    = DEMO_JOBS.reduce((s, j) => s + (j.invoice?.status === "paid" ? j.invoice.amount : 0), 0);
+  const activeCount = jobs.filter((j) => j.status === "active").length;
+  const totalQuoted = jobs.reduce((s, j) => s + j.quote.final_quote + j.quote.addons.reduce((a, b) => a + b.amount, 0), 0);
+  const paidTotal   = jobs.reduce((s, j) => s + (j.invoice?.status === "paid" ? j.invoice.amount : 0), 0);
 
   function switchTab(id: Section) {
     setActive(id);
+    setSelectedSlug(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function handleMaterialAdded(slug: string, m: DemoMaterial) {
+    setJobs((prev) =>
+      prev.map((j) => j.slug === slug ? { ...j, materials: [...j.materials, m] } : j)
+    );
+  }
+
+  function handleLaborAdded(slug: string, l: DemoLabor) {
+    setJobs((prev) =>
+      prev.map((j) => j.slug === slug ? { ...j, labor: [...j.labor, l] } : j)
+    );
+  }
+
+  const selectedJob = selectedSlug ? (jobs.find((j) => j.slug === selectedSlug) ?? null) : null;
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] pb-20">
-      {/* Sticky tab bar */}
+
+      {/* Sticky orange demo banner */}
+      <div className="sticky top-[52px] z-50 bg-orange-500 flex items-center justify-between px-4 py-2.5 gap-3">
+        <p className="text-white text-xs font-semibold leading-tight">
+          You are exploring a live demo — sign up free to run your own jobs
+        </p>
+        <Link
+          href="/signup"
+          className="shrink-0 bg-white text-orange-600 font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap active:scale-95 transition-transform"
+        >
+          Start Free Trial
+        </Link>
+      </div>
+
+      {/* Sticky tab bar — sits below nav (52px) + banner (~44px) */}
       <div
         ref={tabBarRef}
-        className="sticky top-[52px] z-40 bg-[#0F0F0F] border-b border-[#1e1e1e] overflow-x-auto"
+        className="sticky top-[96px] z-40 bg-[#0F0F0F] border-b border-[#1e1e1e] overflow-x-auto"
       >
         <div className="flex gap-0 min-w-max px-4 max-w-lg mx-auto">
           {SECTIONS.map(({ id, label }) => (
@@ -67,12 +99,22 @@ export default function DemoPage() {
 
       <div className="max-w-lg mx-auto px-4 pt-6">
 
-        {/* ── JOBS ───────────────────────────────────────────────────────────── */}
-        {active === "jobs" && (
+        {/* ── JOB DETAIL (in-page) ────────────────────────────────────────── */}
+        {active === "jobs" && selectedJob && (
+          <DemoJobDetail
+            job={selectedJob}
+            onBack={() => setSelectedSlug(null)}
+            onMaterialAdded={(m) => handleMaterialAdded(selectedJob.slug, m)}
+            onLaborAdded={(l) => handleLaborAdded(selectedJob.slug, l)}
+          />
+        )}
+
+        {/* ── JOBS LIST ───────────────────────────────────────────────────── */}
+        {active === "jobs" && !selectedJob && (
           <>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-1">Demo Account</p>
+                <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-1">{DEMO_CONTRACTOR.name}</p>
                 <h1 className="text-3xl font-bold text-white">Dashboard</h1>
               </div>
               <DemoSignupPrompt label="Create your first job">
@@ -101,16 +143,30 @@ export default function DemoPage() {
             {/* Job list */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-white font-bold text-lg">Recent Jobs</h2>
-              <span className="text-gray-600 text-sm">3 jobs</span>
+              <span className="text-gray-600 text-sm">{jobs.length} jobs</span>
             </div>
+
             <div className="flex flex-col gap-3 mb-10">
-              {DEMO_JOBS.map((job) => {
-                const quoteTotal = job.quote.final_quote + job.quote.addons.reduce((s, a) => s + a.amount, 0);
+              {jobs.map((job) => {
+                const prof = calcDemoProfitability(job);
+                const barColor =
+                  prof.status === "over_budget" ? "bg-red-500"
+                  : prof.status === "eating_margin" ? "bg-yellow-500"
+                  : "bg-green-500";
+                const barLabelColor =
+                  prof.status === "over_budget" ? "text-red-400"
+                  : prof.status === "eating_margin" ? "text-yellow-400"
+                  : "text-green-400";
+                const barLabelText =
+                  prof.status === "over_budget" ? "Over budget"
+                  : prof.status === "eating_margin" ? "Eating margin"
+                  : "On track";
+
                 return (
-                  <Link
+                  <button
                     key={job.slug}
-                    href={`/demo/jobs/${job.slug}`}
-                    className="block bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 active:scale-95 transition-transform"
+                    onClick={() => setSelectedSlug(job.slug)}
+                    className="block w-full text-left bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-5 active:scale-95 transition-transform"
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <h3 className="text-white font-bold text-lg leading-tight">{job.name}</h3>
@@ -127,12 +183,29 @@ export default function DemoPage() {
                         </span>
                       ))}
                     </div>
-                    <p className="text-gray-400 text-sm mb-2">{job.address}</p>
+                    <p className="text-gray-400 text-sm mb-3">{job.address}</p>
+
+                    {/* Profitability bar */}
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-gray-500 text-xs">
+                          ${(prof.totalActual / 1000).toFixed(1)}k of ${(prof.totalQuote / 1000).toFixed(1)}k
+                        </span>
+                        <span className={`text-xs font-bold ${barLabelColor}`}>{barLabelText}</span>
+                      </div>
+                      <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${barColor}`}
+                          style={{ width: `${prof.fillPct}%` }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between pt-2 border-t border-[#242424]">
                       <span className="text-gray-500 text-xs">Created {job.created_at}</span>
-                      <span className="text-orange-500 font-bold text-sm">${(quoteTotal / 1000).toFixed(1)}k quote</span>
+                      <span className="text-orange-500 font-bold text-sm">${(prof.totalQuote / 1000).toFixed(1)}k quote</span>
                     </div>
-                  </Link>
+                  </button>
                 );
               })}
             </div>
@@ -162,31 +235,31 @@ export default function DemoPage() {
               <Link href="/signup" className="inline-block bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-xl active:scale-95 transition-transform">
                 Start Free Trial →
               </Link>
-              <p className="text-gray-600 text-xs mt-4">No credit card required · 30-day free trial</p>
+              <p className="text-gray-600 text-xs mt-4">First 3 jobs free — no credit card required</p>
             </div>
           </>
         )}
 
-        {/* ── CALCULATOR ─────────────────────────────────────────────────────── */}
+        {/* ── CALCULATOR ──────────────────────────────────────────────────── */}
         {active === "calculator" && <DemoCalculatorSection />}
 
-        {/* ── MILEAGE ────────────────────────────────────────────────────────── */}
+        {/* ── MILEAGE ─────────────────────────────────────────────────────── */}
         {active === "mileage" && <DemoMileageSection />}
 
-        {/* ── RECEIPTS ───────────────────────────────────────────────────────── */}
+        {/* ── RECEIPTS ────────────────────────────────────────────────────── */}
         {active === "receipts" && <DemoReceiptsSection />}
 
-        {/* ── INSIGHTS ───────────────────────────────────────────────────────── */}
+        {/* ── INSIGHTS ────────────────────────────────────────────────────── */}
         {active === "insights" && <DemoInsightsSection />}
 
-        {/* ── IMPORT ─────────────────────────────────────────────────────────── */}
+        {/* ── MEGAPORT ────────────────────────────────────────────────────── */}
         {active === "import" && <DemoImportSection />}
 
         {/* Bottom CTA on non-jobs sections */}
         {active !== "jobs" && (
           <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-6 py-7 text-center mt-6">
             <p className="text-white font-bold text-lg mb-1">Ready to use this for real?</p>
-            <p className="text-gray-400 text-sm mb-5">30-day free trial — no credit card required.</p>
+            <p className="text-gray-400 text-sm mb-5">First 3 jobs free — no credit card required.</p>
             <Link href="/signup" className="inline-block bg-orange-500 text-white font-bold text-base px-8 py-4 rounded-xl active:scale-95 transition-transform">
               Start Free Trial →
             </Link>
