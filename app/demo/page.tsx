@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { DEMO_JOBS, DEMO_CONTRACTOR, DemoJob, DemoMaterial, DemoLabor, calcDemoProfitability } from "./_data";
 import DemoCalculatorSection from "@/components/demo/DemoCalculatorSection";
@@ -35,6 +35,14 @@ export default function DemoPage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
 
+  const [showFloatingCta, setShowFloatingCta] = useState(false);
+  const [ctaDismissed, setCtaDismissed] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => { if (!ctaDismissed) setShowFloatingCta(true); }, 30000);
+    return () => clearTimeout(t);
+  }, [ctaDismissed]);
+
   const activeCount = jobs.filter((j) => j.status === "active").length;
   const totalQuoted = jobs.reduce((s, j) => s + j.quote.final_quote + j.quote.addons.reduce((a, b) => a + b.amount, 0), 0);
   const paidTotal   = jobs.reduce((s, j) => s + (j.invoice?.status === "paid" ? j.invoice.amount : 0), 0);
@@ -61,6 +69,22 @@ export default function DemoPage() {
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] pb-20">
+
+      {/* Floating "Try it free" CTA — appears after 30 seconds */}
+      {showFloatingCta && !ctaDismissed && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-orange-500 text-white px-5 py-3 rounded-2xl shadow-2xl">
+          <Link href="/signup" className="font-bold text-sm whitespace-nowrap">
+            Try it free →
+          </Link>
+          <button
+            onClick={() => { setShowFloatingCta(false); setCtaDismissed(true); }}
+            className="text-orange-200 text-lg leading-none ml-1"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Sticky orange demo banner */}
       <div className="sticky top-[52px] z-50 bg-orange-500 flex items-center justify-between px-4 py-2.5 gap-3">
@@ -208,6 +232,31 @@ export default function DemoPage() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* AI Visual Estimator spotlight card */}
+            <div
+              className="rounded-2xl px-6 py-6 mb-6 relative overflow-hidden"
+              style={{
+                background: "linear-gradient(135deg, #1a0a00 0%, #2d1500 40%, #0F0F0F 100%)",
+                border: "1px solid rgba(249,115,22,0.3)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full">
+                  AI Powered
+                </span>
+              </div>
+              <h3 className="text-white font-black text-xl leading-tight mb-2">Visual Estimator</h3>
+              <p className="text-gray-400 text-sm leading-relaxed mb-5">
+                Snap a photo of any job site. Describe the scope. Get a complete materials list with quantities and costs — in seconds.
+              </p>
+              <DemoSignupPrompt label="Try AI Visual Estimator">
+                <div className="inline-flex items-center gap-2 bg-orange-500 text-white font-bold text-sm px-5 py-3 rounded-xl active:scale-95 transition-transform">
+                  <span>Try it free</span>
+                  <span>→</span>
+                </div>
+              </DemoSignupPrompt>
             </div>
 
             {/* Feature nav prompts */}

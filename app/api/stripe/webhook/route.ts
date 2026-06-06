@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
             await sendPushToUser(job.user_id, {
               title: "Milestone Paid",
               body: `${clientName} paid ${ms?.label ?? "milestone"} on ${invNum} — $${amt}`,
-              url: `/jobs`,
+              url: `/jobs/${inv.job_id}`,
             });
 
             // Confirmation email to client
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
             await sendPushToUser(job.user_id, {
               title: "Invoice Paid",
               body: `${clientName} paid ${invNum} — $${amount}`,
-              url: `/jobs`,
+              url: `/jobs/${inv.job_id}`,
             });
 
             // Confirmation email to client

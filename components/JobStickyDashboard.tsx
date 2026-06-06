@@ -30,7 +30,7 @@ export default function JobStickyDashboard() {
   const qAddonsTotal = qd ? qd.addons.reduce((s, a) => s + a.amount, 0) : 0;
   const changeOrdersTotal = changeOrders.reduce((s, o) => s + Number(o.amount), 0);
   const totalQuote = qd ? qd.finalQuote + qAddonsTotal + changeOrdersTotal : 0;
-  const totalActual = actualMaterialCost + actualLaborCost + actualSubCost;
+  const totalActual = actualMaterialCost + actualLaborCost + actualSubCost + actualReceiptTotal;
   const matZonePct = qd && totalQuote > 0 ? (qd.materialBudget / totalQuote) * 100 : 0;
   const labZonePct = qd && totalQuote > 0 ? (qd.laborBudget / totalQuote) * 100 : 0;
   const fillPct = qd && totalQuote > 0 ? Math.min((totalActual / totalQuote) * 100, 100) : 0;
