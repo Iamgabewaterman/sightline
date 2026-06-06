@@ -27,6 +27,7 @@ import PerfMark from "@/components/PerfMark";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import JobOverviewCard from "@/components/JobOverviewCard";
 import DeleteJobButton from "@/components/DeleteJobButton";
+import GettingStartedHint from "@/components/GettingStartedHint";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -254,6 +255,11 @@ export default async function JobDetailPage({
             Edit
           </Link>
         </div>
+
+        {/* Getting started hint — visible on fresh jobs with no logged data */}
+        {(materials ?? []).length === 0 && (receipts ?? []).length === 0 && (laborLogs ?? []).length === 0 && (
+          <GettingStartedHint jobId={job.id} />
+        )}
 
         <JobCostProvider
           initialMaterialCost={initialMaterialCost}

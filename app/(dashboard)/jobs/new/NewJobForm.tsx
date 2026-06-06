@@ -43,6 +43,7 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
   const [clientId, setClientId]         = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [templateSheetOpen, setTemplateSheetOpen] = useState(false);
+  const [showOptional, setShowOptional] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Custom job types
@@ -188,33 +189,20 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
             onChange={(id) => setClientId(id)}
           />
 
-          {/* Job Name + Job Number */}
-          <div className="flex gap-3 items-end">
-            <div className="flex flex-col gap-2 flex-1">
-              <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                Job Name
-              </label>
-              <input
-                name="name"
-                type="text"
-                required
-                placeholder="e.g. Johnson Kitchen Remodel"
-                autoCapitalize="words"
-                autoCorrect="on"
-                className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-              />
-            </div>
-            <div className="flex flex-col gap-2 w-28">
-              <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                Job #
-              </label>
-              <input
-                name="job_number"
-                type="text"
-                placeholder="Optional"
-                className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-              />
-            </div>
+          {/* Job Name */}
+          <div className="flex flex-col gap-2">
+            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+              Job Name
+            </label>
+            <input
+              name="name"
+              type="text"
+              required
+              placeholder="e.g. Johnson Kitchen Remodel"
+              autoCapitalize="words"
+              autoCorrect="on"
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+            />
           </div>
 
           {/* Job Type — multi-select */}
@@ -291,62 +279,81 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
             )}
           </div>
 
-          {/* Address */}
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-              Address
-            </label>
-            <input
-              name="address"
-              type="text"
-              required
-              placeholder="e.g. 123 Main St, Hillsboro, OR"
-              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
-            />
-          </div>
+          {/* Optional details toggle */}
+          <button
+            type="button"
+            onClick={() => setShowOptional((v) => !v)}
+            className="flex items-center gap-2 text-gray-500 text-sm font-semibold active:text-gray-300 transition-colors self-start"
+          >
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`transition-transform duration-200 ${showOptional ? "rotate-90" : ""}`}
+            >
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+            {showOptional ? "Hide optional details" : "Add address, notes, photos (optional)"}
+          </button>
 
-          {/* Notes */}
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              rows={4}
-              placeholder="Any details, scope of work, client info..."
-              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
-            />
-          </div>
+          {showOptional && (
+            <>
+              {/* Address */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Address <span className="text-gray-600 normal-case font-normal">(optional)</span>
+                </label>
+                <input
+                  name="address"
+                  type="text"
+                  placeholder="e.g. 123 Main St, Hillsboro, OR"
+                  className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
 
-          {/* Photo Upload */}
-          <div className="flex flex-col gap-2">
-            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-              Photos
-            </label>
-            <label className="cursor-pointer bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex items-center justify-center gap-3 active:scale-95 transition-transform">
-              <span className="text-2xl">📷</span>
-              <span className="text-white text-lg font-medium">
-                {photoNames.length > 0
-                  ? `${photoNames.length} photo${photoNames.length > 1 ? "s" : ""} selected`
-                  : "Upload Photos"}
-              </span>
-              <input
-                name="photos"
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handlePhotoChange}
-              />
-            </label>
-            {photoNames.length > 0 && (
-              <ul className="text-gray-500 text-sm pl-1">
-                {photoNames.map((n) => (
-                  <li key={n} className="truncate">• {n}</li>
-                ))}
-              </ul>
-            )}
-          </div>
+              {/* Notes */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Notes <span className="text-gray-600 normal-case font-normal">(optional)</span>
+                </label>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  placeholder="Scope of work, client info, access instructions..."
+                  className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
+                />
+              </div>
+
+              {/* Photo Upload */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Before Photos <span className="text-gray-600 normal-case font-normal">(optional)</span>
+                </label>
+                <label className="cursor-pointer bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 flex items-center justify-center gap-3 active:scale-95 transition-transform">
+                  <span className="text-2xl">📷</span>
+                  <span className="text-white text-lg font-medium">
+                    {photoNames.length > 0
+                      ? `${photoNames.length} photo${photoNames.length > 1 ? "s" : ""} selected`
+                      : "Upload Photos"}
+                  </span>
+                  <input
+                    name="photos"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+                {photoNames.length > 0 && (
+                  <ul className="text-gray-500 text-sm pl-1">
+                    {photoNames.map((n) => (
+                      <li key={n} className="truncate">• {n}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Error */}
           {status === "error" && (
@@ -355,13 +362,13 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
             </p>
           )}
 
-          {/* Submit */}
+          {/* Submit — always visible, no scrolling needed */}
           <button
             type="submit"
             disabled={status === "saving"}
             className="mt-2 bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {status === "saving" ? "Saving..." : "Save Job"}
+            {status === "saving" ? "Creating job…" : "Create Job"}
           </button>
         </form>
       </div>

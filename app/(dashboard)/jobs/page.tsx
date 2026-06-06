@@ -225,6 +225,31 @@ export default async function DashboardPage() {
   const hasMore = allJobs.length > 3;
   const totalUnreadMessages = Object.values(unreadMsgCounts).reduce((s, n) => s + n, 0);
 
+  // ── Zero state — new contractor with no jobs yet ──────────────────────────
+  if (allJobs.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center px-5 pb-20">
+        <div className="w-full max-w-xs text-center">
+          <div className="w-16 h-16 rounded-2xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center mx-auto mb-6">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <h1 className="text-white font-black text-3xl mb-3 leading-tight">Ready when you are.</h1>
+          <p className="text-gray-500 text-base mb-10">
+            Create your first job to start tracking materials, costs, and profit.
+          </p>
+          <Link
+            href="/jobs/new"
+            className="block w-full bg-orange-500 text-white font-bold text-xl py-5 rounded-2xl active:scale-95 transition-transform"
+          >
+            Create Your First Job
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-8 pb-16">
       <div className="max-w-lg mx-auto">
