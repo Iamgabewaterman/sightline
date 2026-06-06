@@ -214,12 +214,69 @@ export async function addMaterial(jobId: string, formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Structured types: deterministic key = composed name lowercased (no fuzzy needed)
-  // Custom types: existing fuzzy normalization
   const normalized_name = material_type_id
     ? name.toLowerCase().trim().replace(/\s+/g, " ")
     : normalizeMaterialName(name);
 
+  // ── Consolidation: check for an existing material on this job ─────────────
+  const { data: existingMats } = await supabase
+    .from("materials")
+    .select("id, normalized_name, quantity_ordered, unit_cost, actual_quantity, actual_total_cost, reorder_count, purchase_history")
+    .eq("job_id", jobId)
+    .not("normalized_name", "is", null);
+
+  const candidates = (existingMats ?? []).map((m) => ({
+    id: m.id as string,
+    normalizedName: m.normalized_name as string,
+  }));
+
+  const matchId = fuzzyFindMatch(normalized_name, candidates, 0.85);
+
+  if (matchId) {
+    const existing = existingMats!.find((m) => m.id === matchId)!;
+    const existingActualQty  = Number(existing.actual_quantity  ?? existing.quantity_ordered ?? 0);
+    const existingActualCost = Number(existing.actual_total_cost ?? 0);
+    const existingReorders   = Number(existing.reorder_count ?? 0);
+    const existingHistory    = Array.isArray(existing.purchase_history) ? existing.purchase_history : [];
+
+    const newEntry = {
+      date: new Date().toISOString().slice(0, 10),
+      quantity: quantity_ordered,
+      unit_cost,
+      source: "manual" as const,
+    };
+
+    const updateFields: Record<string, unknown> = {
+      actual_quantity: existingActualQty + quantity_ordered,
+      reorder_count: existingReorders + 1,
+      purchase_history: [...existingHistory, newEntry],
+    };
+
+    if (unit_cost !== null) {
+      updateFields.actual_total_cost = existingActualCost + quantity_ordered * unit_cost;
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("materials")
+      .update(updateFields)
+      .eq("id", matchId)
+      .select()
+      .single();
+
+    if (updateError) return { error: updateError.message };
+
+    if (user) {
+      void writeUserMaterialHistory(supabase, user.id, name, unit, unit_cost, category);
+      if (unit_cost !== null) {
+        void contributeRegionalPrice(supabase, user.id, name, unit_cost, unit, length_ft);
+        checkMaterialsBudget(jobId, user.id);
+      }
+    }
+
+    return { material: updated, priceFlag: null, consolidated: true };
+  }
+
+  // ── New material: insert with baseline + actual fields ─────────────────────
   const { data, error } = await supabase
     .from("materials")
     .insert({
@@ -229,17 +286,18 @@ export async function addMaterial(jobId: string, formData: FormData) {
       brand_name: brand_name || null,
       color_name: color_name || null,
       spec_text: spec_text || null,
+      baseline_quantity: quantity_ordered,
+      baseline_unit_cost: unit_cost,
+      actual_quantity: quantity_ordered,
+      actual_total_cost: unit_cost !== null ? quantity_ordered * unit_cost : null,
+      reorder_count: 0,
+      purchase_history: [],
     })
     .select()
     .single();
 
-  if (error) {
-    return { error: error.message };
-  }
-
-  if (!data) {
-    return { error: "Material was not saved. Please try again." };
-  }
+  if (error) return { error: error.message };
+  if (!data)  return { error: "Material was not saved. Please try again." };
 
   let priceFlag: { changePct: number; avgCost: number } | null = null;
 
@@ -257,7 +315,7 @@ export async function addMaterial(jobId: string, formData: FormData) {
     }
   }
 
-  return { material: data, priceFlag };
+  return { material: data, priceFlag, consolidated: false };
 }
 
 async function checkMaterialsBudget(jobId: string, userId: string) {
@@ -276,10 +334,11 @@ async function checkMaterialsBudget(jobId: string, userId: string) {
 
     const { data: materials } = await supabase
       .from("materials")
-      .select("quantity_ordered, quantity_used, unit_cost")
+      .select("quantity_ordered, quantity_used, unit_cost, actual_total_cost")
       .eq("job_id", jobId);
 
     const spent = (materials ?? []).reduce((sum, m) => {
+      if (m.actual_total_cost != null) return sum + Number(m.actual_total_cost);
       if (m.unit_cost === null) return sum;
       const qty = m.quantity_used ?? m.quantity_ordered;
       return sum + Number(qty) * Number(m.unit_cost);

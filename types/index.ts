@@ -94,6 +94,13 @@ export interface Photo {
   job_number: string | null;
 }
 
+export interface PurchaseHistoryEntry {
+  date: string;
+  quantity: number;
+  unit_cost: number | null;
+  source: "manual" | "receipt" | "import";
+}
+
 export interface Material {
   id: string;
   job_id: string;
@@ -114,6 +121,13 @@ export interface Material {
   color_name?: string | null;
   spec_text?: string | null;
   created_at: string;
+  // Consolidation fields (set on all new rows; backfilled on existing rows)
+  baseline_quantity?: number | null;
+  baseline_unit_cost?: number | null;
+  actual_quantity?: number | null;
+  actual_total_cost?: number | null;
+  reorder_count?: number | null;
+  purchase_history?: PurchaseHistoryEntry[] | null;
 }
 
 export interface MaterialType {

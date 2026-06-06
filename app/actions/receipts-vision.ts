@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { normalize } from "@/lib/receipt-normalizer";
-import { normalizeMaterialName } from "@/lib/material-normalizer";
+import { normalizeMaterialName, fuzzyFindMatch } from "@/lib/material-normalizer";
 import type { ExtractedReceiptItem, ReceiptExtractionResult } from "@/types";
 import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
@@ -328,33 +328,82 @@ export async function confirmReceiptItems(
   }
 
   if (itemsToInsert.length > 0) {
-    const materialRows = itemsToInsert.map((item) => ({
-      job_id: jobId,
-      name: item.normalized_name,
-      unit: item.unit ?? "EA",
-      quantity_ordered: item.qty ?? 1,
-      unit_cost: item.unit_price ?? null,
-      receipt_id: receiptId,
-      normalized_name: normalizeMaterialName(item.normalized_name),
-      notes: item.raw_name !== item.normalized_name
-        ? `Receipt: ${item.raw_name}`
-        : null,
+    // Fetch existing job materials once for consolidation matching
+    const { data: existingMats } = await supabase
+      .from("materials")
+      .select("id, normalized_name, quantity_ordered, unit_cost, actual_quantity, actual_total_cost, reorder_count, purchase_history")
+      .eq("job_id", jobId)
+      .not("normalized_name", "is", null);
+
+    // Mutable candidates list — updated as we consolidate within this batch
+    const candidates = (existingMats ?? []).map((m) => ({
+      id: m.id as string,
+      normalizedName: m.normalized_name as string,
     }));
 
-    const { error: matError } = await supabase.from("materials").insert(materialRows);
-    if (matError) return { error: matError.message };
+    const toInsert: Record<string, unknown>[] = [];
+    const today = new Date().toISOString().slice(0, 10);
 
     for (const item of itemsToInsert) {
-      void writeUserMaterialHistory(
-        supabase,
-        user.id,
-        item.normalized_name,
-        item.unit ?? "EA",
-        item.unit_price ?? null,
-        "materials",
-      );
+      const normalizedItemName = normalizeMaterialName(item.normalized_name);
+      const qty = item.qty ?? 1;
+      const unitCost = item.unit_price ?? null;
+
+      const matchId = fuzzyFindMatch(normalizedItemName, candidates, 0.85);
+
+      if (matchId) {
+        const existing = (existingMats ?? []).find((m) => m.id === matchId)!;
+        const existingActualQty  = Number(existing.actual_quantity  ?? existing.quantity_ordered ?? 0);
+        const existingActualCost = Number(existing.actual_total_cost ?? 0);
+        const existingReorders   = Number(existing.reorder_count ?? 0);
+        const existingHistory    = Array.isArray(existing.purchase_history) ? existing.purchase_history : [];
+
+        const newEntry = { date: today, quantity: qty, unit_cost: unitCost, source: "receipt" as const };
+        const updateFields: Record<string, unknown> = {
+          actual_quantity: existingActualQty + qty,
+          reorder_count: existingReorders + 1,
+          purchase_history: [...existingHistory, newEntry],
+          receipt_id: receiptId,
+        };
+        if (unitCost !== null) {
+          updateFields.actual_total_cost = existingActualCost + qty * unitCost;
+        }
+
+        await supabase.from("materials").update(updateFields).eq("id", matchId);
+
+        // Update in-memory state so subsequent items in this batch don't re-match this one
+        Object.assign(existing, updateFields);
+      } else {
+        const row = {
+          job_id: jobId,
+          name: item.normalized_name,
+          unit: item.unit ?? "EA",
+          quantity_ordered: qty,
+          unit_cost: unitCost,
+          receipt_id: receiptId,
+          normalized_name: normalizedItemName,
+          notes: item.raw_name !== item.normalized_name ? `Receipt: ${item.raw_name}` : null,
+          baseline_quantity: qty,
+          baseline_unit_cost: unitCost,
+          actual_quantity: qty,
+          actual_total_cost: unitCost !== null ? qty * unitCost : null,
+          reorder_count: 0,
+          purchase_history: [],
+        };
+        toInsert.push(row);
+        // Add to candidates so subsequent items in this batch see it
+        candidates.push({ id: `pending-${toInsert.length}`, normalizedName: normalizedItemName });
+      }
+
+      void writeUserMaterialHistory(supabase, user.id, item.normalized_name, item.unit ?? "EA", unitCost, "materials");
     }
 
+    if (toInsert.length > 0) {
+      const { error: matError } = await supabase.from("materials").insert(toInsert);
+      if (matError) return { error: matError.message };
+    }
+
+    // Price flag check on newly inserted materials
     const { data: newMats } = await supabase
       .from("materials")
       .select("id, normalized_name, unit_cost, job_id")

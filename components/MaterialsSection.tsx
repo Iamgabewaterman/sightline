@@ -5,7 +5,7 @@ import { addMaterial, updateMaterial, deleteMaterial } from "@/app/actions/mater
 import { dismissPriceFlag, getPriceFlagsForJob } from "@/app/actions/price-flags";
 import { similarity } from "@/lib/fuzzy-match";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
-import { Material } from "@/types";
+import { Material, PurchaseHistoryEntry } from "@/types";
 import { useJobCost } from "@/components/JobCostContext";
 import ShoppingListModal from "@/components/ShoppingListModal";
 import JobImportModal from "@/components/JobImportModal";
@@ -154,6 +154,7 @@ function MaterialRow({
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
   const [showReceiptDeleteWarning, setShowReceiptDeleteWarning] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const effectiveLengthFt: number | null =
     lengthPreset === "" ? null
@@ -194,11 +195,27 @@ function MaterialRow({
   }
 
   const totalCost = (() => {
+    if (material.actual_total_cost != null) return Number(material.actual_total_cost);
     const qty  = material.quantity_used ?? material.quantity_ordered;
     const cost = material.unit_cost;
     if (cost == null) return null;
     return Number(qty) * Number(cost);
   })();
+
+  const reorderCount = material.reorder_count ?? 0;
+  const hasConsolidation = material.baseline_quantity != null;
+
+  const costVariancePct = (() => {
+    if (!hasConsolidation) return null;
+    const baselineCost = Number(material.baseline_quantity) * Number(material.baseline_unit_cost ?? 0);
+    if (baselineCost === 0) return null;
+    const actualCost = Number(material.actual_total_cost ?? totalCost ?? 0);
+    return ((actualCost - baselineCost) / baselineCost) * 100;
+  })();
+
+  const purchaseHistory: PurchaseHistoryEntry[] = Array.isArray(material.purchase_history)
+    ? (material.purchase_history as PurchaseHistoryEntry[])
+    : [];
 
   return (
     <div className={nested ? "px-4 py-4" : "bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4"}>
@@ -224,6 +241,15 @@ function MaterialRow({
                 Receipt
               </span>
             )}
+            {reorderCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHistory((s) => !s)}
+                className="inline-flex items-center gap-1 text-orange-400 text-xs font-bold bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 rounded-full active:scale-95 transition-transform"
+              >
+                +{reorderCount} reorder{reorderCount > 1 ? "s" : ""}
+              </button>
+            )}
           </div>
           {material.notes && <p className="text-gray-500 text-sm mt-0.5 italic">{material.notes}</p>}
         </div>
@@ -243,30 +269,62 @@ function MaterialRow({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 text-center">
-        <div className="bg-[#242424] rounded-lg py-2">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Ordered</p>
-          <p className="text-white font-semibold">{material.quantity_ordered}</p>
+      {/* Consolidated baseline / actual / variance display */}
+      {hasConsolidation ? (
+        <div className="bg-[#242424] rounded-xl px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500 text-xs">Baseline</span>
+            <span className="text-gray-400 text-xs">
+              {Number(material.baseline_quantity)} {material.unit}
+              {material.baseline_unit_cost != null && ` @ $${Number(material.baseline_unit_cost).toFixed(2)}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-300 text-xs font-semibold">Actual</span>
+            <span className="text-white text-xs font-semibold">
+              {Number(material.actual_quantity ?? material.quantity_ordered)} {material.unit}
+              {totalCost !== null && ` — $${totalCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+            </span>
+          </div>
+          {costVariancePct !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 text-xs">Variance</span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                costVariancePct > 20  ? "bg-red-500/20 text-red-400" :
+                costVariancePct > 0   ? "bg-yellow-500/20 text-yellow-400" :
+                                        "bg-green-500/20 text-green-400"
+              }`}>
+                {costVariancePct > 0 ? "+" : ""}{costVariancePct.toFixed(0)}%
+              </span>
+            </div>
+          )}
         </div>
-        <div className="bg-[#242424] rounded-lg py-2">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Used</p>
-          <p className={`font-semibold ${material.quantity_used !== null ? "text-white" : "text-gray-600"}`}>
-            {fmt(material.quantity_used)}
-          </p>
+      ) : (
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="bg-[#242424] rounded-lg py-2">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Ordered</p>
+            <p className="text-white font-semibold">{material.quantity_ordered}</p>
+          </div>
+          <div className="bg-[#242424] rounded-lg py-2">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Used</p>
+            <p className={`font-semibold ${material.quantity_used !== null ? "text-white" : "text-gray-600"}`}>
+              {fmt(material.quantity_used)}
+            </p>
+          </div>
+          <div className="bg-[#242424] rounded-lg py-2">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Unit $</p>
+            <p className={`font-semibold ${material.unit_cost !== null ? "text-orange-500" : "text-gray-600"}`}>
+              {fmt(material.unit_cost, "$")}
+            </p>
+          </div>
+          <div className="bg-[#242424] rounded-lg py-2">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total</p>
+            <p className={`font-semibold text-sm ${totalCost !== null ? "text-white" : "text-gray-600"}`}>
+              {totalCost !== null ? `$${totalCost.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+            </p>
+          </div>
         </div>
-        <div className="bg-[#242424] rounded-lg py-2">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Unit $</p>
-          <p className={`font-semibold ${material.unit_cost !== null ? "text-orange-500" : "text-gray-600"}`}>
-            {fmt(material.unit_cost, "$")}
-          </p>
-        </div>
-        <div className="bg-[#242424] rounded-lg py-2">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Total</p>
-          <p className={`font-semibold text-sm ${totalCost !== null ? "text-white" : "text-gray-600"}`}>
-            {totalCost !== null ? `$${totalCost.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
-          </p>
-        </div>
-      </div>
+      )}
 
       {material.length_ft && material.unit_cost && (
         <div className="mt-2">
@@ -346,6 +404,64 @@ function MaterialRow({
                 Delete Material
               </button>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Purchase history bottom sheet */}
+      {showHistory && reorderCount > 0 && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setShowHistory(false)} />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-5"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}
+          >
+            <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-4" />
+            <p className="text-white font-bold text-lg mb-4">{material.name}</p>
+            <div className="flex flex-col divide-y divide-[#2a2a2a]">
+              {material.baseline_quantity != null && (
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-blue-400 text-xs font-bold uppercase tracking-wider">Initial purchase</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Baseline</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white text-sm font-semibold">
+                      {Number(material.baseline_quantity)} {material.unit}
+                    </p>
+                    {material.baseline_unit_cost != null && (
+                      <p className="text-gray-500 text-xs">@ ${Number(material.baseline_unit_cost).toFixed(2)} ea</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {purchaseHistory.map((entry, i) => (
+                <div key={i} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-orange-400 text-xs font-bold uppercase tracking-wider">
+                      Reorder {i + 1}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      {entry.date} · {entry.source}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white text-sm font-semibold">
+                      {entry.quantity} {material.unit}
+                    </p>
+                    {entry.unit_cost != null && (
+                      <p className="text-gray-500 text-xs">@ ${Number(entry.unit_cost).toFixed(2)} ea</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowHistory(false)}
+              className="w-full mt-4 bg-[#1A1A1A] border border-[#2a2a2a] text-gray-400 font-semibold text-base py-4 rounded-xl active:scale-95 transition-transform"
+            >
+              Close
+            </button>
           </div>
         </>
       )}
@@ -438,11 +554,12 @@ function GroupedMaterialCard({
   }
 
   const totalCost = group.materials.reduce((sum, m) => {
+    if (m.actual_total_cost != null) return sum + Number(m.actual_total_cost);
     if (m.unit_cost === null) return sum;
     const qty = m.quantity_used ?? m.quantity_ordered;
     return sum + Number(qty) * Number(m.unit_cost);
   }, 0);
-  const hasCost = group.materials.some((m) => m.unit_cost !== null);
+  const hasCost = group.materials.some((m) => m.unit_cost !== null || m.actual_total_cost != null);
 
   // materials sorted newest-first from DB: baseline = last (oldest), latest = first (newest)
   const baseline = group.materials[group.materials.length - 1];
@@ -537,6 +654,7 @@ export default function MaterialsSection({
 
   useEffect(() => {
     const cost = materials.reduce((sum, m) => {
+      if (m.actual_total_cost != null) return sum + Number(m.actual_total_cost);
       if (m.unit_cost === null) return sum;
       const qty = m.quantity_used ?? m.quantity_ordered;
       return sum + Number(qty) * Number(m.unit_cost);
@@ -610,13 +728,15 @@ export default function MaterialsSection({
       return;
     }
 
-    if (result.material) {
+    // Optimistic add only for brand-new materials (not consolidated reorders)
+    if (result.material && !result.consolidated) {
       setMaterials((prev) => [result.material as Material, ...prev]);
       if (result.priceFlag) {
         setPriceFlagsMap((prev) => new Map(prev).set((result.material as Material).id, result.priceFlag!));
       }
     }
 
+    // Always re-fetch so consolidated rows show updated totals
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
