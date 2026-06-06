@@ -42,8 +42,10 @@ function avColor(name: string) {
 
 export default async function PortalPage({
   params,
+  searchParams,
 }: {
   params: { job_id: string; access_token: string };
+  searchParams: { paid?: string };
 }) {
   const supabase = adminClient();
 
@@ -208,6 +210,14 @@ export default async function PortalPage({
           {bp?.owner_name && <p className="text-gray-400 text-sm mt-0.5">{bp.owner_name}</p>}
           {bp?.phone && <p className="text-gray-500 text-xs">{bp.phone}</p>}
         </div>
+
+        {/* Payment confirmed banner */}
+        {searchParams.paid === "true" && (
+          <div className="mb-5 bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-4 text-center">
+            <p className="text-green-400 font-bold text-base">Payment submitted</p>
+            <p className="text-green-300 text-sm mt-0.5">Your contractor will be notified once funds are confirmed.</p>
+          </div>
+        )}
 
         {/* Greeting */}
         {client?.name && (
@@ -394,7 +404,7 @@ export default async function PortalPage({
                 </div>
               ) : (
                 <Link
-                  href={`/pay/${invoice.id}`}
+                  href={`/pay/${invoice.id}?return_to=${encodeURIComponent(`/portal/${params.job_id}/${params.access_token}`)}`}
                   className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
                 >
                   Pay Now

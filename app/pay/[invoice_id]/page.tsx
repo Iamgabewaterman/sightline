@@ -42,7 +42,7 @@ export default async function PayPage({
   searchParams,
 }: {
   params: { invoice_id: string };
-  searchParams: { status?: string };
+  searchParams: { status?: string; return_to?: string };
 }) {
   const supabase = adminClient();
 
@@ -94,6 +94,7 @@ export default async function PayPage({
 
   const statusSuccess = searchParams.status === "success";
   const statusCancel = searchParams.status === "cancel";
+  const returnTo = searchParams.return_to ?? undefined;
 
   const termsLabels: Record<string, string> = {
     due_on_receipt: "Due on Receipt",
@@ -293,6 +294,7 @@ export default async function PayPage({
                       invoiceId={invoice.id}
                       milestoneId={milestone.id}
                       amount={Number(milestone.amount)}
+                      returnUrl={returnTo}
                     />
                   )}
                 </div>
@@ -300,7 +302,7 @@ export default async function PayPage({
             })}
           </div>
         ) : (
-          <PayButton invoiceId={params.invoice_id} amount={Number(invoice.total_amount)} />
+          <PayButton invoiceId={params.invoice_id} amount={Number(invoice.total_amount)} returnUrl={returnTo} />
         )}
 
         {/* Footer */}

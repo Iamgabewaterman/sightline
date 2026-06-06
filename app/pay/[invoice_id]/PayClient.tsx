@@ -7,10 +7,12 @@ export default function PayButton({
   invoiceId,
   milestoneId,
   amount,
+  returnUrl,
 }: {
   invoiceId: string;
   milestoneId?: string;
   amount: number;
+  returnUrl?: string;
 }) {
   const [loading, setLoading] = useState<"ach" | "card" | null>(null);
   const [error, setError] = useState("");
@@ -23,8 +25,8 @@ export default function PayButton({
     setLoading(method);
     setError("");
     const result = milestoneId
-      ? await createMilestoneCheckoutSession(milestoneId, method)
-      : await createInvoiceCheckoutSession(invoiceId, method);
+      ? await createMilestoneCheckoutSession(milestoneId, method, returnUrl)
+      : await createInvoiceCheckoutSession(invoiceId, method, returnUrl);
     if (result.url) {
       window.location.href = result.url;
     } else {

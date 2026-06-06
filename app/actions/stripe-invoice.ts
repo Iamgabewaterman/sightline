@@ -34,7 +34,8 @@ async function getConnectedAccountId(jobId: string): Promise<string | null> {
 
 export async function createInvoiceCheckoutSession(
   invoiceId: string,
-  paymentMethod: "card" | "ach" = "card"
+  paymentMethod: "card" | "ach" = "card",
+  returnUrl?: string
 ): Promise<{ url?: string; error?: string }> {
   const supabase = adminClient();
 
@@ -58,6 +59,13 @@ export async function createInvoiceCheckoutSession(
   const amountCents = Math.round(Number(invoice.total_amount) * 100);
   const piMeta = { invoice_id: invoiceId, job_id: invoice.job_id };
 
+  const successUrl = returnUrl
+    ? `${origin}${returnUrl}?paid=true`
+    : `${origin}/pay/${invoiceId}?status=success`;
+  const cancelUrl = returnUrl
+    ? `${origin}${returnUrl}`
+    : `${origin}/pay/${invoiceId}?status=cancel`;
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     ...(paymentMethod === "ach" && { payment_method_types: ["us_bank_account"] }),
@@ -80,8 +88,8 @@ export async function createInvoiceCheckoutSession(
         transfer_data: { destination: connectedAccountId },
       }),
     },
-    success_url: `${origin}/pay/${invoiceId}?status=success`,
-    cancel_url: `${origin}/pay/${invoiceId}?status=cancel`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   });
 
   return { url: session.url! };
@@ -89,7 +97,8 @@ export async function createInvoiceCheckoutSession(
 
 export async function createMilestoneCheckoutSession(
   milestoneId: string,
-  paymentMethod: "card" | "ach" = "card"
+  paymentMethod: "card" | "ach" = "card",
+  returnUrl?: string
 ): Promise<{ url?: string; error?: string }> {
   const supabase = adminClient();
 
@@ -120,6 +129,13 @@ export async function createMilestoneCheckoutSession(
     job_id: inv.job_id,
   };
 
+  const successUrl = returnUrl
+    ? `${origin}${returnUrl}?paid=true`
+    : `${origin}/pay/${milestone.invoice_id}?status=success`;
+  const cancelUrl = returnUrl
+    ? `${origin}${returnUrl}`
+    : `${origin}/pay/${milestone.invoice_id}?status=cancel`;
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     ...(paymentMethod === "ach" && { payment_method_types: ["us_bank_account"] }),
@@ -144,8 +160,8 @@ export async function createMilestoneCheckoutSession(
         transfer_data: { destination: connectedAccountId },
       }),
     },
-    success_url: `${origin}/pay/${milestone.invoice_id}?status=success`,
-    cancel_url: `${origin}/pay/${milestone.invoice_id}?status=cancel`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   });
 
   return { url: session.url! };
