@@ -332,6 +332,7 @@ export default async function DashboardPage() {
           cards={insightsData.cards}
           completedJobCount={insightsData.completedJobCount}
           materialTrends={materialTrends}
+          summary={insightsData.summary}
         />
 
         {/* Quick-action shortcuts */}

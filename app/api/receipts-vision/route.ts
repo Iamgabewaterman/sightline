@@ -9,11 +9,32 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are a receipt OCR specialist. Extract every line item from this receipt photo. Return only JSON, no other text.`;
+const SYSTEM_PROMPT = `You are a master receipt OCR specialist for construction materials. You have memorized the exact receipt format of every major building supply chain in North America. Extract every single line item with perfect accuracy. Return only valid JSON, no markdown, no preamble, no explanation.`;
 
-const USER_PROMPT = `This is a receipt photo from a hardware store. Extract ALL line items visible. For each item extract the description, quantity, unit price, and total price. Also extract the store name, date, grand total, store location, and any job name or PO number shown (look for PRO XTRA JOB NAME field on Home Depot receipts).
+const USER_PROMPT = `Analyze this receipt photo. Extract ALL line items and header info.
 
-Return this exact JSON structure with no markdown fences, no explanation, just the raw JSON object:
+STORE-SPECIFIC INSTRUCTIONS:
+- Home Depot: SKUs are 12-digit numbers. Look for the PRO XTRA section — extract JOB NAME as job_name. Bundle discounts appear as negative-price lines.
+- Lowe's: SKUs are 6-digit item numbers. PRO account job names may appear at top or bottom of receipt.
+- Parr Lumber: Lumber shows species+grade+dimensions (e.g. "2x4x8 SPF #2"). Multiple lines when breaking a bundle.
+- ABC Supply: Roofing items show manufacturer + product code. Look for delivery ticket numbers near the top.
+- SRS Distribution: Similar to ABC — roofing manufacturer codes, bundle quantities, delivery ticket.
+- Menards: 6–8 digit store SKUs. Rebate stickers are separate lines — mark as is_discount true.
+- Fastenal: Part number + description format. Box quantities common (e.g. "BX100", "PK50").
+
+QUANTITY FORMAT HANDLING — parse all of these correctly:
+- "3 AT $24.99 EA" → quantity: 3, unit_price: 24.99, total_price: 74.97
+- "2 @ $15.00" → quantity: 2, unit_price: 15.00
+- "4 X $8.50" → quantity: 4, unit_price: 8.50
+- "QTY 6  $3.25" → quantity: 6, unit_price: 3.25
+- If a printed total doesn't match quantity × unit_price math, trust the printed total
+
+HANDWRITING: If any section is handwritten, extract your best estimate and describe it in unreadable_sections (e.g. "handwritten qty on line 3").
+
+CATEGORIES — use exactly one of these values per item:
+lumber | sheet_goods | roofing | concrete | plumbing | electrical | fasteners | insulation | drywall | paint | flooring | siding | tools | other
+
+Return this exact JSON with no markdown fences:
 {
   "vendor": "store name or null",
   "store_location": "city and state or store number or null",
@@ -21,7 +42,7 @@ Return this exact JSON structure with no markdown fences, no explanation, just t
   "total": 123.45,
   "subtotal": 110.00,
   "tax": 13.45,
-  "job_name": "job name from PRO XTRA section or null",
+  "job_name": "job name from PRO XTRA or other job reference field or null",
   "payment_last_four": "last 4 digits or null",
   "line_items": [
     {
@@ -29,16 +50,21 @@ Return this exact JSON structure with no markdown fences, no explanation, just t
       "quantity": 1,
       "unit_price": 9.99,
       "total_price": 9.99,
-      "category": "lumber or fasteners or tools or paint or plumbing or electrical or roofing or concrete or other",
+      "category": "lumber or sheet_goods or roofing or concrete or plumbing or electrical or fasteners or insulation or drywall or paint or flooring or siding or tools or other",
       "sku": "item number if visible or null",
       "is_discount": false
     }
   ],
   "confidence": "high or medium or low",
-  "unreadable_sections": []
+  "unreadable_sections": ["describe any sections that could not be read clearly"]
 }
 
-If you cannot read a value clearly make your best estimate based on context. Never return an empty line_items array if there are visible purchases on the receipt. Look for the itemized section between the store header and the subtotal line — every row in that section is a line item. Mark savings lines and coupon lines as is_discount true.`;
+CRITICAL RULES:
+- Never return an empty line_items array when purchases are visible
+- The itemized section is between the store header and the subtotal — every product row is a line item
+- Mark coupon discounts, store credits, and savings lines as is_discount: true with negative total_price
+- If a number is unclear, use your best estimate based on surrounding context (nearby totals, typical pricing)
+- Include every item — do not skip items because they seem minor or cheap`;
 
 function convertDate(raw: string | null): string | null {
   if (!raw) return null;

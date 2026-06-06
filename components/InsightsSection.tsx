@@ -8,10 +8,12 @@ export default function InsightsSection({
   cards,
   completedJobCount,
   materialTrends,
+  summary,
 }: {
   cards: InsightCard[];
   completedJobCount: number;
   materialTrends?: MaterialTrendRow[];
+  summary?: string | null;
 }) {
   const [selected, setSelected] = useState<InsightCard | null>(null);
 
@@ -78,16 +80,24 @@ export default function InsightsSection({
         <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">
           AI Insights
         </p>
-        <p className="text-gray-500 text-xs mb-3">
-          Insights improve with every completed job. The more you track, the more accurate your projections become.
-        </p>
+        {summary ? (
+          <p className="text-gray-300 text-sm mb-3 leading-relaxed">{summary}</p>
+        ) : (
+          <p className="text-gray-500 text-xs mb-3">
+            Insights improve with every completed job.
+          </p>
+        )}
         {/* Horizontal scroll row */}
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: "none" }}>
           {cards.map((card) => (
             <button
               key={card.id}
               onClick={() => setSelected(card)}
-              className="shrink-0 w-56 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 text-left active:scale-95 transition-transform active:border-orange-500/40"
+              className={`shrink-0 w-56 rounded-xl px-4 py-4 text-left active:scale-95 transition-transform ${
+                card.id === "jobs_at_risk"
+                  ? "bg-red-950/30 border border-red-800/60 active:border-red-500/60"
+                  : "bg-[#1A1A1A] border border-[#2a2a2a] active:border-orange-500/40"
+              }`}
             >
               <span className="text-2xl block mb-2">{card.icon}</span>
               <p className="text-white text-sm font-semibold leading-snug mb-2">

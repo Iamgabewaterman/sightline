@@ -12,7 +12,7 @@ export interface InsightCard {
   icon: string;
   headline: string;
   basedOnCount: number;
-  basedOnLabel: string; // "jobs", "clients", etc.
+  basedOnLabel: string;
   breakdown: InsightBreakdownRow[];
 }
 
@@ -23,6 +23,12 @@ interface JobRow {
   total_days: number | null;
   completed_date: string | null;
   client_id: string | null;
+}
+
+interface ActiveJobRow {
+  id: string;
+  name: string;
+  types: string[];
 }
 
 interface EstimateRow {
@@ -75,24 +81,36 @@ function avg(nums: number[]): number {
 export const computeInsights = cache(async function computeInsightsImpl(userId: string): Promise<{
   cards: InsightCard[];
   completedJobCount: number;
+  summary: string | null;
 }> {
   const supabase = createClient();
 
-  // Fetch all completed jobs
-  const { data: completedJobs } = await supabase
-    .from("jobs")
-    .select("id, types, calculated_sqft, total_days, completed_date, client_id")
-    .eq("user_id", userId)
-    .eq("status", "completed")
-    .not("types", "is", null);
+  // Phase 1: fetch completed and active jobs simultaneously
+  const [completedJobsResult, activeJobsResult] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("id, types, calculated_sqft, total_days, completed_date, client_id")
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .not("types", "is", null),
+    supabase
+      .from("jobs")
+      .select("id, name, types")
+      .eq("user_id", userId)
+      .eq("status", "active"),
+  ]);
 
-  const completed = (completedJobs ?? []) as JobRow[];
+  const completed = (completedJobsResult.data ?? []) as JobRow[];
   const completedIds = completed.map((j) => j.id);
   const completedJobCount = completed.length;
 
-  if (completedJobCount < 1) return { cards: [], completedJobCount };
+  const activeJobs = (activeJobsResult.data ?? []) as ActiveJobRow[];
+  const activeIds = activeJobs.map((j) => j.id);
+  const allIds = [...completedIds, ...activeIds];
 
-  // Fetch supporting data in parallel
+  if (completedJobCount < 1) return { cards: [], completedJobCount, summary: null };
+
+  // Phase 2: fetch supporting data for all jobs in one round-trip
   const [
     { data: allEstimates },
     { data: allMaterials },
@@ -106,22 +124,22 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
       .select("job_id, material_total, labor_total, final_quote")
       .eq("user_id", userId)
       .eq("type", "job_quote")
-      .in("job_id", completedIds.length > 0 ? completedIds : ["__none__"]),
+      .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
       .from("materials")
       .select("job_id, quantity_ordered, quantity_used, unit_cost")
       .eq("user_id", userId)
-      .in("job_id", completedIds.length > 0 ? completedIds : ["__none__"]),
+      .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
       .from("labor_logs")
       .select("job_id, hours, rate")
       .eq("user_id", userId)
-      .in("job_id", completedIds.length > 0 ? completedIds : ["__none__"]),
+      .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
       .from("subcontractor_logs")
       .select("job_id, quoted_amount, invoice_amount, invoice_received")
       .eq("user_id", userId)
-      .in("job_id", completedIds.length > 0 ? completedIds : ["__none__"]),
+      .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
       .from("jobs")
       .select("id, client_id")
@@ -142,14 +160,12 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
   const allJobsClients = allJobsForClients ?? [];
   const invoices = paidInvoices ?? [];
 
-  // Build maps for O(1) lookup
-  // Use latest estimate per job_id
+  // ── Build lookup maps ──────────────────────────────────────────────────────
   const estimateByJob = new Map<string, EstimateRow>();
   for (const e of estimates) {
     if (!estimateByJob.has(e.job_id)) estimateByJob.set(e.job_id, e);
   }
 
-  // Actual materials per job
   const actualMaterialsByJob = new Map<string, number>();
   for (const m of materials) {
     if (m.unit_cost == null) continue;
@@ -158,14 +174,12 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
     actualMaterialsByJob.set(m.job_id, (actualMaterialsByJob.get(m.job_id) ?? 0) + cost);
   }
 
-  // Actual labor per job
   const actualLaborByJob = new Map<string, number>();
   for (const l of labor) {
     const cost = Number(l.hours) * Number(l.rate);
     actualLaborByJob.set(l.job_id, (actualLaborByJob.get(l.job_id) ?? 0) + cost);
   }
 
-  // Actual sub cost per job
   const actualSubByJob = new Map<string, number>();
   for (const s of subLogs) {
     const amt = s.invoice_received && s.invoice_amount != null
@@ -174,7 +188,6 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
     actualSubByJob.set(s.job_id, (actualSubByJob.get(s.job_id) ?? 0) + amt);
   }
 
-  // Paid invoice amount per job
   const invoiceByJob = new Map<string, number>();
   for (const inv of invoices) {
     invoiceByJob.set(inv.job_id, (invoiceByJob.get(inv.job_id) ?? 0) + Number(inv.total_amount));
@@ -283,7 +296,7 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
     const typeAvgs = Object.entries(byType)
       .filter(([, v]) => v.length >= 2)
       .map(([type, v]) => ({ type, avg: avg(v.map((e) => e.perSqft)), count: v.length }))
-      .sort((a, b) => a.avg - b.avg); // lowest cost first
+      .sort((a, b) => a.avg - b.avg);
 
     if (typeAvgs.length > 0) {
       const best = typeAvgs[0];
@@ -379,7 +392,6 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
 
   // ── INSIGHT 6: Client retention ───────────────────────────────────────────
   {
-    // Count jobs per client
     const jobsByClient = new Map<string, string[]>();
     for (const j of allJobsClients) {
       if (!j.client_id) continue;
@@ -398,7 +410,6 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
       const totalClients = jobsByClient.size;
       const repeatPct = Math.round((repeatClientIds.size / totalClients) * 100);
 
-      // Revenue from repeat clients (from paid invoices on completed jobs)
       const repeatJobIds = new Set(
         Array.from(repeatClientIds).flatMap((cid) => jobsByClient.get(cid) ?? [])
       );
@@ -432,12 +443,133 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
     }
   }
 
-  return { cards, completedJobCount };
+  // ── INSIGHT 7: Labor efficiency vs estimate ───────────────────────────────
+  {
+    type LabEntry = { type: string; effPct: number };
+    const entries: LabEntry[] = [];
+
+    for (const job of completed) {
+      const est = estimateByJob.get(job.id);
+      if (!est || !est.labor_total || Number(est.labor_total) <= 0) continue;
+      const actualLab = actualLaborByJob.get(job.id);
+      if (actualLab == null || actualLab === 0) continue;
+      const effPct = ((actualLab - Number(est.labor_total)) / Number(est.labor_total)) * 100;
+      entries.push({ type: primaryType(job.types), effPct });
+    }
+
+    const byType = groupBy(entries, (e) => e.type);
+    const typeAvgs = Object.entries(byType)
+      .filter(([, v]) => v.length >= 2)
+      .map(([type, v]) => ({ type, avg: avg(v.map((e) => e.effPct)), count: v.length }))
+      .sort((a, b) => Math.abs(b.avg) - Math.abs(a.avg));
+
+    const significantTypes = typeAvgs.filter((t) => Math.abs(t.avg) > 5);
+    if (significantTypes.length > 0) {
+      const top = significantTypes[0];
+      const absPct = Math.round(Math.abs(top.avg));
+      const direction = top.avg > 0 ? "over" : "under";
+      cards.push({
+        id: "labor_efficiency",
+        icon: "👷",
+        headline: `Your ${capitalize(top.type)} labor runs ${absPct}% ${direction} estimate`,
+        basedOnCount: top.count,
+        basedOnLabel: "jobs compared",
+        breakdown: typeAvgs.map((t) => ({
+          label: capitalize(t.type),
+          value: `${t.avg >= 0 ? "+" : ""}${Math.round(t.avg)}% vs estimate`,
+          sub: `${t.count} job${t.count !== 1 ? "s" : ""}`,
+        })),
+      });
+    }
+  }
+
+  // ── INSIGHT 8: Active jobs at risk ────────────────────────────────────────
+  if (activeJobs.length > 0) {
+    type AtRiskJob = {
+      name: string;
+      burnPct: number;
+      over: boolean;
+      estimatedTotal: number;
+      totalActual: number;
+    };
+    const atRiskJobs: AtRiskJob[] = [];
+
+    for (const job of activeJobs) {
+      const est = estimateByJob.get(job.id);
+      if (!est) continue;
+      const estimatedTotal = Number(est.material_total ?? 0) + Number(est.labor_total ?? 0);
+      if (estimatedTotal <= 0) continue;
+      const actualMat = actualMaterialsByJob.get(job.id) ?? 0;
+      const actualLab = actualLaborByJob.get(job.id) ?? 0;
+      const actualSub = actualSubByJob.get(job.id) ?? 0;
+      const totalActual = actualMat + actualLab + actualSub;
+      if (totalActual === 0) continue;
+
+      const burnPct = totalActual / estimatedTotal;
+      if (burnPct > 0.85) {
+        atRiskJobs.push({
+          name: job.name,
+          burnPct: Math.round(burnPct * 100),
+          over: totalActual > estimatedTotal,
+          estimatedTotal,
+          totalActual,
+        });
+      }
+    }
+
+    if (atRiskJobs.length > 0) {
+      const overBudget = atRiskJobs.filter((j) => j.over);
+      cards.unshift({
+        id: "jobs_at_risk",
+        icon: "⚠️",
+        headline: overBudget.length > 0
+          ? `${overBudget.length} active job${overBudget.length !== 1 ? "s" : ""} over budget`
+          : `${atRiskJobs.length} active job${atRiskJobs.length !== 1 ? "s" : ""} near budget limit`,
+        basedOnCount: activeJobs.length,
+        basedOnLabel: "active jobs",
+        breakdown: atRiskJobs.map((j) => ({
+          label: j.name,
+          value: `${j.burnPct}% of budget used`,
+          sub: j.over
+            ? `$${Math.round(j.totalActual - j.estimatedTotal).toLocaleString()} over estimate`
+            : `$${Math.round(j.estimatedTotal - j.totalActual).toLocaleString()} remaining`,
+        })),
+      });
+    }
+  }
+
+  // ── Plain English summary ─────────────────────────────────────────────────
+  let summary: string | null = null;
+  {
+    const parts: string[] = [
+      `${completedJobCount} completed job${completedJobCount !== 1 ? "s" : ""}`,
+    ];
+
+    const marginCard = cards.find((c) => c.id === "top_margin");
+    if (marginCard) {
+      const best = marginCard.breakdown[0];
+      parts.push(`${best.label} jobs lead at ${best.value}`);
+    }
+
+    const overrunCard = cards.find((c) => c.id === "material_overrun");
+    if (overrunCard) {
+      const worst = overrunCard.breakdown[0];
+      parts.push(`watch ${worst.label} material costs (${worst.value})`);
+    }
+
+    const atRiskCard = cards.find((c) => c.id === "jobs_at_risk");
+    if (atRiskCard) {
+      parts.push(atRiskCard.headline.toLowerCase());
+    }
+
+    summary = parts.join(" — ") + ".";
+  }
+
+  return { cards, completedJobCount, summary };
 });
 
 // ── Historical cost range for quote builder ───────────────────────────────
 
-// Range width narrows as the contractor builds more job history
 export function getRangePct(jobCount: number): number {
   if (jobCount === 0)  return 25;
   if (jobCount <= 3)   return 15;
@@ -445,7 +577,6 @@ export function getRangePct(jobCount: number): number {
   return 5;
 }
 
-// Weight given to the contractor's own historical average vs regional pricing
 export function getHistoricalWeight(jobCount: number): number {
   if (jobCount === 0)  return 0;
   if (jobCount <= 3)   return 0.25;
@@ -456,10 +587,9 @@ export function getHistoricalWeight(jobCount: number): number {
 export interface HistoricalCostRange {
   jobCount: number;
   jobType: string;
-  rangePct: number;               // ± percentage applied to center
-  historicalMaterialAvg: number;  // contractor's mean material cost (0 if no history)
-  historicalLaborAvg: number;     // contractor's mean labor cost (0 if no history)
-  // Convenience min/max: center-based (center = historicalAvg when history exists)
+  rangePct: number;
+  historicalMaterialAvg: number;
+  historicalLaborAvg: number;
   materialMin: number;
   materialMax: number;
   laborMin: number;
@@ -474,7 +604,6 @@ export async function getHistoricalCostRange(
   if (jobTypes.length === 0) return null;
   const supabase = createClient();
 
-  // Get completed jobs of same type
   const { data: similarJobs } = await supabase
     .from("jobs")
     .select("id, types, calculated_sqft")
@@ -484,7 +613,6 @@ export async function getHistoricalCostRange(
 
   const allSimilar = similarJobs ?? [];
 
-  // Filter by sqft range if applicable
   const filtered = sqft
     ? allSimilar.filter((j) => {
         if (!j.calculated_sqft) return true;
@@ -498,7 +626,6 @@ export async function getHistoricalCostRange(
     jobTypes.find((t) => allSimilar.some((j) => (j.types as string[]).includes(t))) ??
     jobTypes[0];
 
-  // No completed jobs yet — return base result for display (shows ±25% motivation message)
   if (jobCount === 0) {
     return {
       jobCount: 0,
@@ -521,7 +648,6 @@ export async function getHistoricalCostRange(
     supabase.from("labor_logs").select("job_id, hours, rate").in("job_id", jobIds),
   ]);
 
-  // Compute actual costs per job
   const actualMatByJob = new Map<string, number>();
   for (const m of materials ?? []) {
     if (m.unit_cost == null) continue;
@@ -533,7 +659,6 @@ export async function getHistoricalCostRange(
     actualLabByJob.set(l.job_id, (actualLabByJob.get(l.job_id) ?? 0) + Number(l.hours) * Number(l.rate));
   }
 
-  // Prefer actual costs; fall back to quoted totals if no actuals logged
   const matCosts: number[] = [];
   const labCosts: number[] = [];
 
@@ -549,7 +674,6 @@ export async function getHistoricalCostRange(
     if (lab != null && lab > 0) labCosts.push(lab);
   }
 
-  // Mean of historical costs
   const historicalMaterialAvg = matCosts.length > 0
     ? matCosts.reduce((s, v) => s + v, 0) / matCosts.length
     : 0;
@@ -557,7 +681,6 @@ export async function getHistoricalCostRange(
     ? labCosts.reduce((s, v) => s + v, 0) / labCosts.length
     : 0;
 
-  // Center-based min/max (caller can blend center with regional before applying ±rangePct)
   const f = rangePct / 100;
   return {
     jobCount,
