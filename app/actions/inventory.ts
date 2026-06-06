@@ -28,21 +28,26 @@ export async function disposeMaterialReturn(
   const supabase = createClient();
   const { data: mat } = await supabase
     .from("materials")
-    .select("quantity_ordered, quantity_used, unit_cost")
+    .select("quantity_ordered, quantity_used, unit_cost, disposition_status")
     .eq("id", materialId)
     .single();
   if (!mat) return { error: "Material not found" };
+  if (mat.disposition_status) return { error: "Already disposed" };
 
   const ordered = Number(mat.quantity_ordered);
   const newUsed = Math.max(0, ordered - returnQty);
+  const newActualCost = mat.unit_cost != null ? newUsed * Number(mat.unit_cost) : null;
 
-  const { error } = await supabase
-    .from("materials")
-    .update({ quantity_used: newUsed })
-    .eq("id", materialId);
+  const update: Record<string, unknown> = {
+    quantity_used: newUsed,
+    disposition_status: "returned",
+    disposition_qty: returnQty,
+  };
+  if (newActualCost != null) update.actual_total_cost = newActualCost;
 
+  const { error } = await supabase.from("materials").update(update).eq("id", materialId);
   if (error) return { error: error.message };
-  return { success: true, newQuantityUsed: newUsed };
+  return { success: true, newQuantityUsed: newUsed, newActualCost };
 }
 
 export async function disposeMaterialStore(
@@ -58,10 +63,19 @@ export async function disposeMaterialStore(
 
   const { data: mat } = await supabase
     .from("materials")
-    .select("name, normalized_name, unit, unit_cost, material_category")
+    .select("name, normalized_name, unit, unit_cost, material_category, disposition_status")
     .eq("id", materialId)
     .single();
   if (!mat) return { error: "Material not found" };
+  if (mat.disposition_status) return { error: "Already disposed" };
+
+  // Mark disposition first to prevent duplicate taps from creating duplicate entries
+  const { error: markErr } = await supabase
+    .from("materials")
+    .update({ disposition_status: "stored", disposition_qty: storeQty })
+    .eq("id", materialId)
+    .is("disposition_status", null);
+  if (markErr) return { error: markErr.message };
 
   const normalized = mat.normalized_name ?? normalizeMaterialName(mat.name);
 

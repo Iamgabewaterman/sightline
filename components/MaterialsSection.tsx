@@ -350,9 +350,27 @@ function MaterialRow({
         </div>
       )}
 
-      {/* Disposition button — only when surplus exists */}
+      {/* Disposition — show action button, or muted record badge if already done */}
       {(() => {
         const surplus = material.quantity_ordered - (material.quantity_used ?? material.quantity_ordered);
+        if (material.disposition_status === "returned") {
+          return (
+            <div className="mt-2 flex items-center gap-2 px-1">
+              <span className="text-gray-600 text-xs">
+                ✓ Returned {material.disposition_qty} {material.unit} to supplier
+              </span>
+            </div>
+          );
+        }
+        if (material.disposition_status === "stored") {
+          return (
+            <div className="mt-2 flex items-center gap-2 px-1">
+              <span className="text-gray-600 text-xs">
+                ✓ Stored {material.disposition_qty} {material.unit} in shop inventory
+              </span>
+            </div>
+          );
+        }
         if (surplus <= 0 || onShowDisposition == null) return null;
         return (
           <button
@@ -668,6 +686,7 @@ export default function MaterialsSection({
   const [saving,       setSaving]       = useState(false);
   const [formError,    setFormError]    = useState("");
   const [addedToast,   setAddedToast]   = useState("");
+  const [disposeToast, setDisposeToast] = useState("");
 
   // Open form when triggered from quick-add bar
   useEffect(() => {
@@ -941,11 +960,26 @@ export default function MaterialsSection({
             jobName={jobName}
             jobNumber={jobNumber}
             onClose={() => setDisposingMaterial(null)}
-            onReturn={(newQtyUsed) => {
-              handleUpdate(disposingMaterial.id, { quantity_used: newQtyUsed });
+            onReturn={(newQtyUsed, newActualCost, disposedQty) => {
+              handleUpdate(disposingMaterial.id, {
+                quantity_used: newQtyUsed,
+                ...(newActualCost != null ? { actual_total_cost: newActualCost } : {}),
+                disposition_status: "returned",
+                disposition_qty: disposedQty,
+              });
               setDisposingMaterial(null);
+              setDisposeToast("Cost adjusted for return");
+              setTimeout(() => setDisposeToast(""), 2500);
             }}
-            onStore={() => setDisposingMaterial(null)}
+            onStore={(disposedQty) => {
+              handleUpdate(disposingMaterial.id, {
+                disposition_status: "stored",
+                disposition_qty: disposedQty,
+              });
+              setDisposingMaterial(null);
+              setDisposeToast("Stored in shop inventory");
+              setTimeout(() => setDisposeToast(""), 2500);
+            }}
           />
         );
       })()}
@@ -953,6 +987,12 @@ export default function MaterialsSection({
       {addedToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-lg z-50 pointer-events-none">
           ✓ {addedToast}
+        </div>
+      )}
+
+      {disposeToast && !addedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-lg z-50 pointer-events-none">
+          ✓ {disposeToast}
         </div>
       )}
     </div>

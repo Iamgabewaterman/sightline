@@ -129,6 +129,8 @@ export interface Material {
   reorder_count?: number | null;
   purchase_history?: PurchaseHistoryEntry[] | null;
   is_baseline?: boolean | null;
+  disposition_status?: 'returned' | 'stored' | null;
+  disposition_qty?: number | null;
 }
 
 export interface MaterialType {

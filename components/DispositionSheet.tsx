@@ -13,8 +13,16 @@ interface Props {
   jobName: string;
   jobNumber: string | null;
   onClose: () => void;
-  onReturn: (newQtyUsed: number) => void;
-  onStore: () => void;
+  onReturn: (newQtyUsed: number, newActualCost: number | null, disposedQty: number) => void;
+  onStore: (disposedQty: number) => void;
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+  );
 }
 
 export default function DispositionSheet({
@@ -31,31 +39,33 @@ export default function DispositionSheet({
   onStore,
 }: Props) {
   const [qty, setQty] = useState(surplusQty.toString());
-  const [loading, setLoading] = useState(false);
+  const [loadingReturn, setLoadingReturn] = useState(false);
+  const [loadingStore, setLoadingStore] = useState(false);
   const [error, setError] = useState("");
 
   const parsedQty = parseFloat(qty) || 0;
   const value = unitCost != null ? parsedQty * unitCost : null;
+  const anyLoading = loadingReturn || loadingStore;
 
   async function handleReturn() {
     if (parsedQty <= 0) { setError("Enter a valid quantity."); return; }
-    setLoading(true); setError("");
+    setLoadingReturn(true); setError("");
     const result = await disposeMaterialReturn(materialId, parsedQty);
-    if (result.error) { setError(result.error); setLoading(false); return; }
-    onReturn(result.newQuantityUsed!);
+    if (result.error) { setError(result.error); setLoadingReturn(false); return; }
+    onReturn(result.newQuantityUsed!, result.newActualCost ?? null, parsedQty);
   }
 
   async function handleStore() {
     if (parsedQty <= 0) { setError("Enter a valid quantity."); return; }
-    setLoading(true); setError("");
+    setLoadingStore(true); setError("");
     const result = await disposeMaterialStore(materialId, parsedQty, jobId, jobName, jobNumber);
-    if (result.error) { setError(result.error); setLoading(false); return; }
-    onStore();
+    if (result.error) { setError(result.error); setLoadingStore(false); return; }
+    onStore(parsedQty);
   }
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/70" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/70" onClick={anyLoading ? undefined : onClose} />
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl px-5 pt-5 pb-10">
         <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />
 
@@ -91,7 +101,8 @@ export default function DispositionSheet({
               step="any"
               value={qty}
               onChange={(e) => setQty(e.target.value)}
-              className="flex-1 bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500"
+              disabled={anyLoading}
+              className="flex-1 bg-[#242424] border border-[#333333] text-white rounded-xl px-4 py-4 text-base focus:outline-none focus:border-orange-500 disabled:opacity-50"
             />
             <span className="text-gray-400 text-sm font-semibold">{unit}</span>
           </div>
@@ -105,30 +116,36 @@ export default function DispositionSheet({
         <div className="flex flex-col gap-2">
           <button
             onClick={handleReturn}
-            disabled={loading}
+            disabled={anyLoading}
             className="w-full bg-green-600 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
-            </svg>
-            Return to Supplier
-            {value != null && parsedQty > 0 && <span className="text-green-200 font-normal text-sm">(−${value.toFixed(2)})</span>}
+            {loadingReturn ? <Spinner /> : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+              </svg>
+            )}
+            {loadingReturn ? "Processing…" : "Return to Supplier"}
+            {!loadingReturn && value != null && parsedQty > 0 && (
+              <span className="text-green-200 font-normal text-sm">(−${value.toFixed(2)})</span>
+            )}
           </button>
 
           <button
             onClick={handleStore}
-            disabled={loading}
+            disabled={anyLoading}
             className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/>
-            </svg>
-            Store in Shop
+            {loadingStore ? <Spinner /> : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/>
+              </svg>
+            )}
+            {loadingStore ? "Storing…" : "Store in Shop"}
           </button>
 
           <button
             onClick={onClose}
-            disabled={loading}
+            disabled={anyLoading}
             className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-gray-300 font-semibold py-4 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
           >
             Keep on Job
