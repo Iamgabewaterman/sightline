@@ -134,10 +134,6 @@ export async function POST(request: Request) {
 
       const fileBuffer = await file.arrayBuffer();
       const base64 = Buffer.from(fileBuffer).toString("base64");
-      console.error("[receipts-vision] base64 length:", base64.length, "| mimeType:", mimeType, "| fileSize:", file.size);
-      if (base64.length < 1000) {
-        console.error("[receipts-vision] WARNING: base64 is suspiciously short");
-      }
 
       const ext = file.name.split(".").pop() || "jpg";
       const storagePath = `${jobId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -179,8 +175,6 @@ export async function POST(request: Request) {
 
       let rawResponseText = "";
 
-      console.error("[receipts-vision] sending to Anthropic — model: claude-sonnet-4-6, image mediaType:", mimeType, "base64Chars:", base64.length);
-
       try {
         const msg = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
@@ -201,7 +195,6 @@ export async function POST(request: Request) {
         });
 
         rawResponseText = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
-        console.error("[receipts-vision] Anthropic responded, rawText length:", rawResponseText.length, "| first 200 chars:", rawResponseText.slice(0, 200));
 
         const cleaned = rawResponseText
           .replace(/^```json\s*/i, "")
@@ -215,7 +208,6 @@ export async function POST(request: Request) {
         } else {
           try {
             parsed = JSON.parse(match[0]);
-            console.error("[receipts-vision] Parsed OK — line_items count:", parsed.line_items?.length ?? 0, "vendor:", parsed.vendor, "total:", parsed.total);
           } catch (parseErr) {
             console.error("[receipts-vision] JSON.parse failed:", parseErr, "| matched text:", match[0].slice(0, 200));
           }

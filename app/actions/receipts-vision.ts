@@ -9,6 +9,7 @@ import { detectCategoryFromVendor } from "@/lib/expense-category";
 import { writeUserMaterialHistory } from "@/app/actions/materials";
 import { computePriceFlag, savePriceFlag } from "@/lib/price-flag-utils";
 import { similarity } from "@/lib/fuzzy-match";
+import { revalidatePath } from "next/cache";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -474,5 +475,6 @@ export async function confirmReceiptItems(
     });
   }
 
+  revalidatePath(`/jobs/${jobId}`);
   return { success: true };
 }

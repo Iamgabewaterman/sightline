@@ -420,9 +420,6 @@ export default function AIVisualEstimator({
     if (!aiResult) return;
     const m = parseMeasurementsToVars(aiResult.measurements_needed, measurementValues, dimUnit);
 
-    const checkedMats = aiResult.materials_identified.filter((_, idx) => selectedMaterials.has(idx));
-    console.log("[Visual Estimator] Checked materials before calculation:", checkedMats.map((m) => m.name));
-
     const items: ResultItem[] = [];
 
     // AI-identified materials (selected only)
@@ -432,9 +429,6 @@ export default function AIVisualEstimator({
       if (calc) {
         items.push({ ...calc, quantityMath: mat.quantity_math });
       } else {
-        // calculateMaterial should never return null after the null-guard fixes,
-        // but if it does, include the item as an allowance so it is never silently dropped.
-        console.warn("[Visual Estimator] calculateMaterial returned null for:", mat.name);
         items.push({ name: mat.name, qty: 1, unit: mat.unit || "allowance", unitCost: 0, quantityMath: mat.quantity_math });
       }
     });
@@ -445,8 +439,6 @@ export default function AIVisualEstimator({
         items.push({ name: name.trim(), qty: 1, unit: "each", unitCost: 0 });
       }
     }
-
-    console.log("[Visual Estimator] Items in results after calculation:", items.map((i) => i.name));
 
     setOrderResult(items);
     setJobPickerOpen(false);
