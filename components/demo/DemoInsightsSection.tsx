@@ -1,7 +1,8 @@
 "use client";
 
 const MONTHS = ["Mar", "Apr", "May"];
-const MAT_COSTS = [8400, 12100, 6800];
+// Matches actual demo job quotes: Sellwood $11,400 (paid Apr 28), Hawthorne $9,200, Riverside $6,840
+const MAT_COSTS = [11400, 9200, 6840];
 const maxCost = Math.max(...MAT_COSTS);
 
 export default function DemoInsightsSection() {
