@@ -73,14 +73,33 @@ export default function QuoteProfitSection({
   async function handleCopySigUrl() {
     if (!sigUrl) return;
     try {
-      if (navigator.share) {
-        await navigator.share({ title: `Quote — ${job.name}`, url: sigUrl });
-      } else {
-        await navigator.clipboard.writeText(sigUrl);
-        setCopiedSig(true);
-        setTimeout(() => setCopiedSig(false), 2500);
-      }
-    } catch { /* dismissed */ }
+      await navigator.clipboard.writeText(sigUrl);
+      setCopiedSig(true);
+      setTimeout(() => setCopiedSig(false), 2500);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = sigUrl;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand("copy"); setCopiedSig(true); setTimeout(() => setCopiedSig(false), 2500); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+  }
+
+  async function handleShareSigUrl() {
+    if (!sigUrl) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Quote — ${job.name}`,
+          text: `Here's your quote from ${job.name}. Review the details and sign to approve.`,
+          url: sigUrl,
+        });
+      } catch { /* dismissed */ }
+    } else {
+      handleCopySigUrl();
+    }
   }
 
   async function handleDuplicate() {
@@ -1132,12 +1151,22 @@ export default function QuoteProfitSection({
             <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-3 mb-4">
               <p className="text-gray-300 text-sm font-mono break-all">{sigUrl}</p>
             </div>
-            <button
-              onClick={handleCopySigUrl}
-              className="w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
-            >
-              {copied ? "✓ Copied!" : "Share / Copy Link"}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopySigUrl}
+                className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                {copied ? "✓ Copied!" : "Copy Link"}
+              </button>
+              <button
+                onClick={handleShareSigUrl}
+                className="flex-1 flex items-center justify-center gap-2 bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -181,6 +181,7 @@ export default function InvoiceSection({
     !estimate && initialInvoice ? initialInvoice.total_amount.toString() : ""
   );
   const [copiedMilestone, setCopiedMilestone] = useState<string | null>(null);
+  const [copiedPayLink, setCopiedPayLink] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(false);
   const [editTermsDraft, setEditTermsDraft] = useState<PaymentTerms>("net_30");
   const [editNotesDraft, setEditNotesDraft] = useState("");
@@ -418,6 +419,43 @@ export default function InvoiceSection({
       try { await navigator.share({ title: `${label} — Payment`, url }); } catch { /* dismissed */ }
     } else {
       handleCopyMilestoneLink(label);
+    }
+  }
+
+  function handleCopyPayLink() {
+    if (!invoice) return;
+    const url = `${window.location.origin}/pay/${invoice.id}`;
+    function doFallback() {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand("copy"); setCopiedPayLink(true); setTimeout(() => setCopiedPayLink(false), 2500); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url)
+        .then(() => { setCopiedPayLink(true); setTimeout(() => setCopiedPayLink(false), 2500); })
+        .catch(doFallback);
+    } else {
+      doFallback();
+    }
+  }
+
+  async function handleSharePayLink() {
+    if (!invoice) return;
+    const url = `${window.location.origin}/pay/${invoice.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Invoice — ${jobName}`,
+          text: `Here's your payment link for ${jobName}. Pay securely by bank transfer or card.`,
+          url,
+        });
+      } catch { /* dismissed */ }
+    } else {
+      handleCopyPayLink();
     }
   }
 
@@ -1211,6 +1249,25 @@ export default function InvoiceSection({
           );
         })}
       </div>
+
+      {invoice.status !== "paid" && stripeConnected && liveMilestones.length === 0 && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={handleCopyPayLink}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-[#242424] border border-[#2a2a2a] text-gray-300 text-sm font-semibold py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            {copiedPayLink ? "Copied!" : "Copy Payment Link"}
+          </button>
+          <button
+            onClick={handleSharePayLink}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-sm font-semibold py-3 rounded-xl active:scale-95 transition-transform"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
+        </div>
+      )}
 
       {invoice.status !== "paid" && (
         <button

@@ -37,7 +37,7 @@ export default function PayButton({
 
   return (
     <div className="flex flex-col gap-3">
-      {savings > 1 && (
+      {amount > 1000 && savings > 0 && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-4 py-3 text-center">
           <p className="text-green-400 text-sm font-semibold">
             Save ${savings.toFixed(2)} with bank transfer vs card
