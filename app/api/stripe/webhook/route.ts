@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push";
+import { sendPaymentConfirmationEmail } from "@/lib/email";
 
 export const maxDuration = 30;
 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
             .eq("id", invoiceId);
         }
 
-        // Notify contractor
+        // Notify contractor + send payment confirmation email to client
         const { data: inv } = await supabase
           .from("invoices")
           .select("job_id, total_amount, jobs(user_id, name, client_id)")
@@ -115,18 +116,45 @@ export async function POST(request: NextRequest) {
           const job = inv.jobs as unknown as { user_id: string; name: string; client_id: string | null } | null;
           if (job?.user_id) {
             let clientName = "Client";
+            let clientEmail: string | null = null;
+
             if (job.client_id) {
-              const { data: cl } = await supabase.from("clients").select("name").eq("id", job.client_id).single();
+              const { data: cl } = await supabase.from("clients").select("name, email").eq("id", job.client_id).single();
               if (cl?.name) clientName = cl.name;
+              clientEmail = cl?.email ?? null;
             }
+
             const { data: ms } = await supabase.from("payment_milestones").select("label, amount").eq("id", milestoneId).single();
             const invNum = `INV-${invoiceId.slice(0, 8).toUpperCase()}`;
             const amt = Number(ms?.amount ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 });
+
+            // Push to contractor
             await sendPushToUser(job.user_id, {
               title: "Milestone Paid",
               body: `${clientName} paid ${ms?.label ?? "milestone"} on ${invNum} — $${amt}`,
               url: `/jobs`,
             });
+
+            // Confirmation email to client
+            if (clientEmail) {
+              const { data: bp } = await supabase
+                .from("business_profiles")
+                .select("business_name, email, phone")
+                .eq("user_id", job.user_id)
+                .maybeSingle();
+              if (bp?.business_name) {
+                await sendPaymentConfirmationEmail({
+                  to: clientEmail,
+                  clientName: clientName === "Client" ? null : clientName,
+                  businessName: bp.business_name,
+                  contractorEmail: bp.email ?? null,
+                  contractorPhone: bp.phone ?? null,
+                  jobName: job.name,
+                  amountPaid: Number(ms?.amount ?? 0),
+                  paidAt: now,
+                }).catch(() => {});
+              }
+            }
           }
         }
         break;
@@ -134,12 +162,13 @@ export async function POST(request: NextRequest) {
 
       // ── Full invoice payment ─────────────────────────────────────────────
       if (session.metadata?.invoice_id) {
+        const paidAt = new Date().toISOString();
         await supabase
           .from("invoices")
-          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .update({ status: "paid", paid_at: paidAt })
           .eq("id", session.metadata.invoice_id);
 
-        // Notify job owner
+        // Notify job owner + send payment confirmation email to client
         const { data: inv } = await supabase
           .from("invoices")
           .select("job_id, total_amount, jobs(user_id, name, client_id)")
@@ -149,21 +178,48 @@ export async function POST(request: NextRequest) {
           const job = inv.jobs as unknown as { user_id: string; name: string; client_id: string | null } | null;
           if (job?.user_id) {
             let clientName = "Client";
+            let clientEmail: string | null = null;
+
             if (job.client_id) {
               const { data: cl } = await supabase
                 .from("clients")
-                .select("name")
+                .select("name, email")
                 .eq("id", job.client_id)
                 .single();
               if (cl?.name) clientName = cl.name;
+              clientEmail = cl?.email ?? null;
             }
+
             const invNum = `INV-${session.metadata.invoice_id.slice(0, 8).toUpperCase()}`;
             const amount = Number(inv.total_amount).toLocaleString("en-US", { minimumFractionDigits: 2 });
+
+            // Push notification to contractor
             await sendPushToUser(job.user_id, {
               title: "Invoice Paid",
               body: `${clientName} paid ${invNum} — $${amount}`,
               url: `/jobs`,
             });
+
+            // Confirmation email to client
+            if (clientEmail) {
+              const { data: bp } = await supabase
+                .from("business_profiles")
+                .select("business_name, email, phone")
+                .eq("user_id", job.user_id)
+                .maybeSingle();
+              if (bp?.business_name) {
+                await sendPaymentConfirmationEmail({
+                  to: clientEmail,
+                  clientName: clientName === "Client" ? null : clientName,
+                  businessName: bp.business_name,
+                  contractorEmail: bp.email ?? null,
+                  contractorPhone: bp.phone ?? null,
+                  jobName: job.name,
+                  amountPaid: Number(inv.total_amount),
+                  paidAt,
+                }).catch(() => {});
+              }
+            }
           }
         }
         break;

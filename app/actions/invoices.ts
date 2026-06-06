@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { Invoice, InvoiceStatus, PaymentTerms } from "@/types";
+import { sendInvoiceEmail } from "@/lib/email";
 
 function dueDateForTerms(terms: PaymentTerms): string | null {
   const days: Record<PaymentTerms, number> = {
@@ -116,6 +117,36 @@ export async function updateInvoiceStatus(
     .single<Invoice>();
 
   if (error) return { error: error.message };
+
+  // Fire invoice email when status changes to "sent"
+  if (status === "sent" && data.client_id) {
+    void (async () => {
+      try {
+        const [{ data: job }, { data: bp }, { data: cl }] = await Promise.all([
+          supabase.from("jobs").select("name").eq("id", data.job_id).single(),
+          supabase.from("business_profiles").select("business_name, email").eq("user_id", user.id).maybeSingle(),
+          supabase.from("clients").select("name, email").eq("id", data.client_id!).single(),
+        ]);
+        if (!cl?.email || !bp?.business_name) return;
+
+        await sendInvoiceEmail({
+          to: cl.email,
+          clientName: cl.name ?? null,
+          businessName: bp.business_name,
+          contractorEmail: bp.email ?? null,
+          jobName: job?.name ?? "Your project",
+          invoiceId: data.id,
+          invoiceNumber: `INV-${data.job_id.slice(0, 8).toUpperCase()}`,
+          total: Number(data.total_amount),
+          dueDate: data.due_date ?? null,
+          lineItems: data.client_line_items ?? [],
+        });
+      } catch {
+        // Email errors never block the action
+      }
+    })();
+  }
+
   return { invoice: data };
 }
 

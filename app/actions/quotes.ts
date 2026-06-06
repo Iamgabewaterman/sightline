@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { QuoteAddon, SavedLineItem } from "@/types";
 import { sendPushToUser } from "@/lib/push";
+import { sendQuoteEmail } from "@/lib/email";
 
 function adminClient() {
   return createAdminClient(
@@ -93,7 +94,7 @@ export async function sendForSignature(
   // Verify ownership
   const { data: est } = await supabase
     .from("estimates")
-    .select("id, quote_status")
+    .select("id, job_id, quote_status, final_quote, addons")
     .eq("id", estimateId)
     .eq("user_id", user.id)
     .single();
@@ -112,7 +113,45 @@ export async function sendForSignature(
   if (error) return { error: error.message };
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://sightline.one";
-  return { url: `${appUrl}/sign/${estimateId}/${token}` };
+  const signUrl = `${appUrl}/sign/${estimateId}/${token}`;
+
+  // Fire quote email to client — non-blocking
+  void (async () => {
+    try {
+      const [{ data: job }, { data: bp }] = await Promise.all([
+        supabase.from("jobs").select("name, client_id").eq("id", est.job_id).single(),
+        supabase.from("business_profiles").select("business_name, email").eq("user_id", user.id).maybeSingle(),
+      ]);
+      if (!job || !bp?.business_name) return;
+
+      let clientEmail: string | null = null;
+      let clientName: string | null = null;
+      if (job.client_id) {
+        const { data: cl } = await supabase
+          .from("clients").select("name, email").eq("id", job.client_id).single();
+        clientEmail = cl?.email ?? null;
+        clientName = cl?.name ?? null;
+      }
+      if (!clientEmail) return;
+
+      const addonsTotal = ((est.addons as QuoteAddon[]) ?? [])
+        .reduce((s, a) => s + Number(a.amount), 0);
+
+      await sendQuoteEmail({
+        to: clientEmail,
+        clientName,
+        businessName: bp.business_name,
+        contractorEmail: bp.email ?? null,
+        jobName: job.name,
+        quoteTotal: Number(est.final_quote) + addonsTotal,
+        signUrl,
+      });
+    } catch {
+      // Email errors never block the action
+    }
+  })();
+
+  return { url: signUrl };
 }
 
 export async function submitSignature(params: {
