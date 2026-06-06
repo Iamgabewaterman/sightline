@@ -128,6 +128,7 @@ export interface Material {
   actual_total_cost?: number | null;
   reorder_count?: number | null;
   purchase_history?: PurchaseHistoryEntry[] | null;
+  is_baseline?: boolean | null;
 }
 
 export interface MaterialType {
