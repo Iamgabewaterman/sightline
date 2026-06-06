@@ -26,14 +26,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No signature" }, { status: 400 });
   }
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch {
+  // Try platform secret first, then Connect secret (for Direct Charges on connected accounts)
+  let event: Stripe.Event | null = null;
+  const platformSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const connectSecret  = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+
+  if (platformSecret) {
+    try { event = stripe.webhooks.constructEvent(body, sig, platformSecret); } catch { /* try next */ }
+  }
+  if (!event && connectSecret) {
+    try { event = stripe.webhooks.constructEvent(body, sig, connectSecret); } catch { /* fall through */ }
+  }
+  if (!event) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 

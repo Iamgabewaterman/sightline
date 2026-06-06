@@ -9,6 +9,7 @@ import PortalPhotoGallery from "@/components/PortalPhotoGallery";
 import PortalMessageThread from "@/components/PortalMessageThread";
 import { approveChangeOrderPortal, declineChangeOrderPortal } from "@/app/actions/change-orders";
 import { getPortalMessages } from "@/app/actions/portal-messages";
+import PortalPayButton from "./PortalPayButton";
 
 function adminClient() {
   return createClient(
@@ -123,6 +124,17 @@ export default async function PortalPage({
       .order("created_at", { ascending: false }),
     getPortalMessages(params.job_id, params.access_token),
   ]);
+
+  // Sequential — depends on invoice?.id from the parallel fetch above
+  type Milestone = { id: string; label: string; amount: number; status: string; due_date: string | null };
+  const milestones: Milestone[] = invoice
+    ? ((await supabase
+        .from("payment_milestones")
+        .select("id, label, amount, status, due_date")
+        .eq("invoice_id", invoice.id)
+        .order("sort_order")).data ?? []) as Milestone[]
+    : [];
+  const hasMilestones = milestones.length > 0;
 
   let logoUrl: string | null = null;
   if (bp?.logo_path) {
@@ -402,13 +414,42 @@ export default async function PortalPage({
                     </p>
                   )}
                 </div>
+              ) : hasMilestones ? (
+                <div className="flex flex-col gap-3">
+                  {milestones.map((ms) => (
+                    <div key={ms.id} className="border border-[#2a2a2a] rounded-xl px-4 py-3">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <p className="text-white font-semibold text-sm">{ms.label}</p>
+                        <p className={`font-bold text-base ${ms.status === "paid" ? "text-green-400" : "text-orange-500"}`}>
+                          ${Number(ms.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      {ms.due_date && (
+                        <p className="text-gray-500 text-xs mb-2">Due {fmtDate(ms.due_date)}</p>
+                      )}
+                      {ms.status === "paid" ? (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 text-center">
+                          <p className="text-green-400 text-sm font-semibold">Paid</p>
+                        </div>
+                      ) : (
+                        <PortalPayButton
+                          invoiceId={invoice.id}
+                          jobId={params.job_id}
+                          accessToken={params.access_token}
+                          milestoneId={ms.id}
+                          label={`Pay ${ms.label}`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <Link
-                  href={`/pay/${invoice.id}?return_to=${encodeURIComponent(`/portal/${params.job_id}/${params.access_token}`)}`}
-                  className="block w-full bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
-                >
-                  Pay Now
-                </Link>
+                <PortalPayButton
+                  invoiceId={invoice.id}
+                  jobId={params.job_id}
+                  accessToken={params.access_token}
+                  label="Pay Now"
+                />
               )}
 
               <a
