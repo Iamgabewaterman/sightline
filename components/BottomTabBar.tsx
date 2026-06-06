@@ -70,6 +70,9 @@ export default function BottomTabBar() {
   const router = useRouter();
   const [quickOpen, setQuickOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [jobPickerMode, setJobPickerMode] = useState<"materials" | "labor" | null>(null);
+  const [activeJobs, setActiveJobs] = useState<{ id: string; name: string }[]>([]);
+  const [jobPickerLoading, setJobPickerLoading] = useState(false);
   const { openClockIn, activeSession } = useClockContext();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Me");
@@ -111,6 +114,25 @@ export default function BottomTabBar() {
   function closeAll() {
     setQuickOpen(false);
     setMoreOpen(false);
+  }
+
+  async function openJobPicker(mode: "materials" | "labor") {
+    setQuickOpen(false);
+    setJobPickerLoading(true);
+    setJobPickerMode(mode);
+    setActiveJobs([]);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setJobPickerLoading(false); return; }
+    const { data: jobs } = await supabase
+      .from("jobs")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    setActiveJobs(jobs ?? []);
+    setJobPickerLoading(false);
   }
 
   return (
@@ -202,8 +224,8 @@ export default function BottomTabBar() {
               </Link>
 
               {/* Add Material */}
-              <Link href="/jobs/all" onClick={() => setQuickOpen(false)}
-                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
+              <button onClick={() => openJobPicker("materials")}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform w-full text-left">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
@@ -215,11 +237,11 @@ export default function BottomTabBar() {
                   <p className="text-white font-semibold text-base">Add Material</p>
                   <p className="text-gray-500 text-sm">Select a job to log materials</p>
                 </div>
-              </Link>
+              </button>
 
               {/* Log Labor */}
-              <Link href="/jobs/all" onClick={() => setQuickOpen(false)}
-                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform">
+              <button onClick={() => openJobPicker("labor")}
+                className="flex items-center gap-4 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform w-full text-left">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"/>
@@ -230,7 +252,7 @@ export default function BottomTabBar() {
                   <p className="text-white font-semibold text-base">Log Labor</p>
                   <p className="text-gray-500 text-sm">Select a job to log hours</p>
                 </div>
-              </Link>
+              </button>
 
               {/* Scan Receipt */}
               <Link href="/receipts" onClick={() => setQuickOpen(false)}
@@ -264,6 +286,43 @@ export default function BottomTabBar() {
                   <p className="text-gray-500 text-sm">Track mileage for tax</p>
                 </div>
               </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── JOB PICKER SHEET ── */}
+      {jobPickerMode !== null && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setJobPickerMode(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+            <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mt-3 mb-5" />
+            <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest px-6 mb-3">
+              {jobPickerMode === "materials" ? "Add Material — Select Job" : "Log Labor — Select Job"}
+            </p>
+            <div className="flex flex-col px-4 gap-2 pb-2 max-h-[60vh] overflow-y-auto">
+              {jobPickerLoading ? (
+                <p className="text-gray-500 text-sm px-2 py-4">Loading jobs…</p>
+              ) : activeJobs.length === 0 ? (
+                <p className="text-gray-500 text-sm px-2 py-4">No active jobs found.</p>
+              ) : activeJobs.map((job) => (
+                <button
+                  key={job.id}
+                  onClick={() => {
+                    const mode = jobPickerMode;
+                    setJobPickerMode(null);
+                    router.push(`/jobs/${job.id}?open=${mode}`);
+                  }}
+                  className="flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-5 py-4 active:scale-95 transition-transform w-full text-left"
+                >
+                  <span className="text-white font-semibold text-base">{job.name}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              ))}
             </div>
           </div>
         </>

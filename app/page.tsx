@@ -59,11 +59,6 @@ const FEATURES = [
     desc: "Generate professional PDF job reports with photos, materials, costs, and timelines — in seconds.",
   },
   {
-    icon: "🏗️",
-    title: "MegaPort Import",
-    desc: "Pull supplier pricing directly from MegaPort to keep your material catalog current without manual entry.",
-  },
-  {
     icon: "💳",
     title: "ACH & Card Payments",
     desc: "Accept payments online via Stripe. Send invoice payment links directly from the app.",
@@ -82,7 +77,6 @@ const INCLUDED = [
   "Client portal",
   "GPS mileage & IRS tax export",
   "Custom report builder",
-  "MegaPort supplier import",
   "ACH & card payments via Stripe",
   "AI material estimates",
 ];

@@ -401,12 +401,12 @@ export default async function PortalPage({
                 </Link>
               )}
 
-              <Link
-                href={`/pay/${invoice.id}`}
+              <a
+                href={`/api/invoice-pdf/${invoice.id}?job_id=${params.job_id}&token=${params.access_token}`}
                 className="block w-full text-center text-orange-400 text-sm font-semibold py-2 mt-1"
               >
                 Download Invoice PDF →
-              </Link>
+              </a>
             </div>
           </div>
         )}

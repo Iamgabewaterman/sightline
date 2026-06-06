@@ -81,7 +81,7 @@ function fmtSigned(n: number): string {
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promise<void> {
+export async function generateInvoicePDFBytes(data: InvoicePDFData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const bold   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const reg    = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -372,8 +372,12 @@ export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promi
   const fw = reg.widthOfTextAtSize(footText, 7.5);
   page.drawText(footText, { x: PW / 2 - fw / 2, y: FY, font: reg, size: 7.5, color: GRAY });
 
-  // ── Open in new tab ───────────────────────────────────────────────────────
   const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
+}
+
+export async function generateAndDownloadInvoicePDF(data: InvoicePDFData): Promise<void> {
+  const pdfBytes = await generateInvoicePDFBytes(data);
   const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
   const url  = URL.createObjectURL(blob);
   window.open(url, "_blank");

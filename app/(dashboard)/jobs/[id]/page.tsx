@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, ClockSession, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
+import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
 import dynamic from "next/dynamic";
 import PhotoSection from "@/components/PhotoSection";
 import JobMessageThread from "@/components/JobMessageThread";
@@ -36,8 +36,10 @@ function formatDate(iso: string) {
 
 export default async function JobDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { open?: string };
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -52,7 +54,6 @@ export default async function JobDetailPage({
     { data: invoice },
     { data: changeOrders },
     { data: punchListItems },
-    { data: clockSessions },
     { data: documents },
     { data: subLogs },
     { data: punchListPhotos },
@@ -111,13 +112,6 @@ export default async function JobDetailPage({
       .order("completed", { ascending: true })
       .order("created_at", { ascending: true })
       .returns<PunchListItem[]>(),
-    supabase
-      .from("clock_sessions")
-      .select("hours, rate, total")
-      .eq("job_id", params.id)
-      .not("clocked_out_at", "is", null)
-      .not("hours", "is", null)
-      .returns<Pick<ClockSession, "hours" | "rate" | "total">[]>(),
     supabase
       .from("documents")
       .select("id, job_id, user_id, name, category, storage_path, file_type, file_size, created_at")
@@ -239,8 +233,6 @@ export default async function JobDetailPage({
 
   const openPunchItems = (punchListItems ?? []).filter((i) => !i.completed).length;
 
-  void clockSessions;
-
   return (
     <div className="min-h-screen bg-[#0F0F0F] px-4 py-6 pb-16">
       <PerfMark mark="job-detail-ready" />
@@ -270,6 +262,8 @@ export default async function JobDetailPage({
           initialReceiptTotal={initialReceiptTotal}
           initialQuoteData={initialQuoteData}
           initialChangeOrders={changeOrders ?? []}
+          initialOpenMaterialForm={searchParams.open === "materials"}
+          initialOpenLaborForm={searchParams.open === "labor"}
         >
           {/* 1 — Job Overview Card (collapsed by default) */}
           <JobOverviewCard
@@ -326,6 +320,7 @@ export default async function JobDetailPage({
           <CollapsibleSection
             title="Materials"
             count={(materials ?? []).length}
+            defaultOpen={searchParams.open === "materials"}
           >
             <div id="section-materials">
               <JobMaterialsWrapper
@@ -345,6 +340,7 @@ export default async function JobDetailPage({
           <CollapsibleSection
             title="Labor & Subs"
             count={(laborLogs ?? []).length + (subLogs ?? []).length}
+            defaultOpen={searchParams.open === "labor"}
           >
             <div id="section-labor">
               <LaborSubsSection

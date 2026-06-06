@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-**Sightline** — a SaaS app for contractors at $30/month. Tagline: "Every job. One view."
+**Sightline** — a SaaS app for contractors at $49.99/month. Tagline: "Every job. One view."
 Domain: sightline.one. Built by a 20-year-old carpenter with deep construction knowledge and no coding experience. Claude is the co-builder.
 
 ## Tech Stack

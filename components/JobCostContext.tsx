@@ -62,6 +62,8 @@ export function JobCostProvider({
   initialReceiptTotal,
   initialQuoteData,
   initialChangeOrders,
+  initialOpenMaterialForm,
+  initialOpenLaborForm,
 }: {
   children: React.ReactNode;
   initialMaterialCost: number;
@@ -70,6 +72,8 @@ export function JobCostProvider({
   initialReceiptTotal?: number;
   initialQuoteData?: QuoteState | null;
   initialChangeOrders?: ChangeOrder[];
+  initialOpenMaterialForm?: boolean;
+  initialOpenLaborForm?: boolean;
 }) {
   const [actualMaterialCost, setActualMaterialCost] = useState(initialMaterialCost);
   const [actualLaborCost, setActualLaborCost] = useState(initialLaborCost);
@@ -77,8 +81,8 @@ export function JobCostProvider({
   const [actualReceiptTotal, setActualReceiptTotal] = useState(initialReceiptTotal ?? 0);
   const [quoteData, setQuoteData] = useState<QuoteState | null>(initialQuoteData ?? null);
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>(initialChangeOrders ?? []);
-  const [openMaterialForm, setOpenMaterialForm] = useState(false);
-  const [openLaborForm, setOpenLaborForm] = useState(false);
+  const [openMaterialForm, setOpenMaterialForm] = useState(initialOpenMaterialForm ?? false);
+  const [openLaborForm, setOpenLaborForm] = useState(initialOpenLaborForm ?? false);
   const [highlightReceiptScan, setHighlightReceiptScan] = useState(false);
 
   return (
