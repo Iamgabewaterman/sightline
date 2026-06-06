@@ -68,6 +68,11 @@ const FEATURES = [
     title: "AI Material Estimates",
     desc: "After your first completed job, AI suggests material quantities based on your own job history.",
   },
+  {
+    icon: "📦",
+    title: "MegaPort — One-Click Migration",
+    desc: "Transfer your entire history from QuickBooks, Jobber, Buildertrend, or any spreadsheet in a single upload. Clients, jobs, materials, labor — all at once.",
+  },
 ];
 
 const INCLUDED = [
@@ -79,6 +84,7 @@ const INCLUDED = [
   "Custom report builder",
   "ACH & card payments via Stripe",
   "AI material estimates",
+  "MegaPort: one-click migration from QuickBooks, Jobber & more",
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────

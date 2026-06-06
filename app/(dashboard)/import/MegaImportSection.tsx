@@ -313,17 +313,42 @@ export default function MegaImportSection() {
           </div>
         )}
 
-        {/* Template download */}
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-gray-500 text-xs">Not sure what format? Download our templates.</p>
-          <a
-            href="/api/templates/pack"
-            download="sightline-import-templates.zip"
-            className="text-orange-500 text-xs font-semibold underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Download Templates
-          </a>
+        {/* Template downloads */}
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-gray-500 text-xs">Not sure what format? Download a sample to fill in.</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const csv = [
+                  "Name,Phone,Email,Company,Address,Notes",
+                  "John Smith,(503) 555-1234,john@example.com,Smith Properties,123 Main St Portland OR 97201,Repeat customer",
+                  "Sarah Johnson,(503) 555-5678,sarah@sjcontracting.com,SJ Construction,456 Oak Ave Portland OR 97202,Commercial client",
+                  "Mike Williams,(503) 555-9012,mike@gmail.com,,789 Pine St Beaverton OR 97005,Referred by John",
+                ].join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "sightline-clients-sample.csv"; a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="text-orange-500 text-xs font-semibold underline"
+            >
+              Download sample CSV
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-gray-500 text-xs">Moving from another platform? Get all template formats.</p>
+            <a
+              href="/api/templates/pack"
+              download="sightline-import-templates.zip"
+              className="text-orange-500 text-xs font-semibold underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Download all templates
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -503,10 +528,20 @@ export default function MegaImportSection() {
 
         <div className="flex gap-3">
           <a
-            href="/jobs"
+            href={
+              summary.clients.imported > 0 && summary.jobs.imported === 0
+                ? "/clients"
+                : summary.contacts.imported > 0 && summary.jobs.imported === 0
+                ? "/people"
+                : "/jobs"
+            }
             className="flex-1 bg-orange-500 text-white font-bold text-base py-4 rounded-xl text-center active:scale-95 transition-transform"
           >
-            View Your Data
+            {summary.clients.imported > 0 && summary.jobs.imported === 0
+              ? "View Clients"
+              : summary.contacts.imported > 0 && summary.jobs.imported === 0
+              ? "View People"
+              : "View Jobs"}
           </a>
           <button
             onClick={reset}

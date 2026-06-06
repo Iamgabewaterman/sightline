@@ -85,8 +85,17 @@ function parseBool(raw: string): boolean {
   return ["yes", "true", "1", "x", "checked"].includes(raw.trim().toLowerCase());
 }
 
-// pick() — tries multiple column name variants (snake_case, space, camelCase, no-separator)
+// pick() — tries multiple column name variants (snake_case, space, camelCase, no-separator).
+// Case-insensitive: builds a lowercase-keyed view of the row so headers like "Name" and
+// "BusinessName" are found even when the key looked up is "name" or "business_name".
 function pick(row: Record<string, string>, ...keys: string[]): string {
+  // Build lowercase-keyed map once per call (first occurrence wins on collision)
+  const lc: Record<string, string> = {};
+  for (const [rk, rv] of Object.entries(row)) {
+    const lrk = rk.toLowerCase();
+    if (!(lrk in lc)) lc[lrk] = rv;
+  }
+
   for (const k of keys) {
     const variants = [
       k,
@@ -97,7 +106,7 @@ function pick(row: Record<string, string>, ...keys: string[]): string {
       k.replace(/\s+/g, ""),
     ];
     for (const v of variants) {
-      const val = row[v] ?? row[v.toLowerCase()] ?? "";
+      const val = row[v] ?? lc[v.toLowerCase()] ?? "";
       if (typeof val === "string" && val.trim()) return val.trim();
     }
   }
