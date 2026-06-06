@@ -11,6 +11,7 @@ interface ResultItem {
   qty: number;
   unit: string;
   unitCost: number;
+  quantityMath?: string;
 }
 
 type Step = "capture" | "describe" | "loading" | "analysis" | "output" | "error";
@@ -123,12 +124,13 @@ function calculateMaterial(
   pricing: RegionalCalcPricing
 ): ResultItem | null {
   const cat = mat.category.toLowerCase();
-  const nm = mat.name.toLowerCase();
+  // Normalize unicode × (U+00D7 multiplication sign) to ASCII x so "2×6" matches "2x6" checks
+  const nm = mat.name.toLowerCase().replace(/×/g, "x").replace(/✕/g, "x");
   const area = m.sqft;
 
   // Flooring
   if (cat.includes("flooring") || nm.includes("lvp") || nm.includes("hardwood") || nm.includes("laminate") || nm.includes("carpet") || nm.includes("floor")) {
-    if (area === 0) return null;
+    if (area === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     const waste = 1.10;
     const costPerSqft = nm.includes("hardwood")
       ? pricing.flooring.value * 2.0
@@ -141,22 +143,59 @@ function calculateMaterial(
   // Tile
   if (cat.includes("tile") || nm.includes("tile") || nm.includes("ceramic") || nm.includes("porcelain")) {
     const tileArea = area > 0 ? area : m.wallArea;
-    if (tileArea === 0) return null;
+    if (tileArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(tileArea * 1.12), unit: "sqft", unitCost: pricing.tile.value };
   }
 
   // Drywall
   if (cat.includes("drywall") || nm.includes("drywall") || nm.includes("sheetrock")) {
     const dwArea = m.wallArea > 0 ? m.wallArea : area;
-    if (dwArea === 0) return null;
+    if (dwArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil((dwArea / 32) * 1.10), unit: "sheet (4×8)", unitCost: pricing.drywall.value };
   }
 
   // Paint
   if (cat.includes("paint") || nm.includes("paint") || nm.includes("primer")) {
     const paintArea = m.wallArea > 0 ? m.wallArea : area;
-    if (paintArea === 0) return null;
+    if (paintArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil((paintArea / 350) * 1.10), unit: "gallon", unitCost: pricing.paint.value };
+  }
+
+  // Deck boards / Decking — must be before generic lumber to avoid stud-spacing formula
+  if (
+    nm.includes("decking") ||
+    nm.includes("deck board") ||
+    nm.includes("deck plank") ||
+    (nm.includes("cedar") && (nm.includes("board") || nm.includes("plank") || nm.includes("2x6")))
+  ) {
+    // If AI asked "Number of boards" and user entered it, use that count directly
+    const boardCount =
+      m.extras["Number of boards"] ??
+      m.extras["Board count"] ??
+      m.extras["Boards"] ??
+      0;
+    if (boardCount > 0) {
+      return { name: mat.name, qty: mathCeil(boardCount * 1.15), unit: "each", unitCost: 28.00 };
+    }
+    // Area-based fallback: deck sqft ÷ (2×6 face width 5.5" × board length)
+    if (m.sqft > 0) {
+      const faceWidthFt = 5.5 / 12;
+      const boardLenFt = m.len > 0 ? m.len : 16;
+      return { name: mat.name, qty: mathCeil((m.sqft / (faceWidthFt * boardLenFt)) * 1.15), unit: "each", unitCost: 28.00 };
+    }
+    return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
+  }
+
+  // Stair stringers — 3 stringers for up to 4 steps, 4 for more
+  if (nm.includes("stringer")) {
+    const steps = m.extras["Number of steps"] ?? m.extras["Step count"] ?? m.extras["Steps"] ?? 4;
+    return { name: mat.name, qty: steps <= 4 ? 3 : 4, unit: "each", unitCost: pricing.framingStud.value * 6 };
+  }
+
+  // Stair treads — one tread per step
+  if (nm.includes("tread") || (nm.includes("stair") && (nm.includes("board") || nm.includes("lumber")))) {
+    const steps = m.extras["Number of steps"] ?? m.extras["Step count"] ?? m.extras["Steps"] ?? 4;
+    return { name: mat.name, qty: mathCeil(steps), unit: "each", unitCost: pricing.framingStud.value * 4 };
   }
 
   // Lumber / Framing
@@ -174,46 +213,53 @@ function calculateMaterial(
   ) {
     if (nm.includes("stud") || nm.includes("2x4") || nm.includes("2x6")) {
       const wallLf = m.lf > 0 ? m.lf : m.len;
-      if (wallLf === 0) return null;
+      // No measurement → return allowance so item isn't silently dropped
+      if (wallLf === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
       const studs = mathCeil((wallLf * 12) / 16) + 3;
       return { name: mat.name, qty: studs, unit: "each", unitCost: pricing.framingStud.value };
     } else {
       const sticks = mathCeil(((m.lf > 0 ? m.lf : m.len) / 8) * 1.10);
-      if (sticks === 0) return null;
+      // No measurement → return allowance so item isn't silently dropped
+      if (sticks === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
       return { name: mat.name, qty: sticks, unit: "each", unitCost: pricing.framingStud.value * 1.8 };
     }
   }
 
   // Roofing
   if (cat.includes("roofing") || nm.includes("shingle") || nm.includes("underlayment")) {
-    if (area === 0) return null;
+    if (area === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil((area * 1.12) / 100), unit: "square (100 sqft)", unitCost: pricing.roofing.value };
   }
 
   // Insulation
   if (cat.includes("insulation") || nm.includes("insulation") || nm.includes("batt") || nm.includes("rigid foam")) {
     const insArea = m.wallArea > 0 ? m.wallArea : area;
-    if (insArea === 0) return null;
+    if (insArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(insArea * 1.05), unit: "sqft", unitCost: 0.65 };
   }
 
   // Trim / Finishing
   if (cat.includes("finishing") || nm.includes("trim") || nm.includes("baseboard") || nm.includes("casing") || nm.includes("molding")) {
     const trimLf = m.lf > 0 ? m.lf : (m.len + m.wid) * 2;
-    if (trimLf === 0) return null;
+    if (trimLf === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(trimLf * 1.10), unit: "LF", unitCost: pricing.trim.value };
   }
 
   // Siding
   if (cat.includes("siding") || nm.includes("siding") || nm.includes("hardie") || nm.includes("vinyl")) {
     const sidingArea = m.wallArea > 0 ? m.wallArea : area;
-    if (sidingArea === 0) return null;
+    if (sidingArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(sidingArea * 1.10), unit: "sqft", unitCost: 2.20 };
   }
 
   // Concrete / Masonry
   if (cat.includes("concrete") || nm.includes("concrete") || nm.includes("cement") || nm.includes("mortar")) {
-    if (area === 0) return null;
+    // Footing-based: deck/post footings don't need area
+    const footings = m.extras["Number of footings"] ?? m.extras["Footings"] ?? m.extras["Post footings"] ?? 0;
+    if (footings > 0) {
+      return { name: mat.name, qty: mathCeil(footings * 2 * 1.10), unit: "bag (80lb)", unitCost: 7.50 };
+    }
+    if (area === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     const depthFt = m.depth > 0 ? m.depth / 12 : 4 / 12;
     const bags = mathCeil((area * depthFt) / 0.60 * 1.10);
     return { name: mat.name, qty: bags, unit: "bag (80lb)", unitCost: 7.50 };
@@ -222,21 +268,21 @@ function calculateMaterial(
   // Plumbing
   if (cat.includes("plumbing") || nm.includes("pipe") || nm.includes("pvc") || nm.includes("pex") || nm.includes("copper")) {
     const pipeLf = m.lf > 0 ? m.lf : m.len;
-    if (pipeLf === 0) return null;
+    if (pipeLf === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(pipeLf * 1.15), unit: "LF", unitCost: 1.20 };
   }
 
   // Electrical
   if (cat.includes("electrical") || nm.includes("wire") || nm.includes("romex") || nm.includes("conduit")) {
     const wireLf = m.lf > 0 ? m.lf : m.len;
-    if (wireLf === 0) return null;
+    if (wireLf === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil(wireLf * 1.15), unit: "LF", unitCost: 0.65 };
   }
 
   // Sheet Goods
   if (cat.includes("sheet") || nm.includes("plywood") || nm.includes("osb") || nm.includes("sheathing")) {
     const sheetArea = area > 0 ? area : m.wallArea;
-    if (sheetArea === 0) return null;
+    if (sheetArea === 0) return { name: mat.name, qty: 1, unit: "allowance", unitCost: 0 };
     return { name: mat.name, qty: mathCeil((sheetArea / 32) * 1.10), unit: "sheet (4×8)", unitCost: 45.00 };
   }
 
@@ -374,13 +420,23 @@ export default function AIVisualEstimator({
     if (!aiResult) return;
     const m = parseMeasurementsToVars(aiResult.measurements_needed, measurementValues, dimUnit);
 
+    const checkedMats = aiResult.materials_identified.filter((_, idx) => selectedMaterials.has(idx));
+    console.log("[Visual Estimator] Checked materials before calculation:", checkedMats.map((m) => m.name));
+
     const items: ResultItem[] = [];
 
-    // AI-identified materials (selected)
+    // AI-identified materials (selected only)
     aiResult.materials_identified.forEach((mat, idx) => {
       if (!selectedMaterials.has(idx)) return;
       const calc = calculateMaterial(mat, m, pricing);
-      if (calc) items.push(calc);
+      if (calc) {
+        items.push({ ...calc, quantityMath: mat.quantity_math });
+      } else {
+        // calculateMaterial should never return null after the null-guard fixes,
+        // but if it does, include the item as an allowance so it is never silently dropped.
+        console.warn("[Visual Estimator] calculateMaterial returned null for:", mat.name);
+        items.push({ name: mat.name, qty: 1, unit: mat.unit || "allowance", unitCost: 0, quantityMath: mat.quantity_math });
+      }
     });
 
     // Manual materials
@@ -389,6 +445,8 @@ export default function AIVisualEstimator({
         items.push({ name: name.trim(), qty: 1, unit: "each", unitCost: 0 });
       }
     }
+
+    console.log("[Visual Estimator] Items in results after calculation:", items.map((i) => i.name));
 
     setOrderResult(items);
     setJobPickerOpen(false);
@@ -650,8 +708,13 @@ export default function AIVisualEstimator({
                       </svg>
                     )}
                   </div>
-                  <span className="text-white text-sm flex-1">{mat.name}</span>
-                  <span className="text-gray-500 text-xs bg-[#252525] border border-[#333] px-2 py-0.5 rounded-full shrink-0">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white text-sm block">{mat.name}</span>
+                    {mat.quantity_math && (
+                      <span className="text-gray-600 text-[10px] font-mono block mt-0.5 truncate">{mat.quantity_math}</span>
+                    )}
+                  </div>
+                  <span className="text-gray-500 text-xs bg-[#252525] border border-[#333] px-2 py-0.5 rounded-full shrink-0 ml-2">
                     {mat.category}
                   </span>
                 </button>
@@ -785,6 +848,9 @@ export default function AIVisualEstimator({
                     {item.qty} {item.unit}
                     {item.unitCost > 0 ? ` @ ${fmt(item.unitCost)}` : ""}
                   </p>
+                  {item.quantityMath && (
+                    <p className="text-gray-600 text-[10px] font-mono mt-0.5">{item.quantityMath}</p>
+                  )}
                 </div>
                 <p className="text-orange-400 font-bold text-sm shrink-0">
                   {item.unitCost > 0 ? fmt(item.qty * item.unitCost) : "—"}
@@ -825,10 +891,18 @@ export default function AIVisualEstimator({
               </button>
             </>
           ) : (
-            <div className="bg-green-900/30 border border-green-700/40 rounded-xl px-4 py-3 mb-4">
-              <p className="text-green-300 text-sm font-semibold">
+            <div className="bg-green-900/30 border border-green-700/40 rounded-xl px-4 py-4 mb-4">
+              <p className="text-green-300 text-sm font-semibold mb-2">
                 {saveMode === "shopping" ? "Added to shopping list" : "Added to job materials"} successfully!
               </p>
+              {selectedJob && (
+                <a
+                  href={`/jobs/${selectedJob}`}
+                  className="inline-block bg-orange-500 text-white font-bold text-sm px-4 py-2 rounded-lg active:scale-95 transition-transform"
+                >
+                  View Job &amp; Profitability →
+                </a>
+              )}
             </div>
           )}
 
