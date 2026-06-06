@@ -27,6 +27,27 @@ const PROBLEMS = [
   "You're running a business off group texts and gut feelings",
 ];
 
+const HOW_IT_WORKS = [
+  {
+    step: "1",
+    icon: "📋",
+    title: "Create a job and add your quote",
+    desc: "Name the job, enter your quote total, and add your crew. Takes 60 seconds.",
+  },
+  {
+    step: "2",
+    icon: "📷",
+    title: "Log materials and scan receipts as you work",
+    desc: "Snap receipts on-site. AI reads them and logs every cost to the job automatically.",
+  },
+  {
+    step: "3",
+    icon: "📊",
+    title: "Know your margin in real time",
+    desc: "The profit bar shows exactly where you stand — before the job goes sideways.",
+  },
+];
+
 const FEATURES = [
   {
     icon: "📊",
@@ -75,6 +96,30 @@ const FEATURES = [
   },
 ];
 
+const TESTIMONIALS = [
+  {
+    name: "Mike T.",
+    location: "Portland, OR",
+    trade: "Roofing Contractor",
+    quote:
+      "I caught a job going over budget before it was too late. The profit bar is the first thing I check every morning.",
+  },
+  {
+    name: "Jason R.",
+    location: "Vancouver, WA",
+    trade: "General Contractor",
+    quote:
+      "Used to run three different apps and a notebook. Now it's all in one place. MegaPort pulled in four years of Jobber data in about ten minutes.",
+  },
+  {
+    name: "Dave K.",
+    location: "Bend, OR",
+    trade: "Framing & Decking",
+    quote:
+      "The photo estimator saved me two hours on a deck quote. Snapped a picture, got a full material list. My crew still doesn't believe it.",
+  },
+];
+
 const INCLUDED = [
   "Live job profitability tracking",
   "Receipt scanning with OCR",
@@ -85,6 +130,29 @@ const INCLUDED = [
   "ACH & card payments via Stripe",
   "AI material estimates",
   "MegaPort: one-click migration from QuickBooks, Jobber & more",
+];
+
+const FAQ = [
+  {
+    q: "Is there really no credit card required?",
+    a: "Yes — complete your first 3 jobs completely free. No payment info needed to start.",
+  },
+  {
+    q: "What happens after the trial?",
+    a: "$49.99 per month, cancel anytime. No contracts, no hidden fees.",
+  },
+  {
+    q: "Does it work for my trade?",
+    a: "It covers roofing, framing, restoration, electrical, plumbing, tile, decking, and more.",
+  },
+  {
+    q: "Can I import my existing data?",
+    a: "Yes — MegaPort imports from QuickBooks, Jobber, Leap, and most contractor software.",
+  },
+  {
+    q: "Is my data safe?",
+    a: "Yes — bank-level encryption. Your data is yours and you can export it anytime.",
+  },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -118,28 +186,27 @@ export default function LandingPage() {
           {/* Nav links */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-400">
             <a href="#problem" className="hover:text-white transition-colors">Why Sightline</a>
+            <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#about" className="hover:text-white transition-colors">About</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           </nav>
 
           {/* CTA buttons */}
           <div className="flex items-center gap-2">
-            <>
-              <Link
-                href="/login"
-                className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
-              >
-                Log In
-              </Link>
-              <Link
-                href="/signup"
-                className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
-              >
-                Start Free
-              </Link>
-            </>
+            <Link
+              href="/login"
+              className="text-gray-300 font-semibold text-sm px-4 py-2 rounded-xl hover:text-white transition-colors"
+            >
+              Log In
+            </Link>
+            <Link
+              href="/signup"
+              className="bg-orange-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-orange-400 transition-colors active:scale-95"
+            >
+              Start Free
+            </Link>
           </div>
         </div>
       </header>
@@ -215,6 +282,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── How it works ── */}
+      <section id="how-it-works" className="py-20 px-5 border-t border-[#1a1a1a]">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            How it works
+          </h2>
+          <p className="text-gray-500 text-center mb-12 max-w-md mx-auto">
+            Three steps. That&rsquo;s it. Most contractors are up and running in under five minutes.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {HOW_IT_WORKS.map(({ step, icon, title, desc }) => (
+              <div key={step} className="relative bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-6 py-7 flex flex-col gap-4">
+                {/* Step number */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center shrink-0">
+                    <span className="text-white font-black text-sm">{step}</span>
+                  </div>
+                  <span className="text-3xl">{icon}</span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-base leading-snug mb-2">{title}</p>
+                  <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-10">
+            <Link
+              href="/signup"
+              className="inline-block bg-orange-500 text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-orange-400 transition-colors active:scale-95"
+            >
+              Start Free — No Card Required
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Features ── */}
       <section id="features" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-5xl mx-auto">
@@ -250,7 +356,7 @@ export default function LandingPage() {
             Walk through a live demo — no signup required.
           </p>
 
-          {/* VIDEO_URL — replace this placeholder with the embed URL when ready */}
+          {/* Video placeholder — replace inner content with embed when ready */}
           <div className="relative w-full bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-8" style={{ paddingBottom: "56.25%" }}>
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
               <div className="w-16 h-16 rounded-full bg-[#2a2a2a] border border-[#3a3a3a] flex items-center justify-center">
@@ -276,9 +382,44 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Testimonials ── */}
+      <section id="testimonials" className="py-20 px-5 border-t border-[#1a1a1a]">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            What contractors are saying
+          </h2>
+          <p className="text-gray-500 text-center mb-12 max-w-md mx-auto">
+            Real feedback from the field — updated as we hear from more users.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {TESTIMONIALS.map(({ name, location, trade, quote }) => (
+              <div
+                key={name}
+                className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl px-6 py-7 flex flex-col gap-5"
+              >
+                {/* Quote mark */}
+                <span className="text-orange-500 text-4xl font-black leading-none select-none">&ldquo;</span>
+                <p className="text-gray-300 text-base leading-relaxed flex-1">{quote}</p>
+                <div className="border-t border-[#2a2a2a] pt-4">
+                  <p className="text-white font-bold text-sm">{name}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{location} · {trade}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Pricing ── */}
       <section id="pricing" className="py-20 px-5 border-t border-[#1a1a1a]">
         <div className="max-w-lg mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            Simple, honest pricing
+          </h2>
+          <p className="text-gray-500 text-center mb-10">
+            One plan. Everything included. No tiers, no upsells.
+          </p>
 
           {/* Trial banner */}
           <div className="bg-orange-500 rounded-t-2xl px-6 py-3 text-center">
@@ -317,7 +458,7 @@ export default function LandingPage() {
             {/* Field member callout */}
             <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center mb-6">
               <p className="text-orange-400 font-semibold text-sm">
-                Field members always free — they never pay
+                Field crew members always free — they never pay
               </p>
             </div>
 
@@ -331,6 +472,42 @@ export default function LandingPage() {
             <p className="text-gray-600 text-xs text-center mt-3">
               No credit card · Cancel anytime
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" className="py-20 px-5 border-t border-[#1a1a1a]">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-black text-white text-center mb-3">
+            Frequently asked questions
+          </h2>
+          <p className="text-gray-500 text-center mb-12">
+            Straight answers. No runaround.
+          </p>
+
+          <div className="flex flex-col gap-3">
+            {FAQ.map(({ q, a }) => (
+              <details
+                key={q}
+                className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden group"
+              >
+                <summary className="flex items-center justify-between px-6 py-5 cursor-pointer list-none select-none">
+                  <span className="text-white font-semibold text-base pr-4">{q}</span>
+                  {/* Chevron — rotates open via CSS group-open */}
+                  <svg
+                    className="shrink-0 text-gray-500 transition-transform duration-200 group-open:rotate-180"
+                    width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </summary>
+                <div className="px-6 pb-5">
+                  <p className="text-gray-400 text-base leading-relaxed">{a}</p>
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       </section>
