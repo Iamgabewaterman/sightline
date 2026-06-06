@@ -346,6 +346,7 @@ export default function AIVisualEstimator({
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveMode, setSaveMode] = useState<"job" | "shopping">("job");
+  const [quantityEdits, setQuantityEdits] = useState<Record<number, string>>({});
 
   // Error step
   const [errorMsg, setErrorMsg] = useState("");
@@ -441,9 +442,11 @@ export default function AIVisualEstimator({
     }
 
     setOrderResult(items);
+    setQuantityEdits({});
     setJobPickerOpen(false);
     setSaved(false);
     setSaveError("");
+    console.error("[AIEstimator] Checked items →", aiResult.materials_identified.filter((_, i) => selectedMaterials.has(i)).map(m => m.name));
     setStep("output");
     onUsed();
   }
@@ -453,10 +456,10 @@ export default function AIVisualEstimator({
     if (!selectedJob) return;
     setSaving(true);
     setSaveError("");
-    const bulkItems: BulkMaterialItem[] = orderResult.map((r) => ({
+    const bulkItems: BulkMaterialItem[] = orderResult.map((r, idx) => ({
       name: r.name,
       unit: r.unit,
-      quantity_ordered: r.qty,
+      quantity_ordered: getEditedQty(r, idx),
       unit_cost: r.unitCost,
     }));
     const res =
@@ -469,7 +472,12 @@ export default function AIVisualEstimator({
     setJobPickerOpen(false);
   }
 
-  const totalCost = orderResult.reduce((s, r) => s + r.qty * r.unitCost, 0);
+  function getEditedQty(item: ResultItem, idx: number) {
+    const e = quantityEdits[idx];
+    return e !== undefined ? (parseFloat(e) || item.qty) : item.qty;
+  }
+
+  const totalCost = orderResult.reduce((s, r, idx) => s + getEditedQty(r, idx) * r.unitCost, 0);
 
   // Confidence badge style
   function confidenceBadgeClass(c: "low" | "medium" | "high") {
@@ -579,60 +587,29 @@ export default function AIVisualEstimator({
             </button>
           </div>
 
+          {/* Description */}
+          <div className="mb-6">
+            <p className={sectionLabel}>Describe the project <span className="text-gray-600 normal-case font-normal">(optional — helps accuracy)</span></p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. deck replacement, bathroom remodel, kitchen tile..."
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
+              rows={3}
+            />
+          </div>
+
           {photos.length === 0 && (
             <p className="text-gray-600 text-sm text-center mb-4">Select at least one photo to continue</p>
           )}
 
           <button
-            onClick={() => setStep("describe")}
+            onClick={() => setStep("loading")}
             disabled={photos.length === 0}
             className={`${primaryBtn} ${photos.length === 0 ? "opacity-40 cursor-not-allowed" : ""}`}
           >
-            Continue
+            Calculate
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── DESCRIBE STEP ───────────────────────────────────────────────────────
-  if (step === "describe") {
-    return (
-      <div className="min-h-screen bg-[#0F0F0F] px-4 pt-6 pb-16">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={() => setStep("capture")}
-              className="text-gray-400 text-2xl leading-none min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-95"
-            >←</button>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Describe the project</h1>
-              <p className="text-gray-500 text-sm">This helps the AI be more accurate — completely optional.</p>
-            </div>
-          </div>
-
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. bathroom remodel, kitchen tile, deck replacement..."
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none mb-6"
-            rows={4}
-          />
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStep("loading")}
-              className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform min-h-[56px]"
-            >
-              Skip
-            </button>
-            <button
-              onClick={() => setStep("loading")}
-              className="flex-1 bg-orange-500 text-white font-bold text-base py-4 rounded-xl active:scale-95 transition-transform min-h-[56px]"
-            >
-              Next
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -799,6 +776,17 @@ export default function AIVisualEstimator({
   if (step === "output" && aiResult) {
     const range = estimatedRange(totalCost, aiResult.confidence);
 
+    // Validation checks
+    const structuralTypes = /deck|frame|framing|concrete|footing|foundation|roof|addition|structure/i;
+    const isStructuralJob = structuralTypes.test(aiResult.detected_project_type);
+    const fastenerNames = /screw|nail|bolt|fastener|anchor|hardware/i;
+    const topItem = orderResult.reduce<ResultItem | null>((max, r, i) => {
+      const cost = getEditedQty(r, i) * r.unitCost;
+      return !max || cost > getEditedQty(max, orderResult.indexOf(max)) * max.unitCost ? r : max;
+    }, null);
+    const fastenerIsTop = !!topItem && fastenerNames.test(topItem.name) && orderResult.length > 1;
+    const showLowCostWarning = isStructuralJob && totalCost > 0 && totalCost < 200;
+
     return (
       <div className="min-h-screen bg-[#0F0F0F] px-4 pt-6 pb-16">
         <div className="max-w-lg mx-auto">
@@ -817,14 +805,22 @@ export default function AIVisualEstimator({
             </span>
           </div>
 
-          {aiResult.confidence === "low" && (
-            <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-xl px-4 py-3 mb-4">
-              <p className="text-yellow-300 text-sm">Low confidence estimate — double-check material selections before ordering.</p>
+          {(showLowCostWarning || fastenerIsTop || aiResult.confidence === "low") && (
+            <div className="bg-yellow-900/30 border border-yellow-700/40 rounded-xl px-4 py-3 mb-4 flex flex-col gap-1">
+              {showLowCostWarning && (
+                <p className="text-yellow-300 text-sm">Estimate under $200 for a structural job — check that all materials were identified and measurements are entered correctly.</p>
+              )}
+              {fastenerIsTop && (
+                <p className="text-yellow-300 text-sm">Fasteners are the highest-cost item — this usually means main structural materials are missing. Review the checklist.</p>
+              )}
+              {aiResult.confidence === "low" && !showLowCostWarning && !fastenerIsTop && (
+                <p className="text-yellow-300 text-sm">Low confidence estimate — double-check material selections before ordering.</p>
+              )}
             </div>
           )}
 
           <p className="text-gray-600 text-xs mb-4">
-            Quantities calculated from your measurements. Material identification by AI — verify before ordering.
+            Tap qty to adjust. Material identification by AI — verify before ordering.
           </p>
 
           {/* Results list */}
@@ -832,20 +828,27 @@ export default function AIVisualEstimator({
             {orderResult.map((item, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] last:border-b-0"
+                className="flex items-center gap-3 px-4 py-3 border-b border-[#2a2a2a] last:border-b-0"
               >
-                <div className="flex-1 min-w-0 mr-3">
+                <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-semibold truncate">{item.name}</p>
-                  <p className="text-gray-500 text-xs">
-                    {item.qty} {item.unit}
-                    {item.unitCost > 0 ? ` @ ${fmt(item.unitCost)}` : ""}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <input
+                      type="number"
+                      value={quantityEdits[idx] ?? item.qty.toString()}
+                      onChange={(e) => setQuantityEdits(prev => ({ ...prev, [idx]: e.target.value }))}
+                      className="w-14 bg-[#242424] border border-[#333] text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-orange-500"
+                      min="0"
+                      step="1"
+                    />
+                    <span className="text-gray-500 text-xs">{item.unit}{item.unitCost > 0 ? ` @ ${fmt(item.unitCost)}` : ""}</span>
+                  </div>
                   {item.quantityMath && (
                     <p className="text-gray-600 text-[10px] font-mono mt-0.5">{item.quantityMath}</p>
                   )}
                 </div>
                 <p className="text-orange-400 font-bold text-sm shrink-0">
-                  {item.unitCost > 0 ? fmt(item.qty * item.unitCost) : "—"}
+                  {item.unitCost > 0 ? fmt(getEditedQty(item, idx) * item.unitCost) : "—"}
                 </p>
               </div>
             ))}

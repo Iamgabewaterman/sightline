@@ -9,7 +9,7 @@ interface Props {
   jobId: string;
   extraction: ReceiptExtractionResult;
   existingMaterials: Material[];
-  onDone: () => void;
+  onDone: (addedTotal?: number) => void;
   onCancel: () => void;
   onRetry?: () => void;
 }
@@ -46,6 +46,15 @@ export default function ReceiptConfirmationModal({
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, checked: !item.checked } : item))
     );
+  }
+
+  function updateItemName(index: number, name: string) {
+    setItems((prev) => prev.map((item, i) => i === index ? { ...item, normalized_name: name, raw_name: name } : item));
+  }
+
+  function updateItemPrice(index: number, price: string) {
+    const val = parseFloat(price);
+    setItems((prev) => prev.map((item, i) => i === index ? { ...item, line_total: isNaN(val) ? null : val } : item));
   }
 
   function setChoice(index: number, choice: "link" | "add_new") {
@@ -85,7 +94,8 @@ export default function ReceiptConfirmationModal({
       setError(result.error);
       setSaving(false);
     } else {
-      onDone();
+      const addedTotal = editedAmount ?? extraction.total ?? 0;
+      onDone(addedTotal);
     }
   }
 
@@ -284,41 +294,51 @@ export default function ReceiptConfirmationModal({
               }
 
               return (
-                <button key={i} onClick={() => toggle(i)}
-                  className={`w-full flex items-center gap-3 px-4 py-4 rounded-xl border text-left transition-colors active:scale-95 ${
-                    item.checked ? "bg-[#1A1A1A] border-[#2a2a2a]" : "bg-[#141414] border-[#1e1e1e] opacity-50"
+                <div key={i}
+                  className={`w-full flex items-start gap-3 px-4 py-3 rounded-xl border ${
+                    item.checked ? "bg-[#1A1A1A] border-[#2a2a2a]" : "bg-[#141414] border-[#1e1e1e] opacity-60"
                   }`}>
-                  <div className={`w-6 h-6 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors ${
-                    item.checked ? "bg-orange-500 border-orange-500" : "border-[#444] bg-transparent"
-                  }`}>
+                  <button
+                    onClick={() => toggle(i)}
+                    className={`w-6 h-6 rounded-md border-2 shrink-0 flex items-center justify-center transition-colors mt-2 ${
+                      item.checked ? "bg-orange-500 border-orange-500" : "border-[#444] bg-transparent"
+                    }`}
+                  >
                     {item.checked && (
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                         <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm leading-tight">{item.normalized_name}</p>
-                    {item.normalized_name !== item.raw_name && (
-                      <p className="text-gray-600 text-xs mt-0.5 truncate">{item.raw_name}</p>
-                    )}
-                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                      {(item.qty !== null || item.unit) && (
-                        <p className="text-gray-500 text-xs">
-                          {item.qty !== null ? item.qty : ""}
-                          {item.unit ? ` ${item.unit}` : ""}
-                          {item.unit_price !== null ? ` @ $${item.unit_price.toFixed(2)}` : ""}
-                        </p>
+                  </button>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    <input
+                      type="text"
+                      value={item.normalized_name}
+                      onChange={(e) => updateItemName(i, e.target.value)}
+                      className="w-full bg-[#242424] border border-[#333] text-white text-sm rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.qty !== null && (
+                        <span className="text-gray-500 text-xs">{item.qty}{item.unit ? ` ${item.unit}` : ""}{item.unit_price !== null ? ` @ $${item.unit_price.toFixed(2)}` : ""}</span>
                       )}
                       {item.category && (
                         <span className="text-[10px] font-semibold text-gray-500 bg-[#2a2a2a] rounded px-1.5 py-0.5">{item.category}</span>
                       )}
                     </div>
                   </div>
-                  {item.line_total !== null && (
-                    <span className="text-orange-400 font-bold text-base shrink-0">${item.line_total.toFixed(2)}</span>
-                  )}
-                </button>
+                  <div className="shrink-0 flex items-center gap-1 mt-1">
+                    <span className="text-gray-500 text-xs">$</span>
+                    <input
+                      type="number"
+                      value={item.line_total ?? ""}
+                      onChange={(e) => updateItemPrice(i, e.target.value)}
+                      className="w-20 bg-[#242424] border border-[#333] text-orange-400 font-bold text-sm rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
               );
             })}
 

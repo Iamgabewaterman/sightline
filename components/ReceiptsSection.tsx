@@ -58,6 +58,8 @@ export default function ReceiptsSection({
   const [jobMaterials, setJobMaterials] = useState<Material[]>([]);
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarning | null>(null);
   const [categoryPickerId, setCategoryPickerId] = useState<string | null>(null);
+  const [bulkCount, setBulkCount] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -215,18 +217,25 @@ export default function ReceiptsSection({
         result.result.items,
         result.result.vendor
       );
+      setBulkCount((c) => c + 1);
+      setBulkTotal((t) => t + (result.result!.total ?? 0));
       await refreshMaterialCost();
       window.dispatchEvent(new CustomEvent("sightline:receipt-confirmed"));
+      setTimeout(() => cameraRef.current?.click(), 400);
       return;
     }
 
     setExtraction(result.result);
   }
 
-  async function handleModalDone() {
+  async function handleModalDone(addedTotal?: number) {
     setExtraction(null);
+    setBulkCount((c) => c + 1);
+    setBulkTotal((t) => t + (addedTotal ?? 0));
     await refreshMaterialCost();
     window.dispatchEvent(new CustomEvent("sightline:receipt-confirmed"));
+    // Auto re-open camera for the next receipt
+    setTimeout(() => cameraRef.current?.click(), 400);
   }
 
   async function handleDuplicateYes() {
@@ -280,6 +289,24 @@ export default function ReceiptsSection({
           </span>
         )}
       </div>
+
+      {/* Bulk scan session banner */}
+      {bulkCount > 0 && (
+        <div className="mb-4 flex items-center justify-between bg-green-900/20 border border-green-700/30 rounded-xl px-4 py-3">
+          <div>
+            <p className="text-green-400 text-sm font-semibold">
+              {bulkCount} receipt{bulkCount !== 1 ? "s" : ""} scanned
+              {bulkTotal > 0 ? `, $${bulkTotal.toFixed(2)} added` : ""}
+            </p>
+            <p className="text-green-700 text-xs mt-0.5">Camera will open after each confirm</p>
+          </div>
+          <button
+            onClick={() => { setBulkCount(0); setBulkTotal(0); }}
+            className="text-green-700 text-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="End bulk scan session"
+          >✕</button>
+        </div>
+      )}
 
       {/* Upload buttons */}
       <div className={`flex gap-3 mb-5 rounded-xl transition-all duration-300 ${scanHighlighted ? "ring-2 ring-orange-500 ring-offset-2 ring-offset-[#0F0F0F]" : ""}`}>
