@@ -414,7 +414,7 @@ export default function CalculatorClient({
       const lfN = toFt(len), heightN = toFt(hgt), ops = parseInt(openings) || 0;
       const sp = parseInt(studSpacing);
       const rawStuds = ceil((lfN * 12) / sp) + ops * 2 + ceil(lfN / 8);
-      const studs = ceil(rawStuds * 1.10);
+      const studs = ceil(rawStuds * 1.12);
       const plateSticks = ceil((lfN * 3) / 8); // 3 plates, 8ft sticks
       const cornerBlocking = ceil(lfN / 10) * 2;
       const studPx = studSize === "2x4" ? P.stud2x4pre : P.stud2x6pre;

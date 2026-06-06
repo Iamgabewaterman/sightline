@@ -3,7 +3,7 @@
 import { useJobCost } from "@/components/JobCostContext";
 
 export default function ProfitBar() {
-  const { actualMaterialCost, actualLaborCost, quoteData } = useJobCost();
+  const { actualMaterialCost, actualLaborCost, actualReceiptTotal, quoteData } = useJobCost();
 
   if (!quoteData) {
     return (
@@ -19,7 +19,7 @@ export default function ProfitBar() {
   const addonsTotal = addons.reduce((s, a) => s + a.amount, 0);
   const totalQuote = finalQuote + addonsTotal;
 
-  const totalActual = actualMaterialCost + actualLaborCost;
+  const totalActual = actualMaterialCost + actualLaborCost + actualReceiptTotal;
   const profitBudget = totalQuote - materialBudget - laborBudget;
   const profitRemaining = totalQuote - totalActual;
 
@@ -159,6 +159,14 @@ export default function ProfitBar() {
             </span>
           </span>
         </div>
+        {actualReceiptTotal > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Receipts logged</span>
+            <span className="text-white font-semibold">
+              ${Math.round(actualReceiptTotal).toLocaleString()}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between text-sm border-t border-[#2a2a2a] pt-2">
           <span className="text-gray-400">Total spent</span>
           <span className="text-white font-semibold">
