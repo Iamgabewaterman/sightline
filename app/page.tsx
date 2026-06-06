@@ -242,12 +242,12 @@ export default function LandingPage() {
           >
             Start Free Trial
           </Link>
-          <a
-            href="#problem"
+          <Link
+            href="/demo"
             className="w-full sm:w-auto border border-[#2a2a2a] text-gray-300 font-semibold text-lg px-8 py-4 rounded-2xl hover:border-[#444] hover:text-white transition-colors text-center"
           >
-            See How It Works
-          </a>
+            Try Live Demo →
+          </Link>
         </div>
 
         {/* Social proof micro */}
@@ -355,18 +355,6 @@ export default function LandingPage() {
           <p className="text-gray-500 text-center mb-10">
             Walk through a live demo — no signup required.
           </p>
-
-          {/* Video placeholder — replace inner content with embed when ready */}
-          <div className="relative w-full bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-8" style={{ paddingBottom: "56.25%" }}>
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-[#2a2a2a] border border-[#3a3a3a] flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <polygon points="5,3 19,12 5,21" fill="#6B7280" />
-                </svg>
-              </div>
-              <p className="text-gray-600 text-sm font-medium">Demo video coming soon</p>
-            </div>
-          </div>
 
           <div className="flex flex-col items-center gap-3">
             <Link
@@ -583,31 +571,50 @@ export default function LandingPage() {
 
       {/* ── Footer ── */}
       <footer className="border-t border-[#1a1a1a] py-12 px-5">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          {/* Brand */}
-          <div className="flex flex-col items-center sm:items-start gap-1">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-orange-500" />
-              <span className="text-white font-black text-lg">Sightline</span>
+        <div className="max-w-5xl mx-auto flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            {/* Brand */}
+            <div className="flex flex-col items-center sm:items-start gap-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-500" />
+                <span className="text-white font-black text-lg">Sightline</span>
+              </div>
+              <p className="text-gray-600 text-xs">Every job. One view.</p>
             </div>
-            <p className="text-gray-600 text-xs">Every job. One view.</p>
+
+            {/* Links */}
+            <nav className="flex items-center gap-5 flex-wrap justify-center">
+              <Link href="/login" className="text-gray-500 text-sm hover:text-white transition-colors">
+                Log In
+              </Link>
+              <Link href="/signup" className="text-gray-500 text-sm hover:text-white transition-colors">
+                Sign Up
+              </Link>
+              <Link href="/privacy" className="text-gray-500 text-sm hover:text-white transition-colors">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="text-gray-500 text-sm hover:text-white transition-colors">
+                Terms of Service
+              </Link>
+            </nav>
           </div>
 
-          {/* Links */}
-          <nav className="flex items-center gap-5 flex-wrap justify-center">
-            <Link href="/login" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Log In
-            </Link>
-            <Link href="/signup" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Sign Up
-            </Link>
-            <Link href="/privacy" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="text-gray-500 text-sm hover:text-white transition-colors">
-              Terms of Service
-            </Link>
-          </nav>
+          {/* Contact — always visible without scrolling to contact section */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 border-t border-[#1a1a1a] pt-6">
+            <a
+              href="mailto:sightlinesupport@gmail.com"
+              className="text-gray-500 text-sm hover:text-orange-400 transition-colors"
+            >
+              sightlinesupport@gmail.com
+            </a>
+            <span className="hidden sm:block text-gray-700">·</span>
+            <a
+              href="sms:9714697274"
+              className="text-gray-500 text-sm hover:text-orange-400 transition-colors"
+            >
+              Text 971-469-7274
+            </a>
+          </div>
         </div>
       </footer>
 
