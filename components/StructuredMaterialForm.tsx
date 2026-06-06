@@ -95,7 +95,7 @@ function AddInlineInput({
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (val.trim()) onSave(val); } }}
           placeholder={placeholder}
-          className="flex-1 bg-[#242424] border border-orange-500/50 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500"
+          className="flex-1 bg-[#242424] border border-orange-500/50 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-orange-500"
         />
         <button
           type="button"

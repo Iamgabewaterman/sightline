@@ -667,6 +667,7 @@ export default function MaterialsSection({
   const [showImport,   setShowImport]   = useState(false);
   const [saving,       setSaving]       = useState(false);
   const [formError,    setFormError]    = useState("");
+  const [addedToast,   setAddedToast]   = useState("");
 
   // Open form when triggered from quick-add bar
   useEffect(() => {
@@ -748,6 +749,8 @@ export default function MaterialsSection({
 
     setShowForm(false);
     setSaving(false);
+    setAddedToast("Material added");
+    setTimeout(() => setAddedToast(""), 2000);
   }
 
   function handleUpdate(id: string, fields: Partial<Material>) {
@@ -946,6 +949,12 @@ export default function MaterialsSection({
           />
         );
       })()}
+
+      {addedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-lg z-50 pointer-events-none">
+          ✓ {addedToast}
+        </div>
+      )}
     </div>
   );
 }

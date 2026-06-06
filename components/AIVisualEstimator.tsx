@@ -446,7 +446,6 @@ export default function AIVisualEstimator({
     setJobPickerOpen(false);
     setSaved(false);
     setSaveError("");
-    console.error("[AIEstimator] Checked items →", aiResult.materials_identified.filter((_, i) => selectedMaterials.has(i)).map(m => m.name));
     setStep("output");
     onUsed();
   }

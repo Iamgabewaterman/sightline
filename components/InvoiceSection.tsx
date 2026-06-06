@@ -202,6 +202,7 @@ export default function InvoiceSection({
   const [portalToken, setPortalToken] = useState<string | null>(initialToken);
   const [portalSaving, setPortalSaving] = useState(false);
   const [portalCopied, setPortalCopied] = useState(false);
+  const [portalJustEnabled, setPortalJustEnabled] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   // Change order form state
@@ -467,7 +468,12 @@ export default function InvoiceSection({
       if (!res?.error) setPortalEnabled(false);
     } else {
       const res = await enablePortal(jobId);
-      if (res.token) { setPortalToken(res.token); setPortalEnabled(true); }
+      if (res.token) {
+        setPortalToken(res.token);
+        setPortalEnabled(true);
+        setPortalJustEnabled(true);
+        setTimeout(() => setPortalJustEnabled(false), 2500);
+      }
     }
     setPortalSaving(false);
   }
@@ -812,6 +818,12 @@ export default function InvoiceSection({
           </p>
           {downloadInvoiceBtn && <div className="mt-3">{downloadInvoiceBtn}</div>}
         </>
+      )}
+
+      {portalJustEnabled && (
+        <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 text-green-400 text-sm font-semibold text-center">
+          ✓ Portal enabled! Share the link below.
+        </div>
       )}
 
       {portalEnabled && portalUrl && (
