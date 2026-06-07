@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchReportData,
@@ -12,21 +12,21 @@ import type {
   ReportType,
   DatePreset,
   JobFilterType,
-  ExportFormat,
   ReportConfig,
   ReportTemplate,
-  ColumnDef,
-  ReportSection,
+  ReportResult,
 } from "./types";
 import {
   REPORT_TYPE_CONFIG,
   DATE_PRESET_LABELS,
   JOB_TYPES,
+  CUSTOM_SECTION_OPTIONS,
+  LEGACY_TYPE_MAP,
   resolveDateRange,
 } from "./types";
 import type { BusinessProfile } from "@/types";
 
-// ── Props ────────────────────────────────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface JobStub {
   id: string;
@@ -42,15 +42,19 @@ interface Props {
   businessProfile: BusinessProfile | null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildCsvContent(cols: ColumnDef[], rows: Record<string, unknown>[]): string {
-  const header = cols.map(c => `"${c.label}"`).join(",");
+function migrateConfig(c: ReportConfig): ReportConfig {
+  const rt = (LEGACY_TYPE_MAP[c.reportType as string] ?? c.reportType) as ReportType;
+  return { ...c, reportType: rt };
+}
+
+function buildCsvContent(rows: Record<string, unknown>[], colKeys: string[], colLabels: string[]): string {
+  const header = colLabels.map(l => `"${l}"`).join(",");
   const body   = rows.map(row =>
-    cols.map(c => {
-      const v = row[c.key];
-      if (v == null) return '""';
-      return `"${String(v).replace(/"/g, '""')}"`;
+    colKeys.map(k => {
+      const v = row[k];
+      return v == null ? '""' : `"${String(v).replace(/"/g, '""')}"`;
     }).join(",")
   ).join("\n");
   return header + "\n" + body;
@@ -66,51 +70,52 @@ function triggerDownload(content: string, filename: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-function dateRangeLabel(preset: DatePreset, start?: string, end?: string, resolved?: { start: string; end: string }): string {
-  if (preset === "custom") return `${start ?? "?"} – ${end ?? "?"}`;
-  if (resolved) return `${resolved.start} – ${resolved.end}`;
-  return DATE_PRESET_LABELS[preset];
-}
+// ── Component ─────────────────────────────────────────────────────────────────
 
-// ── Main component ───────────────────────────────────────────────────────────
+export default function ReportsClient({ jobs, savedTemplates: initTemplates, businessProfile }: Props) {
 
-export default function ReportsClient({ jobs, savedTemplates: initialTemplates, businessProfile }: Props) {
-  // ── Config state ────────────────────────────────────────────────────────────
-  const [reportType,       setReportType]       = useState<ReportType>("job_summary");
-  const [datePreset,       setDatePreset]        = useState<DatePreset>("this_month");
-  const [dateStart,        setDateStart]         = useState("");
-  const [dateEnd,          setDateEnd]           = useState("");
-  const [jobFilterType,    setJobFilterType]     = useState<JobFilterType>("all");
-  const [jobFilterValues,  setJobFilterValues]   = useState<string[]>([]);
-  const [selectedCols,     setSelectedCols]      = useState<string[]>([]);
-  const [exportFormat,     setExportFormat]      = useState<ExportFormat>("csv");
+  // ── Config state ─────────────────────────────────────────────────────────────
+  const [reportType,      setReportType]      = useState<ReportType>("job_profitability");
+  const [datePreset,      setDatePreset]       = useState<DatePreset>("this_year");
+  const [dateStart,       setDateStart]        = useState("");
+  const [dateEnd,         setDateEnd]          = useState("");
+  const [jobFilterType,   setJobFilterType]    = useState<JobFilterType>("all");
+  const [jobFilterValues, setJobFilterValues]  = useState<string[]>([]);
+  const [selectedCols,    setSelectedCols]     = useState<string[]>(() =>
+    REPORT_TYPE_CONFIG["job_profitability"].columns.map(c => c.key)
+  );
+  const [customSections,  setCustomSections]   = useState<ReportType[]>(["job_profitability", "materials_cost", "invoices_payments"]);
+  const [includeWatermark, setIncludeWatermark] = useState(false);
 
-  // ── UI state ────────────────────────────────────────────────────────────────
-  const [templates,        setTemplates]         = useState<ReportTemplate[]>(initialTemplates);
-  const [previewRows,      setPreviewRows]       = useState<Record<string, unknown>[] | null>(null);
-  const [previewSections,  setPreviewSections]   = useState<ReportSection[] | null>(null);
-  const [previewLoading,   setPreviewLoading]    = useState(false);
-  const [downloading,      setDownloading]       = useState(false);
-  const [saveOpen,         setSaveOpen]          = useState(false);
-  const [templateName,     setTemplateName]      = useState("");
-  const [saving,           setSaving]            = useState(false);
-  const [jobSearch,        setJobSearch]         = useState("");
-  const [toast,            setToast]             = useState("");
+  // ── UI state ─────────────────────────────────────────────────────────────────
+  const [templates,       setTemplates]        = useState<ReportTemplate[]>(initTemplates);
+  const [previewResult,   setPreviewResult]    = useState<ReportResult | null>(null);
+  const [previewLoading,  setPreviewLoading]   = useState(false);
+  const [exporting,       setExporting]        = useState(false);
+  const [saveOpen,        setSaveOpen]         = useState(false);
+  const [templateName,    setTemplateName]      = useState("");
+  const [saving,          setSaving]           = useState(false);
+  const [jobSearch,       setJobSearch]        = useState("");
+  const [toast,           setToast]            = useState("");
+  const [toastOk,         setToastOk]          = useState(true);
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const debounceRef  = useRef<ReturnType<typeof setTimeout>>();
+  const requestIdRef = useRef(0);
 
-  // Reset columns when report type changes
+  const showToast = (msg: string, ok = true) => {
+    setToast(msg); setToastOk(ok);
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  // ── Sync columns when report type changes ─────────────────────────────────
   useEffect(() => {
-    if (reportType === "full_business") { setSelectedCols([]); return; }
+    if (reportType === "custom") return;
     setSelectedCols(REPORT_TYPE_CONFIG[reportType].columns.map(c => c.key));
   }, [reportType]);
 
-  // Reset job filter values when filter type changes
   useEffect(() => { setJobFilterValues([]); }, [jobFilterType]);
 
-  // Reset preview when config changes
-  useEffect(() => { setPreviewRows(null); setPreviewSections(null); }, [reportType, datePreset, dateStart, dateEnd, jobFilterType, jobFilterValues.join(","), selectedCols.join(",")]);
-
+  // ── Build config ─────────────────────────────────────────────────────────────
   const buildConfig = useCallback((): ReportConfig => ({
     reportType,
     datePreset,
@@ -118,113 +123,132 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
     dateEnd:   datePreset === "custom" ? dateEnd   : undefined,
     jobFilterType,
     jobFilterValues,
-    columns: selectedCols,
-    exportFormat,
-  }), [reportType, datePreset, dateStart, dateEnd, jobFilterType, jobFilterValues, selectedCols, exportFormat]);
+    columns:        reportType === "custom" ? [] : selectedCols,
+    exportFormat:   "csv",
+    customSections: reportType === "custom" ? customSections : undefined,
+    includeWatermark,
+  }), [reportType, datePreset, dateStart, dateEnd, jobFilterType, jobFilterValues, selectedCols, customSections, includeWatermark]);
 
-  // ── Active column defs for selected type ────────────────────────────────────
-  const allCols = reportType === "full_business" ? [] : REPORT_TYPE_CONFIG[reportType].columns;
+  // ── Derived ───────────────────────────────────────────────────────────────────
+  const allCols    = reportType === "custom" ? [] : REPORT_TYPE_CONFIG[reportType].columns;
   const activeCols = allCols.filter(c => selectedCols.includes(c.key));
 
-  // ── Preview ─────────────────────────────────────────────────────────────────
-  async function handlePreview() {
-    setPreviewLoading(true);
-    const result = await fetchReportData({ ...buildConfig(), preview: true });
-    setPreviewLoading(false);
-    if (result.error) { showToast(result.error); return; }
-    if (result.sections) { setPreviewSections(result.sections); setPreviewRows(null); }
-    else { setPreviewRows(result.rows); setPreviewSections(null); }
-  }
+  // ── Live preview with debounce ────────────────────────────────────────────────
+  const configKey = [
+    reportType, datePreset, dateStart, dateEnd,
+    jobFilterType, jobFilterValues.join(","),
+    selectedCols.join(","), customSections.join(","),
+  ].join("|");
 
-  // ── Download ────────────────────────────────────────────────────────────────
-  async function handleDownload() {
-    setDownloading(true);
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const thisId = ++requestIdRef.current;
+      setPreviewLoading(true);
+      const result = await fetchReportData(buildConfig());
+      if (thisId !== requestIdRef.current) return;
+      setPreviewLoading(false);
+      if (result.error) { showToast(result.error, false); return; }
+      setPreviewResult(result);
+    }, 800);
+    return () => clearTimeout(debounceRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey]);
+
+  // ── Export ────────────────────────────────────────────────────────────────────
+  async function runExport(format: "pdf" | "csv") {
+    setExporting(true);
     try {
-      const result = await fetchReportData({ ...buildConfig(), preview: false });
-      if (result.error) { showToast(result.error); return; }
+      const result = await fetchReportData(buildConfig());
+      if (result.error) { showToast(result.error, false); return; }
 
       const resolved = resolveDateRange(datePreset, dateStart, dateEnd);
-      const label    = dateRangeLabel(datePreset, dateStart, dateEnd, resolved);
+      const label    = datePreset === "custom"
+        ? `${dateStart} – ${dateEnd}`
+        : `${resolved.start} – ${resolved.end}`;
       const today    = new Date().toISOString().split("T")[0];
       const title    = REPORT_TYPE_CONFIG[reportType].label;
       const slug     = title.replace(/\s+/g, "-").toLowerCase();
 
-      // ── CSV
-      if (exportFormat === "csv" || exportFormat === "both") {
-        if (result.sections) {
+      if (format === "csv") {
+        if (result.sections && result.sections.length > 0) {
           let csv = "";
           result.sections.forEach(sec => {
-            const secCols = REPORT_TYPE_CONFIG[sec.type].columns;
-            csv += `\n"${sec.title}"\n` + buildCsvContent(secCols, sec.rows) + "\n";
+            const secCols = REPORT_TYPE_CONFIG[sec.type]?.columns ?? [];
+            const keys    = secCols.map(c => c.key);
+            const labels  = secCols.map(c => c.label);
+            csv += `\n"${sec.title}"\n` + buildCsvContent(sec.rows, keys, labels) + "\n";
           });
           triggerDownload(csv.trim(), `${slug}-${today}.csv`, "text/csv");
         } else {
-          const csv = buildCsvContent(activeCols, result.rows);
-          triggerDownload(csv, `${slug}-${today}.csv`, "text/csv");
+          const keys   = activeCols.map(c => c.key);
+          const labels = activeCols.map(c => c.label);
+          triggerDownload(buildCsvContent(result.rows, keys, labels), `${slug}-${today}.csv`, "text/csv");
         }
+        showToast("CSV downloaded");
+        return;
       }
 
-      // ── PDF
-      if (exportFormat === "pdf" || exportFormat === "both") {
-        let logoUrl: string | null = null;
-        if (businessProfile?.logo_path) {
-          const supabase = createClient();
-          const { data: signed } = await supabase.storage
-            .from("business-logos")
-            .createSignedUrl(businessProfile.logo_path, 300);
-          logoUrl = signed?.signedUrl ?? null;
-        }
-
-        if (result.sections) {
-          const sections = result.sections.map(sec => ({
-            title:   sec.title,
-            columns: REPORT_TYPE_CONFIG[sec.type].columns,
-            rows:    sec.rows,
-          }));
-          await generateAndDownloadReportPDF({
-            reportTitle: title, dateRangeLabel: label, generatedDate: today,
-            businessProfile, logoUrl, columns: [], rows: [], sections,
-          });
-        } else {
-          await generateAndDownloadReportPDF({
-            reportTitle: title, dateRangeLabel: label, generatedDate: today,
-            businessProfile, logoUrl, columns: activeCols, rows: result.rows,
-          });
-        }
+      // PDF
+      let logoUrl: string | null = null;
+      if (businessProfile?.logo_path) {
+        const supabase = createClient();
+        const { data: signed } = await supabase.storage
+          .from("business-logos")
+          .createSignedUrl(businessProfile.logo_path, 300);
+        logoUrl = signed?.signedUrl ?? null;
       }
 
-      showToast("Download ready");
+      if (result.sections && result.sections.length > 0) {
+        const sections = result.sections.map(sec => ({
+          title:   sec.title,
+          columns: REPORT_TYPE_CONFIG[sec.type]?.columns ?? [],
+          rows:    sec.rows,
+        }));
+        await generateAndDownloadReportPDF({
+          reportTitle: title, dateRangeLabel: label, generatedDate: today,
+          businessProfile, logoUrl, columns: [], rows: [], sections,
+          includeWatermark, totalRows: result.totalRows,
+        });
+      } else {
+        await generateAndDownloadReportPDF({
+          reportTitle: title, dateRangeLabel: label, generatedDate: today,
+          businessProfile, logoUrl, columns: activeCols, rows: result.rows,
+          includeWatermark, totalRows: result.totalRows,
+        });
+      }
+      showToast("PDF downloaded");
     } finally {
-      setDownloading(false);
+      setExporting(false);
     }
   }
 
-  // ── Save template ───────────────────────────────────────────────────────────
+  // ── Templates ─────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!templateName.trim()) return;
     setSaving(true);
     const result = await saveReportTemplate(templateName.trim(), buildConfig());
     setSaving(false);
-    if (result.error) { showToast(result.error); return; }
-    setTemplates(prev => [
-      { id: result.id!, user_id: "", name: templateName.trim(), config: buildConfig(), created_at: new Date().toISOString() },
-      ...prev,
-    ]);
+    if (result.error) { showToast(result.error, false); return; }
+    setTemplates(prev => [{
+      id: result.id!, user_id: "", name: templateName.trim(),
+      config: buildConfig(), created_at: new Date().toISOString(),
+    }, ...prev]);
     setTemplateName(""); setSaveOpen(false);
     showToast("Template saved");
   }
 
-  // ── Load template ───────────────────────────────────────────────────────────
   function loadTemplate(t: ReportTemplate) {
-    const c = t.config;
+    const c = migrateConfig(t.config);
     setReportType(c.reportType);
     setDatePreset(c.datePreset);
     setDateStart(c.dateStart ?? "");
     setDateEnd(c.dateEnd ?? "");
     setJobFilterType(c.jobFilterType);
     setJobFilterValues(c.jobFilterValues);
-    setSelectedCols(c.columns);
-    setExportFormat(c.exportFormat);
+    if (c.reportType !== "custom") setSelectedCols(c.columns.length > 0 ? c.columns : REPORT_TYPE_CONFIG[c.reportType].columns.map(col => col.key));
+    if (c.customSections) setCustomSections(c.customSections);
+    if (c.includeWatermark != null) setIncludeWatermark(c.includeWatermark);
     showToast(`Loaded: ${t.name}`);
   }
 
@@ -233,100 +257,150 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
     setTemplates(prev => prev.filter(t => t.id !== id));
   }
 
-  // ── Column toggle helpers ────────────────────────────────────────────────────
+  // ── Toggle helpers ────────────────────────────────────────────────────────────
   function toggleCol(key: string) {
-    setSelectedCols(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
+    setSelectedCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   }
 
-  // ── Job filter value helpers ─────────────────────────────────────────────────
   function toggleFilterValue(v: string) {
-    setJobFilterValues(prev =>
-      prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
-    );
+    setJobFilterValues(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  }
+
+  function toggleCustomSection(type: ReportType) {
+    setCustomSections(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
   }
 
   const filteredJobs = jobs.filter(j =>
     !jobSearch || j.name.toLowerCase().includes(jobSearch.toLowerCase())
   );
 
-  // ── Shared UI classes ────────────────────────────────────────────────────────
+  // ── Shared classes ────────────────────────────────────────────────────────────
   const sectionCls = "bg-[#141414] border border-[#2a2a2a] rounded-2xl px-4 py-4";
   const labelCls   = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3 block";
   const pillBase   = "px-3 py-2 rounded-xl text-xs font-semibold border transition-colors active:scale-95";
   const pillOn     = "bg-orange-500 border-orange-500 text-white";
   const pillOff    = "bg-[#1A1A1A] border-[#2a2a2a] text-gray-300";
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const rowCount    = previewResult?.totalRows ?? null;
+  const previewRows = previewResult?.rows ?? null;
+  const previewSecs = previewResult?.sections ?? null;
+  const hasData     = (previewRows !== null && previewRows.length > 0) || (previewSecs !== null && previewSecs.length > 0);
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0F0F0F] pb-32">
+
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#1A1A1A] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl">
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl border ${
+          toastOk ? "bg-[#1A1A1A] border-[#2a2a2a]" : "bg-red-900/80 border-red-700"
+        }`}>
           {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-[#1a1a1a] px-4 py-3">
-        <h1 className="text-white font-black text-xl">Reports</h1>
-        <p className="text-gray-500 text-xs mt-0.5">Build and export custom business reports</p>
+      {/* ── Sticky header with always-visible export buttons ─────────────────── */}
+      <div className="sticky top-0 z-40 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-[#1a1a1a] px-4 py-3">
+        <div className="flex items-center justify-between max-w-2xl mx-auto">
+          <div>
+            <h1 className="text-white font-black text-xl leading-tight">Reports</h1>
+            <p className="text-gray-500 text-xs mt-0.5">
+              {previewLoading
+                ? "Loading preview…"
+                : rowCount != null
+                  ? `${rowCount} row${rowCount !== 1 ? "s" : ""} · ${REPORT_TYPE_CONFIG[reportType].label}`
+                  : "Build and export business reports"
+              }
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => runExport("csv")}
+              disabled={exporting || previewLoading}
+              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-xs px-4 py-2.5 rounded-xl active:scale-95 transition-transform disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              CSV
+            </button>
+            <button
+              onClick={() => runExport("pdf")}
+              disabled={exporting || previewLoading}
+              className="bg-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl active:scale-95 transition-transform disabled:opacity-40 flex items-center gap-1.5"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              PDF
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-4 max-w-2xl mx-auto">
 
-        {/* ── Saved templates ───────────────────────────────────────────────── */}
+        {/* ── Saved templates ──────────────────────────────────────────────────── */}
         {templates.length > 0 && (
           <div>
-            <span className={labelCls}>Saved Templates</span>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {templates.map(t => (
-                <div
-                  key={t.id}
-                  className="shrink-0 bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-2.5 flex items-center gap-2 min-w-[140px]"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-xs font-bold truncate">{t.name}</p>
-                    <p className="text-gray-500 text-xs truncate">{REPORT_TYPE_CONFIG[t.config.reportType].label.replace(" Report", "")}</p>
-                  </div>
-                  <div className="flex flex-col gap-1 shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <span className={`${labelCls} mb-0`}>Saved Templates</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {templates.map(t => {
+                const rt  = (LEGACY_TYPE_MAP[t.config.reportType as string] ?? t.config.reportType) as ReportType;
+                const cfg = REPORT_TYPE_CONFIG[rt] ?? REPORT_TYPE_CONFIG["job_profitability"];
+                return (
+                  <div key={t.id} className="bg-[#141414] border border-[#2a2a2a] rounded-2xl px-4 py-4 flex items-center gap-3">
+                    <span className="text-2xl shrink-0">{cfg.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate">{t.name}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">{cfg.label} · {DATE_PRESET_LABELS[t.config.datePreset] ?? t.config.datePreset}</p>
+                    </div>
                     <button
                       onClick={() => loadTemplate(t)}
-                      className="text-orange-400 text-xs font-semibold hover:text-orange-300 active:scale-95 transition-transform"
+                      className="bg-orange-500 text-white font-bold text-xs px-3 py-2 rounded-xl active:scale-95 transition-transform shrink-0"
                     >
-                      Load
+                      Load →
                     </button>
                     <button
                       onClick={() => handleDeleteTemplate(t.id)}
-                      className="text-gray-600 text-xs hover:text-red-400 active:scale-95 transition-transform"
+                      className="text-gray-600 text-sm hover:text-red-400 active:scale-95 transition-transform shrink-0 w-8 h-8 flex items-center justify-center"
                     >
-                      Delete
+                      ✕
                     </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* ── Report type ───────────────────────────────────────────────────── */}
+        {/* ── Report type grid ─────────────────────────────────────────────────── */}
         <div className={sectionCls}>
           <span className={labelCls}>Report Type</span>
-          <div className="flex flex-wrap gap-2">
-            {(Object.entries(REPORT_TYPE_CONFIG) as [ReportType, { label: string }][]).map(([key, cfg]) => (
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.entries(REPORT_TYPE_CONFIG) as [ReportType, typeof REPORT_TYPE_CONFIG[ReportType]][]).map(([key, cfg]) => (
               <button
                 key={key}
                 onClick={() => setReportType(key)}
-                className={`${pillBase} ${reportType === key ? pillOn : pillOff}`}
+                className={`flex flex-col gap-1.5 px-3 py-3.5 rounded-xl border text-left transition-all active:scale-95 ${
+                  reportType === key
+                    ? "bg-orange-500/10 border-orange-500"
+                    : "bg-[#1A1A1A] border-[#2a2a2a]"
+                }`}
               >
-                {cfg.label.replace(" Report", "")}
+                <span className="text-xl leading-none">{cfg.icon}</span>
+                <p className={`font-bold text-xs leading-tight ${reportType === key ? "text-orange-400" : "text-white"}`}>
+                  {cfg.label}
+                </p>
+                <p className="text-gray-500 text-[10px] leading-tight">{cfg.description}</p>
               </button>
             ))}
           </div>
         </div>
 
-        {/* ── Date range ───────────────────────────────────────────────────── */}
+        {/* ── Date range ───────────────────────────────────────────────────────── */}
         <div className={sectionCls}>
           <span className={labelCls}>Date Range</span>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -348,7 +422,7 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
                   type="date"
                   value={dateStart}
                   onChange={e => setDateStart(e.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-3 text-base focus:outline-none focus:border-orange-500"
                 />
               </div>
               <div>
@@ -357,14 +431,14 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
                   type="date"
                   value={dateEnd}
                   onChange={e => setDateEnd(e.target.value)}
-                  className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-3 text-base focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Job filter ───────────────────────────────────────────────────── */}
+        {/* ── Job filter ───────────────────────────────────────────────────────── */}
         <div className={sectionCls}>
           <span className={labelCls}>Job Filter</span>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -382,10 +456,8 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
           {jobFilterType === "type" && (
             <div className="flex flex-wrap gap-2">
               {JOB_TYPES.map(t => (
-                <button
-                  key={t}
-                  onClick={() => toggleFilterValue(t)}
-                  className={`${pillBase} text-xs py-1.5 ${jobFilterValues.includes(t) ? pillOn : pillOff}`}
+                <button key={t} onClick={() => toggleFilterValue(t)}
+                  className={`${pillBase} py-1.5 ${jobFilterValues.includes(t) ? pillOn : pillOff}`}
                 >
                   {t}
                 </button>
@@ -394,11 +466,9 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
           )}
 
           {jobFilterType === "status" && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {["active", "completed", "on_hold"].map(s => (
-                <button
-                  key={s}
-                  onClick={() => toggleFilterValue(s)}
+                <button key={s} onClick={() => toggleFilterValue(s)}
                   className={`${pillBase} ${jobFilterValues.includes(s) ? pillOn : pillOff}`}
                 >
                   {s === "on_hold" ? "On Hold" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -414,13 +484,11 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
                 value={jobSearch}
                 onChange={e => setJobSearch(e.target.value)}
                 placeholder="Search jobs…"
-                className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-2.5 text-sm mb-2 focus:outline-none focus:border-orange-500"
+                className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-3 py-3 text-base mb-2 focus:outline-none focus:border-orange-500"
               />
-              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+              <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
                 {filteredJobs.map(j => (
-                  <button
-                    key={j.id}
-                    onClick={() => toggleFilterValue(j.id)}
+                  <button key={j.id} onClick={() => toggleFilterValue(j.id)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
                       jobFilterValues.includes(j.id)
                         ? "bg-orange-500/10 border border-orange-500/30"
@@ -453,19 +521,55 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
           )}
         </div>
 
-        {/* ── Columns ──────────────────────────────────────────────────────── */}
-        {reportType === "full_business" ? (
+        {/* ── Columns (or custom sections) ─────────────────────────────────────── */}
+        {reportType === "custom" ? (
+          <div className={sectionCls}>
+            <span className={labelCls}>Sections to Include</span>
+            <div className="flex flex-col gap-2">
+              {CUSTOM_SECTION_OPTIONS.map(opt => (
+                <button
+                  key={opt.type}
+                  onClick={() => toggleCustomSection(opt.type)}
+                  className={`flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-colors active:scale-95 ${
+                    customSections.includes(opt.type)
+                      ? "bg-orange-500/10 border-orange-500/30"
+                      : "bg-[#1A1A1A] border-[#2a2a2a]"
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                    customSections.includes(opt.type) ? "bg-orange-500 border-orange-500" : "border-[#444]"
+                  }`}>
+                    {customSections.includes(opt.type) && (
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </span>
+                  <span className="flex-1">
+                    <p className={`font-semibold text-sm ${customSections.includes(opt.type) ? "text-white" : "text-gray-300"}`}>
+                      {REPORT_TYPE_CONFIG[opt.type].icon} {opt.label}
+                    </p>
+                    <p className="text-gray-500 text-xs">{REPORT_TYPE_CONFIG[opt.type].description}</p>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {customSections.length === 0 && (
+              <p className="text-yellow-500 text-xs mt-2">Select at least one section</p>
+            )}
+          </div>
+        ) : reportType === "tax_summary" ? (
           <div className={sectionCls}>
             <span className={labelCls}>Columns</span>
-            <p className="text-gray-500 text-sm">Full Business Report includes all available columns across every section: Job Summary, Materials, Labor, Profitability, Invoices & Payments, and Mileage & Tax.</p>
+            <p className="text-gray-500 text-sm">Tax Summary Report shows all Schedule C line items. No column selection needed — all fields are included automatically.</p>
           </div>
         ) : (
           <div className={sectionCls}>
             <div className="flex items-center justify-between mb-3">
               <span className={`${labelCls} mb-0`}>Columns</span>
               <div className="flex gap-3">
-                <button onClick={() => setSelectedCols(allCols.map(c => c.key))} className="text-orange-400 text-xs font-semibold hover:text-orange-300">All</button>
-                <button onClick={() => setSelectedCols([])} className="text-gray-500 text-xs font-semibold hover:text-gray-400">None</button>
+                <button onClick={() => setSelectedCols(allCols.map(c => c.key))} className="text-orange-400 text-xs font-semibold">All</button>
+                <button onClick={() => setSelectedCols([])} className="text-gray-500 text-xs font-semibold">None</button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -500,97 +604,117 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
           </div>
         )}
 
-        {/* ── Export format ─────────────────────────────────────────────────── */}
+        {/* ── Options ──────────────────────────────────────────────────────────── */}
         <div className={sectionCls}>
-          <span className={labelCls}>Export Format</span>
-          <div className="grid grid-cols-3 gap-2">
-            {(["csv", "pdf", "both"] as ExportFormat[]).map(fmt => (
-              <button
-                key={fmt}
-                onClick={() => setExportFormat(fmt)}
-                className={`py-3 rounded-xl font-bold text-sm border transition-colors active:scale-95 ${
-                  exportFormat === fmt ? pillOn : pillOff
-                }`}
-              >
-                {fmt === "both" ? "Both" : fmt.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 px-1">
-            <p className="text-gray-600 text-xs">Spreadsheet</p>
-            <p className="text-gray-600 text-xs">Print / Share</p>
-            <p className="text-gray-600 text-xs">All formats</p>
-          </div>
-        </div>
-
-        {/* ── Actions ───────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-2">
+          <span className={labelCls}>Options</span>
           <button
-            onClick={handlePreview}
-            disabled={previewLoading || (reportType !== "full_business" && selectedCols.length === 0)}
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-sm py-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-40"
+            onClick={() => setIncludeWatermark(p => !p)}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-colors w-full active:scale-95 ${
+              includeWatermark
+                ? "bg-orange-500/10 border-orange-500/30"
+                : "bg-[#1A1A1A] border-[#2a2a2a]"
+            }`}
           >
-            {previewLoading ? "Loading…" : "Preview"}
-          </button>
-          <button
-            onClick={() => { setSaveOpen(true); setTemplateName(""); }}
-            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold text-sm py-4 rounded-2xl active:scale-95 transition-transform"
-          >
-            Save
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={downloading || (reportType !== "full_business" && selectedCols.length === 0)}
-            className="bg-orange-500 text-white font-bold text-sm py-4 rounded-2xl active:scale-95 transition-transform hover:bg-orange-400 disabled:opacity-40"
-          >
-            {downloading ? "Building…" : "Download"}
-          </button>
-        </div>
-
-        {/* ── Preview table ─────────────────────────────────────────────────── */}
-        {(previewRows !== null || previewSections !== null) && (
-          <div className={sectionCls}>
-            <div className="flex items-center justify-between mb-3">
-              <span className={`${labelCls} mb-0`}>Preview (first 5 rows)</span>
-              <button onClick={() => { setPreviewRows(null); setPreviewSections(null); }} className="text-gray-600 text-xs hover:text-gray-400">Clear</button>
+            <span className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+              includeWatermark ? "bg-orange-500 border-orange-500" : "border-[#444]"
+            }`}>
+              {includeWatermark && (
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </span>
+            <div>
+              <p className="text-white text-sm font-semibold">Confidential Watermark</p>
+              <p className="text-gray-500 text-xs">Add diagonal &quot;CONFIDENTIAL&quot; text to PDF pages</p>
             </div>
+          </button>
+        </div>
 
-            {/* Single report preview */}
-            {previewRows !== null && (
-              previewRows.length === 0 ? (
-                <p className="text-gray-500 text-sm text-center py-4">No data found for this period and filter.</p>
-              ) : (
-                <div className="overflow-x-auto -mx-1">
-                  <table className="w-full text-xs min-w-max">
-                    <thead>
-                      <tr className="border-b border-[#2a2a2a]">
-                        {activeCols.map(c => (
-                          <th key={c.key} className="text-left text-gray-500 font-semibold pb-2 pr-4 whitespace-nowrap">
-                            {c.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.map((row, i) => (
-                        <tr key={i} className={i % 2 === 1 ? "bg-[#1A1A1A]" : ""}>
-                          {activeCols.map(c => (
-                            <td key={c.key} className="text-gray-300 py-2 pr-4 whitespace-nowrap max-w-[180px] truncate">
-                              {row[c.key] != null ? String(row[c.key]) : "—"}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
+        {/* ── Save template ─────────────────────────────────────────────────────── */}
+        <button
+          onClick={() => { setSaveOpen(true); setTemplateName(""); }}
+          className="w-full bg-[#141414] border border-[#2a2a2a] text-gray-300 font-semibold py-3.5 rounded-2xl active:scale-95 transition-transform text-sm"
+        >
+          Save as Template
+        </button>
+
+        {/* ── Live preview ─────────────────────────────────────────────────────── */}
+        <div className={sectionCls}>
+          <div className="flex items-center justify-between mb-3">
+            <span className={`${labelCls} mb-0`}>
+              Preview
+              {rowCount != null && !previewLoading && (
+                <span className="ml-2 text-gray-600 normal-case tracking-normal font-normal">
+                  — {rowCount > 10 ? `first 10 of ${rowCount}` : rowCount} row{rowCount !== 1 ? "s" : ""}
+                </span>
+              )}
+            </span>
+            {previewLoading && (
+              <svg className="animate-spin text-orange-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
             )}
+          </div>
 
-            {/* Full business preview — one section per sub-report */}
-            {previewSections !== null && previewSections.map(sec => (
-              <div key={sec.title} className="mb-5">
-                <p className="text-orange-400 text-xs font-bold mb-2">{sec.title}</p>
+          {/* Loading skeleton */}
+          {previewLoading && !hasData && (
+            <div className="flex flex-col gap-2">
+              {[1,2,3].map(i => (
+                <div key={i} className="h-8 bg-[#1A1A1A] rounded-xl animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* No data */}
+          {!previewLoading && previewResult !== null && !hasData && (
+            <p className="text-gray-500 text-sm text-center py-6">No data found for this period and filter.</p>
+          )}
+
+          {/* Initial state (before first fetch completes) */}
+          {!previewLoading && previewResult === null && (
+            <p className="text-gray-600 text-sm text-center py-6">Configuring report…</p>
+          )}
+
+          {/* Single report preview */}
+          {previewRows !== null && previewRows.length > 0 && (
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-xs min-w-max">
+                <thead>
+                  <tr className="border-b border-[#2a2a2a]">
+                    {activeCols.map(c => (
+                      <th key={c.key} className="text-left text-gray-500 font-semibold pb-2 pr-4 whitespace-nowrap">
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.slice(0, 10).map((row, i) => (
+                    <tr key={i} className={i % 2 === 1 ? "bg-[#1A1A1A]" : ""}>
+                      {activeCols.map(c => {
+                        const v = row[c.key];
+                        const s = v != null ? String(v) : "—";
+                        const isNeg = s.startsWith("(") && s.endsWith(")");
+                        return (
+                          <td key={c.key} className={`py-2 pr-4 whitespace-nowrap max-w-[180px] truncate ${isNeg ? "text-red-400" : "text-gray-300"}`}>
+                            {s}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Multi-section preview (custom report) */}
+          {previewSecs !== null && previewSecs.map((sec, si) => {
+            const secCols = REPORT_TYPE_CONFIG[sec.type]?.columns ?? [];
+            return (
+              <div key={si} className={si > 0 ? "mt-5 pt-4 border-t border-[#2a2a2a]" : ""}>
+                <p className="text-orange-400 text-xs font-bold mb-2">{sec.title} <span className="text-gray-600 font-normal">({sec.rows.length} rows)</span></p>
                 {sec.rows.length === 0 ? (
                   <p className="text-gray-600 text-xs">No data for this period.</p>
                 ) : (
@@ -598,21 +722,24 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
                     <table className="w-full text-xs min-w-max">
                       <thead>
                         <tr className="border-b border-[#2a2a2a]">
-                          {REPORT_TYPE_CONFIG[sec.type].columns.map(c => (
-                            <th key={c.key} className="text-left text-gray-500 font-semibold pb-1.5 pr-3 whitespace-nowrap">
-                              {c.label}
-                            </th>
+                          {secCols.map(c => (
+                            <th key={c.key} className="text-left text-gray-500 font-semibold pb-1.5 pr-3 whitespace-nowrap">{c.label}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {sec.rows.map((row, i) => (
+                        {sec.rows.slice(0, 10).map((row, i) => (
                           <tr key={i} className={i % 2 === 1 ? "bg-[#1A1A1A]" : ""}>
-                            {REPORT_TYPE_CONFIG[sec.type].columns.map(c => (
-                              <td key={c.key} className="text-gray-300 py-1.5 pr-3 whitespace-nowrap max-w-[160px] truncate">
-                                {row[c.key] != null ? String(row[c.key]) : "—"}
-                              </td>
-                            ))}
+                            {secCols.map(c => {
+                              const v = row[c.key];
+                              const s = v != null ? String(v) : "—";
+                              const isNeg = s.startsWith("(") && s.endsWith(")");
+                              return (
+                                <td key={c.key} className={`py-1.5 pr-3 whitespace-nowrap max-w-[160px] truncate ${isNeg ? "text-red-400" : "text-gray-300"}`}>
+                                  {s}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
@@ -620,44 +747,69 @@ export default function ReportsClient({ jobs, savedTemplates: initialTemplates, 
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
 
-        {/* ── Save template sheet ───────────────────────────────────────────── */}
-        {saveOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5">
-              <h3 className="text-white font-black text-lg mb-1">Save Report Template</h3>
-              <p className="text-gray-500 text-sm mb-4">Give this report configuration a name so you can run it again with one tap.</p>
-              <input
-                type="text"
-                value={templateName}
-                onChange={e => setTemplateName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSave()}
-                placeholder="e.g. Monthly Materials Summary"
-                autoFocus
-                className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-4 py-3.5 text-base focus:outline-none focus:border-orange-500 mb-4"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSaveOpen(false)}
-                  className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-gray-300 font-bold text-sm py-3.5 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!templateName.trim() || saving}
-                  className="flex-1 bg-orange-500 text-white font-bold text-sm py-3.5 rounded-xl hover:bg-orange-400 disabled:opacity-40"
-                >
-                  {saving ? "Saving…" : "Save Template"}
-                </button>
-              </div>
+        {/* ── Bottom export buttons ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 gap-3 pb-4">
+          <button
+            onClick={() => runExport("csv")}
+            disabled={exporting}
+            className="bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+          <button
+            onClick={() => runExport("pdf")}
+            disabled={exporting}
+            className="bg-orange-500 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform hover:bg-orange-400 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Export PDF
+          </button>
+        </div>
+
+      </div>
+
+      {/* ── Save template modal ───────────────────────────────────────────────── */}
+      {saveOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5">
+            <h3 className="text-white font-black text-lg mb-1">Save as Template</h3>
+            <p className="text-gray-500 text-sm mb-4">Name this configuration so you can run it again in one tap.</p>
+            <input
+              type="text"
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSave()}
+              placeholder="e.g. Monthly Materials Summary"
+              autoFocus
+              className="w-full bg-[#1A1A1A] border border-[#333] text-white rounded-xl px-4 py-3.5 text-base focus:outline-none focus:border-orange-500 mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSaveOpen(false)}
+                className="flex-1 bg-[#1A1A1A] border border-[#2a2a2a] text-gray-300 font-bold text-sm py-3.5 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!templateName.trim() || saving}
+                className="flex-1 bg-orange-500 text-white font-bold text-sm py-3.5 rounded-xl hover:bg-orange-400 disabled:opacity-40"
+              >
+                {saving ? "Saving…" : "Save Template"}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

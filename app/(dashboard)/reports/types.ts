@@ -1,25 +1,38 @@
 // Shared types and config for the report builder — no server/client directives.
 
 export type ReportType =
-  | "job_summary"
-  | "materials"
+  | "job_profitability"
+  | "materials_cost"
   | "labor"
-  | "profitability"
+  | "tax_summary"
   | "invoices_payments"
-  | "mileage_tax"
-  | "full_business";
+  | "mileage"
+  | "waste_variance"
+  | "custom";
+
+// Legacy key aliases — old saved templates get migrated on load
+export const LEGACY_TYPE_MAP: Record<string, ReportType> = {
+  job_summary:     "job_profitability",
+  materials:       "materials_cost",
+  profitability:   "job_profitability",
+  mileage_tax:     "mileage",
+  full_business:   "custom",
+};
 
 export type DatePreset =
   | "this_week"
+  | "last_week"
   | "this_month"
   | "last_month"
   | "this_quarter"
   | "last_quarter"
   | "this_year"
+  | "last_year"
+  | "all_time"
   | "custom";
 
 export type JobFilterType = "all" | "type" | "status" | "specific";
-export type ExportFormat = "csv" | "pdf" | "both";
+export type ExportFormat = "pdf" | "csv";
 
 export interface ReportConfig {
   reportType: ReportType;
@@ -30,17 +43,21 @@ export interface ReportConfig {
   jobFilterValues: string[];
   columns: string[];
   exportFormat: ExportFormat;
+  customSections?: ReportType[];
+  includeWatermark?: boolean;
 }
 
 export interface ReportSection {
   title: string;
-  type: Exclude<ReportType, "full_business">;
+  type: ReportType;
   rows: Record<string, unknown>[];
+  totalRows?: number;
 }
 
 export interface ReportResult {
   rows: Record<string, unknown>[];
   sections?: ReportSection[];
+  totalRows?: number;
   error?: string;
 }
 
@@ -52,118 +69,167 @@ export interface ReportTemplate {
   created_at: string;
 }
 
-// ── Column definitions per report type ──────────────────────────────────────
-
 export interface ColumnDef {
   key: string;
   label: string;
 }
 
+// ── Column definitions per report type ───────────────────────────────────────
+
 export const REPORT_TYPE_CONFIG: Record<
   ReportType,
-  { label: string; columns: ColumnDef[] }
+  { label: string; description: string; icon: string; columns: ColumnDef[] }
 > = {
-  job_summary: {
-    label: "Job Summary Report",
+  job_profitability: {
+    label: "Job Profitability Report",
+    description: "Contract amounts, costs, margin, and collection status per job",
+    icon: "📊",
+    columns: [
+      { key: "job_name",             label: "Job Name" },
+      { key: "job_number",           label: "Job #" },
+      { key: "client_name",          label: "Client" },
+      { key: "job_types",            label: "Type(s)" },
+      { key: "start_date",           label: "Start Date" },
+      { key: "completion_date",      label: "Completion Date" },
+      { key: "contract_amount",      label: "Contract Amount" },
+      { key: "materials_cost",       label: "Materials Cost" },
+      { key: "labor_cost",           label: "Labor Cost" },
+      { key: "gross_profit",         label: "Gross Profit" },
+      { key: "margin_pct",           label: "Margin %" },
+      { key: "invoice_status",       label: "Invoice Status" },
+      { key: "amount_collected",     label: "Amount Collected" },
+      { key: "balance_outstanding",  label: "Balance Outstanding" },
+    ],
+  },
+
+  materials_cost: {
+    label: "Materials & Cost Report",
+    description: "Itemized list of every material purchased across selected jobs",
+    icon: "🧱",
     columns: [
       { key: "job_name",        label: "Job Name" },
       { key: "job_number",      label: "Job #" },
-      { key: "types",           label: "Type(s)" },
-      { key: "status",          label: "Status" },
-      { key: "address",         label: "Address" },
-      { key: "client",          label: "Client" },
-      { key: "start_date",      label: "Start Date" },
-      { key: "completed_date",  label: "End Date" },
-      { key: "total_days",      label: "Days" },
-      { key: "calculated_sqft", label: "Sq Ft" },
+      { key: "date_purchased",  label: "Date" },
+      { key: "material_name",   label: "Material" },
+      { key: "brand",           label: "Brand" },
+      { key: "spec",            label: "Color / Spec" },
+      { key: "category",        label: "Category" },
+      { key: "quantity",        label: "Qty Ordered" },
+      { key: "unit",            label: "Unit" },
+      { key: "unit_cost",       label: "Unit Cost" },
+      { key: "total_cost",      label: "Total Cost" },
+      { key: "vendor",          label: "Vendor / Supplier" },
+      { key: "receipt_attached",label: "Receipt" },
     ],
   },
-  materials: {
-    label: "Materials Report",
-    columns: [
-      { key: "job_name",         label: "Job Name" },
-      { key: "job_number",       label: "Job #" },
-      { key: "name",             label: "Material" },
-      { key: "category",         label: "Category" },
-      { key: "trade",            label: "Trade" },
-      { key: "quantity_ordered", label: "Qty Ordered" },
-      { key: "quantity_used",    label: "Qty Used" },
-      { key: "unit",             label: "Unit" },
-      { key: "unit_cost",        label: "Unit Cost" },
-      { key: "total_cost",       label: "Total Cost" },
-      { key: "created_at",       label: "Date Added" },
-      { key: "notes",            label: "Notes" },
-    ],
-  },
+
   labor: {
     label: "Labor Report",
+    description: "All labor logged by crew member — useful for payroll and job costing",
+    icon: "👷",
     columns: [
-      { key: "job_name",   label: "Job Name" },
-      { key: "job_number", label: "Job #" },
-      { key: "crew_name",  label: "Crew Member" },
-      { key: "trade",      label: "Trade" },
-      { key: "category",   label: "Category" },
-      { key: "hours",      label: "Hours" },
-      { key: "rate",       label: "Rate ($/hr)" },
-      { key: "total_cost", label: "Total Cost" },
-      { key: "created_at", label: "Date" },
+      { key: "job_name",    label: "Job Name" },
+      { key: "job_number",  label: "Job #" },
+      { key: "work_date",   label: "Date" },
+      { key: "crew_member", label: "Crew Member" },
+      { key: "trade",       label: "Trade" },
+      { key: "hours",       label: "Hours" },
+      { key: "hourly_rate", label: "Rate ($/hr)" },
+      { key: "total_cost",  label: "Total Cost" },
+      { key: "notes",       label: "Notes" },
     ],
   },
-  profitability: {
-    label: "Profitability Report",
+
+  tax_summary: {
+    label: "Tax Summary Report",
+    description: "Schedule C ready — total revenue, expenses, mileage, and net profit",
+    icon: "🧾",
     columns: [
-      { key: "job_name",         label: "Job Name" },
-      { key: "job_number",       label: "Job #" },
-      { key: "status",           label: "Status" },
-      { key: "quote_amount",     label: "Quote" },
-      { key: "material_budget",  label: "Mat. Budget" },
-      { key: "labor_budget",     label: "Lab. Budget" },
-      { key: "actual_materials", label: "Actual Mat." },
-      { key: "actual_labor",     label: "Actual Lab." },
-      { key: "total_actual",     label: "Total Cost" },
-      { key: "profit",           label: "Profit" },
-      { key: "margin_pct",       label: "Margin %" },
+      { key: "schedule_c_line", label: "Schedule C" },
+      { key: "description",     label: "Description" },
+      { key: "amount",          label: "Amount" },
     ],
   },
+
   invoices_payments: {
     label: "Invoice & Payments Report",
+    description: "Complete accounts receivable — invoiced, collected, outstanding",
+    icon: "💳",
     columns: [
-      { key: "job_name",       label: "Job Name" },
-      { key: "job_number",     label: "Job #" },
-      { key: "invoice_number", label: "Invoice #" },
-      { key: "status",         label: "Status" },
-      { key: "client",         label: "Client" },
-      { key: "total_amount",   label: "Amount" },
-      { key: "payment_terms",  label: "Terms" },
-      { key: "sent_at",        label: "Sent" },
-      { key: "paid_at",        label: "Paid" },
-      { key: "due_date",       label: "Due Date" },
+      { key: "invoice_number",      label: "Invoice #" },
+      { key: "job_name",            label: "Job Name" },
+      { key: "client_name",         label: "Client" },
+      { key: "invoice_date",        label: "Invoice Date" },
+      { key: "due_date",            label: "Due Date" },
+      { key: "amount_invoiced",     label: "Amount Invoiced" },
+      { key: "amount_paid",         label: "Amount Paid" },
+      { key: "payment_date",        label: "Payment Date" },
+      { key: "balance_outstanding", label: "Balance" },
+      { key: "days_outstanding",    label: "Days Out" },
+      { key: "invoice_status",      label: "Status" },
     ],
   },
-  mileage_tax: {
-    label: "Mileage & Tax Report",
+
+  mileage: {
+    label: "Mileage & Vehicle Report",
+    description: "IRS-ready mileage log — meets substantiation requirements",
+    icon: "🚛",
     columns: [
-      { key: "log_date",    label: "Date" },
-      { key: "job_name",    label: "Job" },
-      { key: "description", label: "Description" },
-      { key: "miles",       label: "Miles" },
-      { key: "rate",        label: "Rate ($/mi)" },
-      { key: "deduction",   label: "Deduction" },
+      { key: "log_date",   label: "Date" },
+      { key: "job_name",   label: "Job" },
+      { key: "purpose",    label: "Purpose" },
+      { key: "miles",      label: "Miles" },
+      { key: "irs_rate",   label: "IRS Rate" },
+      { key: "deduction",  label: "Deduction" },
     ],
   },
-  full_business: {
-    label: "Full Business Report",
+
+  waste_variance: {
+    label: "Material Waste & Variance Report",
+    description: "Baseline vs. actual — find where you consistently over-order",
+    icon: "📉",
+    columns: [
+      { key: "job_name",      label: "Job Name" },
+      { key: "material_name", label: "Material" },
+      { key: "baseline_qty",  label: "Baseline Qty" },
+      { key: "actual_qty",    label: "Actual Qty" },
+      { key: "qty_variance",  label: "Qty Variance" },
+      { key: "baseline_cost", label: "Baseline Cost" },
+      { key: "actual_cost",   label: "Actual Cost" },
+      { key: "cost_variance", label: "Cost Variance" },
+      { key: "disposition",   label: "Disposition" },
+    ],
+  },
+
+  custom: {
+    label: "Custom Report",
+    description: "Choose which report sections to include and export together",
+    icon: "⚙️",
     columns: [],
   },
 };
 
+// ── Custom report: which sections can be combined ─────────────────────────────
+
+export const CUSTOM_SECTION_OPTIONS: { type: ReportType; label: string }[] = [
+  { type: "job_profitability",  label: "Job Profitability" },
+  { type: "materials_cost",     label: "Materials & Cost" },
+  { type: "labor",              label: "Labor" },
+  { type: "invoices_payments",  label: "Invoices & Payments" },
+  { type: "mileage",            label: "Mileage" },
+  { type: "waste_variance",     label: "Waste & Variance" },
+];
+
 export const DATE_PRESET_LABELS: Record<DatePreset, string> = {
   this_week:    "This Week",
+  last_week:    "Last Week",
   this_month:   "This Month",
   last_month:   "Last Month",
   this_quarter: "This Quarter",
   last_quarter: "Last Quarter",
   this_year:    "This Year",
+  last_year:    "Last Year",
+  all_time:     "All Time",
   custom:       "Custom Range",
 };
 
@@ -173,16 +239,7 @@ export const JOB_TYPES = [
   "Concrete", "Landscaping",
 ];
 
-export const FULL_BUSINESS_SECTION_TYPES: Record<string, Exclude<ReportType, "full_business">> = {
-  "Job Summary":          "job_summary",
-  "Materials":            "materials",
-  "Labor":                "labor",
-  "Profitability":        "profitability",
-  "Invoices & Payments":  "invoices_payments",
-  "Mileage & Tax":        "mileage_tax",
-};
-
-// ── Shared pure utility — safe to import on client or server ─────────────────
+// ── Date resolver ─────────────────────────────────────────────────────────────
 
 export function resolveDateRange(
   preset: DatePreset,
@@ -201,6 +258,14 @@ export function resolveDateRange(
       const back = dow === 0 ? 6 : dow - 1;
       return { start: fmt(new Date(y, m, now.getDate() - back)), end: today };
     }
+    case "last_week": {
+      const dow  = now.getDay();
+      const back = dow === 0 ? 6 : dow - 1;
+      const monThis = new Date(y, m, now.getDate() - back);
+      const monLast = new Date(monThis.getTime() - 7 * 86400000);
+      const sunLast = new Date(monThis.getTime() - 86400000);
+      return { start: fmt(monLast), end: fmt(sunLast) };
+    }
     case "this_month":
       return { start: fmt(new Date(y, m, 1)), end: today };
     case "last_month":
@@ -216,10 +281,30 @@ export function resolveDateRange(
     }
     case "this_year":
       return { start: fmt(new Date(y, 0, 1)), end: today };
+    case "last_year":
+      return { start: fmt(new Date(y - 1, 0, 1)), end: fmt(new Date(y - 1, 11, 31)) };
+    case "all_time":
+      return { start: "2020-01-01", end: today };
     case "custom":
       return {
         start: customStart ?? fmt(new Date(y, m, 1)),
         end:   customEnd   ?? today,
       };
   }
+}
+
+// ── Formatting helpers (client-safe) ─────────────────────────────────────────
+
+export function fmtDateLong(s: string | null | undefined): string {
+  if (!s) return "—";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+export function fmtMoneyExact(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const abs = Math.abs(n);
+  const formatted = abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `($${formatted})` : `$${formatted}`;
 }

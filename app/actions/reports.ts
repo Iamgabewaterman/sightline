@@ -7,8 +7,11 @@ import type {
   ReportSection,
   ReportTemplate,
   JobFilterType,
+  ReportType,
 } from "@/app/(dashboard)/reports/types";
 import { resolveDateRange } from "@/app/(dashboard)/reports/types";
+
+// ── Formatting helpers (server-side only) ────────────────────────────────────
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return "—";
@@ -18,26 +21,21 @@ function fmtDate(s: string | null | undefined): string {
 }
 
 function fmtMoney(n: number | null | undefined): string {
-  if (n == null || n === 0) return "—";
-  return "$" + Math.round(n).toLocaleString("en-US");
+  if (n == null) return "—";
+  const abs = Math.abs(n);
+  const s = abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `($${s})` : `$${s}`;
 }
 
-const TERMS_LABELS: Record<string, string> = {
-  due_on_receipt: "Due on Receipt",
-  net_15: "Net 15",
-  net_30: "Net 30",
-  net_45: "Net 45",
-};
+function fmtPct(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${Math.round(n)}%`;
+}
 
 // ── Job ID resolver ──────────────────────────────────────────────────────────
 
-async function getJobIds(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-  jobFilterType: JobFilterType,
-  jobFilterValues: string[]
-): Promise<string[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getJobIds(supabase: any, userId: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<string[]> {
   if (jobFilterType === "specific") return jobFilterValues;
 
   let q = supabase.from("jobs").select("id, types, status").eq("user_id", userId);
@@ -55,131 +53,17 @@ async function getJobIds(
   return (data as Array<{ id: string }>).map(j => j.id);
 }
 
-// ── Individual report fetchers ───────────────────────────────────────────────
+// ── Fetcher: Job Profitability ────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchJobSummary(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
+async function fetchJobProfitability(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
   let q = supabase
     .from("jobs")
-    .select("id, name, job_number, types, status, address, start_date, completed_date, total_days, calculated_sqft, clients(name)")
+    .select("id, name, job_number, status, types, start_date, completed_date, client_id, clients(name)")
     .eq("user_id", userId)
     .gte("created_at", startTs)
     .lte("created_at", endTs)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (jobFilterType === "status" && jobFilterValues.length > 0) q = q.in("status", jobFilterValues);
-  if (jobFilterType === "specific" && jobFilterValues.length > 0) q = q.in("id", jobFilterValues);
-
-  const { data } = await q;
-  if (!data) return [];
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let rows: any[] = data;
-  if (jobFilterType === "type" && jobFilterValues.length > 0) {
-    rows = rows.filter((j: { types: string[] }) => (j.types ?? []).some((t: string) => jobFilterValues.includes(t)));
-  }
-
-  return rows.map((j: Record<string, unknown>) => ({
-    job_name:        j.name ?? "—",
-    job_number:      j.job_number ?? "—",
-    types:           Array.isArray(j.types) ? (j.types as string[]).join(", ") : "—",
-    status:          j.status ?? "—",
-    address:         j.address ?? "—",
-    client:          (j.clients as { name?: string } | null)?.name ?? "—",
-    start_date:      fmtDate(j.start_date as string),
-    completed_date:  fmtDate(j.completed_date as string),
-    total_days:      j.total_days ?? "—",
-    calculated_sqft: j.calculated_sqft ? `${j.calculated_sqft} sq ft` : "—",
-  }));
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchMaterials(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
-  const jobIds = await getJobIds(supabase, userId, jobFilterType, jobFilterValues);
-  if (jobIds.length === 0 && jobFilterType !== "all") return [];
-
-  let q = supabase
-    .from("materials")
-    .select("id, job_id, name, category, trade, quantity_ordered, quantity_used, unit, unit_cost, notes, created_at, jobs(name, job_number)")
-    .gte("created_at", startTs)
-    .lte("created_at", endTs)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (jobFilterType !== "all" && jobIds.length > 0) {
-    q = q.in("job_id", jobIds);
-  } else {
-    // Restrict to user's jobs via a subquery approach: filter by jobs the user owns
-    q = q.in("job_id", jobIds.length > 0 ? jobIds : await getJobIds(supabase, userId, "all", []));
-  }
-
-  const { data } = await q;
-  if (!data) return [];
-
-  return (data as Record<string, unknown>[]).map(m => ({
-    job_name:         (m.jobs as { name?: string; job_number?: string } | null)?.name ?? "—",
-    job_number:       (m.jobs as { name?: string; job_number?: string } | null)?.job_number ?? "—",
-    name:             m.name ?? "—",
-    category:         m.category ?? "—",
-    trade:            m.trade ?? "—",
-    quantity_ordered: m.quantity_ordered ?? "—",
-    quantity_used:    m.quantity_used ?? "—",
-    unit:             m.unit ?? "—",
-    unit_cost:        m.unit_cost != null ? `$${Number(m.unit_cost).toFixed(2)}` : "—",
-    total_cost:       (m.unit_cost != null && m.quantity_ordered != null)
-                        ? `$${(Number(m.unit_cost) * Number(m.quantity_ordered)).toFixed(2)}`
-                        : "—",
-    created_at:       fmtDate(m.created_at as string),
-    notes:            m.notes ?? "—",
-  }));
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchLabor(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
-  const jobIds = await getJobIds(supabase, userId, jobFilterType, jobFilterValues);
-  if (jobIds.length === 0 && jobFilterType !== "all") return [];
-
-  const allJobIds = jobFilterType === "all"
-    ? await getJobIds(supabase, userId, "all", [])
-    : jobIds;
-
-  const { data } = await supabase
-    .from("labor_logs")
-    .select("id, job_id, crew_name, trade, category, hours, rate, created_at, jobs(name, job_number)")
-    .in("job_id", allJobIds)
-    .gte("created_at", startTs)
-    .lte("created_at", endTs)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (!data) return [];
-
-  return (data as Record<string, unknown>[]).map(l => ({
-    job_name:   (l.jobs as { name?: string; job_number?: string } | null)?.name ?? "—",
-    job_number: (l.jobs as { name?: string; job_number?: string } | null)?.job_number ?? "—",
-    crew_name:  l.crew_name ?? "—",
-    trade:      l.trade ?? "—",
-    category:   l.category ?? "—",
-    hours:      l.hours ?? "—",
-    rate:       l.rate != null ? `$${Number(l.rate).toFixed(2)}` : "—",
-    total_cost: (l.hours != null && l.rate != null)
-                  ? `$${(Number(l.hours) * Number(l.rate)).toFixed(2)}`
-                  : "—",
-    created_at: fmtDate(l.created_at as string),
-  }));
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchProfitability(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
-  let q = supabase
-    .from("jobs")
-    .select("id, name, job_number, status, types")
-    .eq("user_id", userId)
-    .gte("created_at", startTs)
-    .lte("created_at", endTs)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
 
   if (jobFilterType === "status" && jobFilterValues.length > 0) q = q.in("status", jobFilterValues);
   if (jobFilterType === "specific" && jobFilterValues.length > 0) q = q.in("id", jobFilterValues);
@@ -195,56 +79,240 @@ async function fetchProfitability(supabase: any, userId: string, startTs: string
 
   const jobIds = filteredJobs.map((j: { id: string }) => j.id);
 
-  const [estRes, matRes, labRes] = await Promise.all([
+  const [estRes, matRes, labRes, invRes] = await Promise.all([
     supabase.from("estimates").select("job_id, final_quote, material_total, labor_total, addons").in("job_id", jobIds),
-    supabase.from("materials").select("job_id, unit_cost, quantity_ordered").in("job_id", jobIds),
+    supabase.from("materials").select("job_id, unit_cost, quantity_ordered, actual_total_cost").in("job_id", jobIds),
     supabase.from("labor_logs").select("job_id, hours, rate").in("job_id", jobIds),
+    supabase.from("invoices").select("job_id, status, total_amount, paid_at").in("job_id", jobIds).eq("user_id", userId),
   ]);
 
   const estimates: Record<string, unknown>[] = estRes.data ?? [];
   const materials: Record<string, unknown>[] = matRes.data ?? [];
   const labor:     Record<string, unknown>[] = labRes.data ?? [];
+  const invoices:  Record<string, unknown>[] = invRes.data ?? [];
 
   return filteredJobs.map((job: Record<string, unknown>) => {
     const est = estimates.find(e => e.job_id === job.id) as Record<string, unknown> | undefined;
     const addonsTotal = Array.isArray(est?.addons)
-      ? (est.addons as Array<{ amount: number }>).reduce((s, a) => s + (a.amount ?? 0), 0)
-      : 0;
-    const quoteAmount  = est ? (Number(est.final_quote ?? 0) + addonsTotal) : 0;
-    const matBudget    = Number(est?.material_total ?? 0);
-    const labBudget    = Number(est?.labor_total ?? 0);
-    const actualMat    = materials.filter(m => m.job_id === job.id).reduce((s, m) => s + Number(m.unit_cost ?? 0) * Number(m.quantity_ordered ?? 0), 0);
-    const actualLab    = labor.filter(l => l.job_id === job.id).reduce((s, l) => s + Number(l.hours ?? 0) * Number(l.rate ?? 0), 0);
-    const totalActual  = actualMat + actualLab;
-    const profit       = quoteAmount - totalActual;
-    const marginPct    = quoteAmount > 0 ? (profit / quoteAmount) * 100 : null;
+      ? (est!.addons as Array<{ amount: number }>).reduce((s, a) => s + (a.amount ?? 0), 0) : 0;
+    const contractAmount = est ? (Number(est.final_quote ?? 0) + addonsTotal) : 0;
+
+    const actualMat = materials
+      .filter(m => m.job_id === job.id)
+      .reduce((s, m) => {
+        if (m.actual_total_cost != null) return s + Number(m.actual_total_cost);
+        return s + Number(m.unit_cost ?? 0) * Number(m.quantity_ordered ?? 0);
+      }, 0);
+
+    const actualLab = labor
+      .filter(l => l.job_id === job.id)
+      .reduce((s, l) => s + Number(l.hours ?? 0) * Number(l.rate ?? 0), 0);
+
+    const jobInvoices = invoices.filter(inv => inv.job_id === job.id);
+    const amountCollected = jobInvoices
+      .filter(inv => inv.status === "paid")
+      .reduce((s, inv) => s + Number(inv.total_amount ?? 0), 0);
+    const totalInvoiced = jobInvoices.reduce((s, inv) => s + Number(inv.total_amount ?? 0), 0);
+    const balanceOutstanding = totalInvoiced - amountCollected;
+    const invoiceStatus = jobInvoices.length === 0 ? "No Invoice"
+      : jobInvoices.every(inv => inv.status === "paid") ? "Paid"
+      : jobInvoices.some(inv => inv.status === "paid" || inv.status === "partial") ? "Partial"
+      : jobInvoices.some(inv => inv.status === "sent" || inv.status === "pending") ? "Sent"
+      : "Unpaid";
+
+    const grossProfit = contractAmount - actualMat - actualLab;
+    const marginPct = contractAmount > 0 ? (grossProfit / contractAmount) * 100 : null;
 
     return {
-      job_name:         job.name ?? "—",
-      job_number:       job.job_number ?? "—",
-      status:           job.status ?? "—",
-      quote_amount:     quoteAmount > 0 ? fmtMoney(quoteAmount) : "No quote",
-      material_budget:  matBudget > 0 ? fmtMoney(matBudget) : "—",
-      labor_budget:     labBudget > 0 ? fmtMoney(labBudget) : "—",
-      actual_materials: actualMat > 0 ? fmtMoney(actualMat) : "—",
-      actual_labor:     actualLab > 0 ? fmtMoney(actualLab) : "—",
-      total_actual:     totalActual > 0 ? fmtMoney(totalActual) : "—",
-      profit:           quoteAmount > 0 ? fmtMoney(profit) : "—",
-      margin_pct:       marginPct != null ? `${Math.round(marginPct)}%` : "—",
+      job_name:            job.name ?? "—",
+      job_number:          job.job_number ?? "—",
+      client_name:         (job.clients as { name?: string } | null)?.name ?? "—",
+      job_types:           Array.isArray(job.types) ? (job.types as string[]).join(", ") : "—",
+      start_date:          fmtDate(job.start_date as string),
+      completion_date:     fmtDate(job.completed_date as string),
+      contract_amount:     contractAmount > 0 ? fmtMoney(contractAmount) : "No Quote",
+      materials_cost:      fmtMoney(actualMat),
+      labor_cost:          fmtMoney(actualLab),
+      gross_profit:        contractAmount > 0 ? fmtMoney(grossProfit) : "—",
+      margin_pct:          fmtPct(marginPct),
+      invoice_status:      invoiceStatus,
+      amount_collected:    amountCollected > 0 ? fmtMoney(amountCollected) : "—",
+      balance_outstanding: balanceOutstanding > 0 ? fmtMoney(balanceOutstanding) : "—",
     };
   });
 }
 
+// ── Fetcher: Materials & Cost ─────────────────────────────────────────────────
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchInvoices(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
+async function fetchMaterialsCost(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
+  const allJobIds = await getJobIds(supabase, userId, jobFilterType, jobFilterValues);
+  if (allJobIds.length === 0 && jobFilterType !== "all") return [];
+
+  const jobIds = jobFilterType === "all"
+    ? await getJobIds(supabase, userId, "all", [])
+    : allJobIds;
+  if (jobIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("materials")
+    .select("id, job_id, name, brand_name, color_name, spec_text, material_category, quantity_ordered, unit, unit_cost, actual_total_cost, receipt_id, created_at, jobs(name, job_number)")
+    .in("job_id", jobIds)
+    .gte("created_at", startTs)
+    .lte("created_at", endTs)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return (data as Record<string, unknown>[]).map(m => {
+    const jobInfo = m.jobs as { name?: string; job_number?: string } | null;
+    const qty = Number(m.quantity_ordered ?? 0);
+    const uc  = m.unit_cost != null ? Number(m.unit_cost) : null;
+    const totalCost = m.actual_total_cost != null
+      ? Number(m.actual_total_cost)
+      : uc != null ? qty * uc : null;
+
+    return {
+      job_name:        jobInfo?.name ?? "—",
+      job_number:      jobInfo?.job_number ?? "—",
+      date_purchased:  fmtDate(m.created_at as string),
+      material_name:   m.name ?? "—",
+      brand:           m.brand_name ?? "—",
+      spec:            [m.color_name, m.spec_text].filter(Boolean).join(" · ") || "—",
+      category:        m.material_category ?? "—",
+      quantity:        qty,
+      unit:            m.unit ?? "—",
+      unit_cost:       uc != null ? fmtMoney(uc) : "—",
+      total_cost:      totalCost != null ? fmtMoney(totalCost) : "—",
+      vendor:          "—",
+      receipt_attached: m.receipt_id ? "Yes" : "No",
+    };
+  });
+}
+
+// ── Fetcher: Labor ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchLabor(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
+  const allJobIds = await getJobIds(supabase, userId, jobFilterType, jobFilterValues);
+  if (allJobIds.length === 0 && jobFilterType !== "all") return [];
+
+  const jobIds = jobFilterType === "all"
+    ? await getJobIds(supabase, userId, "all", [])
+    : allJobIds;
+  if (jobIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("labor_logs")
+    .select("id, job_id, crew_name, trade, category, hours, rate, notes, created_at, jobs(name, job_number)")
+    .in("job_id", jobIds)
+    .gte("created_at", startTs)
+    .lte("created_at", endTs)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return (data as Record<string, unknown>[]).map(l => {
+    const jobInfo = l.jobs as { name?: string; job_number?: string } | null;
+    const hrs  = l.hours != null ? Number(l.hours) : null;
+    const rate = l.rate  != null ? Number(l.rate)  : null;
+    return {
+      job_name:   jobInfo?.name ?? "—",
+      job_number: jobInfo?.job_number ?? "—",
+      work_date:  fmtDate(l.created_at as string),
+      crew_member: l.crew_name ?? "—",
+      trade:      l.trade ?? "—",
+      hours:      hrs ?? "—",
+      hourly_rate: rate != null ? fmtMoney(rate) : "—",
+      total_cost:  hrs != null && rate != null ? fmtMoney(hrs * rate) : "—",
+      notes:       l.notes ?? "—",
+    };
+  });
+}
+
+// ── Fetcher: Tax Summary (Schedule C) ────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchTaxSummary(supabase: any, userId: string, startTs: string, endTs: string): Promise<Record<string, unknown>[]> {
+  const startDate = startTs.split("T")[0];
+  const endDate   = endTs.split("T")[0];
+
+  const allJobIds = await getJobIds(supabase, userId, "all", []);
+
+  const [invRes, matRes, labRes, milRes] = await Promise.all([
+    // Revenue: invoices paid in date range
+    supabase.from("invoices")
+      .select("total_amount, status, paid_at")
+      .eq("user_id", userId)
+      .eq("status", "paid")
+      .gte("paid_at", startTs)
+      .lte("paid_at", endTs),
+
+    // Materials: all in date range
+    allJobIds.length > 0
+      ? supabase.from("materials")
+          .select("unit_cost, quantity_ordered, actual_total_cost")
+          .in("job_id", allJobIds)
+          .gte("created_at", startTs)
+          .lte("created_at", endTs)
+      : { data: [] },
+
+    // Labor: all in date range
+    allJobIds.length > 0
+      ? supabase.from("labor_logs")
+          .select("hours, rate")
+          .in("job_id", allJobIds)
+          .gte("created_at", startTs)
+          .lte("created_at", endTs)
+      : { data: [] },
+
+    // Mileage: all in date range
+    supabase.from("mileage_logs")
+      .select("deduction, miles, rate")
+      .eq("user_id", userId)
+      .gte("log_date", startDate)
+      .lte("log_date", endDate),
+  ]);
+
+  const revenue  = (invRes.data ?? []).reduce((s: number, r: { total_amount: number }) => s + Number(r.total_amount ?? 0), 0);
+  const materials = (matRes.data ?? []).reduce((s: number, m: { actual_total_cost: number | null; unit_cost: number | null; quantity_ordered: number }) => {
+    if (m.actual_total_cost != null) return s + Number(m.actual_total_cost);
+    return s + Number(m.unit_cost ?? 0) * Number(m.quantity_ordered ?? 0);
+  }, 0);
+  const labor    = (labRes.data ?? []).reduce((s: number, l: { hours: number; rate: number }) => s + Number(l.hours ?? 0) * Number(l.rate ?? 0), 0);
+  const mileage  = (milRes.data ?? []).reduce((s: number, m: { deduction: number }) => s + Number(m.deduction ?? 0), 0);
+  const totalMiles = (milRes.data ?? []).reduce((s: number, m: { miles: number }) => s + Number(m.miles ?? 0), 0);
+  const irsRate  = milRes.data?.[0]?.rate ?? 0.67;
+
+  const totalExpenses = materials + labor + mileage;
+  const netProfit     = revenue - totalExpenses;
+
+  return [
+    { schedule_c_line: "Part I, Line 1",  description: "Gross Receipts / Revenue (cash basis — paid invoices only)", amount: fmtMoney(revenue) },
+    { schedule_c_line: "",                description: "",                                                           amount: "" },
+    { schedule_c_line: "Part II — Deductible Expenses", description: "", amount: "" },
+    { schedule_c_line: "Line 22",         description: "Materials Purchased",                                        amount: materials > 0 ? fmtMoney(-materials) : "—" },
+    { schedule_c_line: "Line 26",         description: "Wages & Labor",                                              amount: labor > 0 ? fmtMoney(-labor) : "—" },
+    { schedule_c_line: "Line 9",          description: `Car & Truck — Mileage (${totalMiles.toFixed(0)} mi × $${irsRate}/mi)`, amount: mileage > 0 ? fmtMoney(-mileage) : "—" },
+    { schedule_c_line: "",                description: "Total Expenses",                                             amount: fmtMoney(-totalExpenses) },
+    { schedule_c_line: "",                description: "",                                                           amount: "" },
+    { schedule_c_line: "Line 31",         description: "Estimated Net Profit / (Loss)",                              amount: fmtMoney(netProfit) },
+    { schedule_c_line: "",                description: "",                                                           amount: "" },
+    { schedule_c_line: "⚠ Disclaimer",   description: "This is an estimate only. Consult a licensed CPA before filing.", amount: "" },
+  ];
+}
+
+// ── Fetcher: Invoices & Payments ──────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchInvoicesPayments(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
   let q = supabase
     .from("invoices")
     .select("id, job_id, status, total_amount, payment_terms, due_date, sent_at, paid_at, created_at, jobs(name, job_number), clients(name)")
     .eq("user_id", userId)
     .gte("created_at", startTs)
     .lte("created_at", endTs)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
 
   if (jobFilterType === "specific" && jobFilterValues.length > 0) {
     q = q.in("job_id", jobFilterValues);
@@ -256,22 +324,42 @@ async function fetchInvoices(supabase: any, userId: string, startTs: string, end
   const { data } = await q;
   if (!data) return [];
 
-  return (data as Record<string, unknown>[]).map(inv => ({
-    job_name:       (inv.jobs as { name?: string; job_number?: string } | null)?.name ?? "—",
-    job_number:     (inv.jobs as { name?: string; job_number?: string } | null)?.job_number ?? "—",
-    invoice_number: `INV-${String(inv.id).slice(-6).toUpperCase()}`,
-    status:         inv.status ?? "—",
-    client:         (inv.clients as { name?: string } | null)?.name ?? "—",
-    total_amount:   fmtMoney(Number(inv.total_amount ?? 0)),
-    payment_terms:  TERMS_LABELS[inv.payment_terms as string] ?? (inv.payment_terms ?? "—"),
-    sent_at:        fmtDate(inv.sent_at as string),
-    paid_at:        fmtDate(inv.paid_at as string),
-    due_date:       fmtDate(inv.due_date as string),
-  }));
+  const today = new Date();
+
+  return (data as Record<string, unknown>[]).map(inv => {
+    const jobInfo = inv.jobs as { name?: string; job_number?: string } | null;
+    const client  = inv.clients as { name?: string } | null;
+    const total   = Number(inv.total_amount ?? 0);
+    const isPaid  = inv.status === "paid";
+    const amtPaid = isPaid ? total : 0;
+    const balance = total - amtPaid;
+
+    const invDateStr  = (inv.sent_at ?? inv.created_at) as string | null;
+    const invDate     = invDateStr ? new Date(invDateStr) : null;
+    const daysOut     = !isPaid && invDate
+      ? Math.floor((today.getTime() - invDate.getTime()) / 86400000)
+      : null;
+
+    return {
+      invoice_number:      `INV-${String(inv.id).slice(-6).toUpperCase()}`,
+      job_name:            jobInfo?.name ?? "—",
+      client_name:         client?.name ?? "—",
+      invoice_date:        fmtDate(invDateStr),
+      due_date:            fmtDate(inv.due_date as string),
+      amount_invoiced:     fmtMoney(total),
+      amount_paid:         amtPaid > 0 ? fmtMoney(amtPaid) : "—",
+      payment_date:        fmtDate(inv.paid_at as string),
+      balance_outstanding: balance > 0 ? fmtMoney(balance) : "—",
+      days_outstanding:    daysOut != null ? `${daysOut} days` : "—",
+      invoice_status:      String(inv.status ?? "—"),
+    };
+  });
 }
 
+// ── Fetcher: Mileage ──────────────────────────────────────────────────────────
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchMileage(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<Record<string, unknown>[]> {
+async function fetchMileage(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
   const startDate = startTs.split("T")[0];
   const endDate   = endTs.split("T")[0];
 
@@ -281,8 +369,7 @@ async function fetchMileage(supabase: any, userId: string, startTs: string, endT
     .eq("user_id", userId)
     .gte("log_date", startDate)
     .lte("log_date", endDate)
-    .order("log_date", { ascending: false })
-    .limit(limit);
+    .order("log_date", { ascending: false });
 
   if (jobFilterType === "specific" && jobFilterValues.length > 0) {
     q = q.in("job_id", jobFilterValues);
@@ -292,39 +379,101 @@ async function fetchMileage(supabase: any, userId: string, startTs: string, endT
   if (!data) return [];
 
   return (data as Record<string, unknown>[]).map(m => ({
-    log_date:    m.log_date ?? "—",
-    job_name:    (m.jobs as { name?: string } | null)?.name ?? "—",
-    description: m.description ?? "—",
-    miles:       m.miles ?? "—",
-    rate:        m.rate != null ? `$${Number(m.rate).toFixed(3)}` : "—",
-    deduction:   m.deduction != null ? `$${Number(m.deduction).toFixed(2)}` : "—",
+    log_date:  m.log_date ?? "—",
+    job_name:  (m.jobs as { name?: string } | null)?.name ?? "—",
+    purpose:   m.description ?? "—",
+    miles:     m.miles != null ? Number(m.miles).toFixed(1) : "—",
+    irs_rate:  m.rate  != null ? `$${Number(m.rate).toFixed(3)}` : "—",
+    deduction: m.deduction != null ? fmtMoney(Number(m.deduction)) : "—",
   }));
 }
 
-// ── Full business report ─────────────────────────────────────────────────────
+// ── Fetcher: Waste & Variance ────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchFullBusiness(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], limit: number): Promise<ReportSection[]> {
-  const [jobRows, matRows, labRows, profRows, invRows, milRows] = await Promise.all([
-    fetchJobSummary(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-    fetchMaterials(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-    fetchLabor(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-    fetchProfitability(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-    fetchInvoices(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-    fetchMileage(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues, limit),
-  ]);
+async function fetchWasteVariance(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[]): Promise<Record<string, unknown>[]> {
+  const allJobIds = await getJobIds(supabase, userId, jobFilterType, jobFilterValues);
+  if (allJobIds.length === 0 && jobFilterType !== "all") return [];
 
-  return [
-    { title: "Job Summary",         type: "job_summary",        rows: jobRows },
-    { title: "Materials",           type: "materials",          rows: matRows },
-    { title: "Labor",               type: "labor",              rows: labRows },
-    { title: "Profitability",       type: "profitability",      rows: profRows },
-    { title: "Invoices & Payments", type: "invoices_payments",  rows: invRows },
-    { title: "Mileage & Tax",       type: "mileage_tax",        rows: milRows },
-  ];
+  const jobIds = jobFilterType === "all"
+    ? await getJobIds(supabase, userId, "all", [])
+    : allJobIds;
+  if (jobIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("materials")
+    .select("id, job_id, name, baseline_quantity, baseline_unit_cost, quantity_ordered, actual_total_cost, disposition_status, jobs(name, job_number)")
+    .in("job_id", jobIds)
+    .not("baseline_quantity", "is", null)
+    .gte("created_at", startTs)
+    .lte("created_at", endTs)
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  return (data as Record<string, unknown>[]).map(m => {
+    const jobInfo    = m.jobs as { name?: string; job_number?: string } | null;
+    const baseQty    = Number(m.baseline_quantity ?? 0);
+    const actualQty  = Number(m.quantity_ordered ?? 0);
+    const qtyVar     = actualQty - baseQty;
+    const baseCost   = baseQty * Number(m.baseline_unit_cost ?? 0);
+    const actualCost = m.actual_total_cost != null ? Number(m.actual_total_cost) : actualQty * Number(m.baseline_unit_cost ?? 0);
+    const costVar    = actualCost - baseCost;
+
+    return {
+      job_name:      jobInfo?.name ?? "—",
+      material_name: m.name ?? "—",
+      baseline_qty:  baseQty,
+      actual_qty:    actualQty,
+      qty_variance:  qtyVar > 0 ? `+${qtyVar.toFixed(2)}` : qtyVar.toFixed(2),
+      baseline_cost: fmtMoney(baseCost),
+      actual_cost:   fmtMoney(actualCost),
+      cost_variance: costVar !== 0 ? fmtMoney(costVar) : "—",
+      disposition:   m.disposition_status ?? "—",
+    };
+  });
 }
 
-// ── Public server actions ────────────────────────────────────────────────────
+// ── Fetcher: Custom (multi-section) ───────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchCustom(supabase: any, userId: string, startTs: string, endTs: string, jobFilterType: JobFilterType, jobFilterValues: string[], sections: ReportType[]): Promise<ReportSection[]> {
+  const activeSections = sections.length > 0
+    ? sections
+    : ["job_profitability", "materials_cost", "invoices_payments"] as ReportType[];
+
+  const sectionFetchers: Record<string, () => Promise<Record<string, unknown>[]>> = {
+    job_profitability:  () => fetchJobProfitability(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+    materials_cost:     () => fetchMaterialsCost(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+    labor:              () => fetchLabor(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+    invoices_payments:  () => fetchInvoicesPayments(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+    mileage:            () => fetchMileage(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+    waste_variance:     () => fetchWasteVariance(supabase, userId, startTs, endTs, jobFilterType, jobFilterValues),
+  };
+
+  const sectionLabels: Partial<Record<ReportType, string>> = {
+    job_profitability: "Job Profitability",
+    materials_cost:    "Materials & Cost",
+    labor:             "Labor",
+    invoices_payments: "Invoices & Payments",
+    mileage:           "Mileage & Vehicle",
+    waste_variance:    "Waste & Variance",
+  };
+
+  const results = await Promise.all(
+    activeSections
+      .filter(s => sectionFetchers[s])
+      .map(async s => ({
+        title: sectionLabels[s] ?? s,
+        type: s as ReportType,
+        rows: await sectionFetchers[s](),
+      }))
+  );
+
+  return results.map(r => ({ ...r, totalRows: r.rows.length }));
+}
+
+// ── Public server action ──────────────────────────────────────────────────────
 
 export async function fetchReportData(
   config: ReportConfig & { preview?: boolean }
@@ -337,34 +486,43 @@ export async function fetchReportData(
     const { start, end } = resolveDateRange(config.datePreset, config.dateStart, config.dateEnd);
     const startTs = `${start}T00:00:00.000Z`;
     const endTs   = `${end}T23:59:59.999Z`;
-    const limit   = config.preview ? 5 : 2000;
 
-    if (config.reportType === "full_business") {
-      const sections = await fetchFullBusiness(supabase, user.id, startTs, endTs, config.jobFilterType, config.jobFilterValues, limit);
-      return { rows: [], sections };
+    if (config.reportType === "tax_summary") {
+      const rows = await fetchTaxSummary(supabase, user.id, startTs, endTs);
+      return { rows, totalRows: rows.length };
     }
 
-    const fetchers = {
-      job_summary:        fetchJobSummary,
-      materials:          fetchMaterials,
-      labor:              fetchLabor,
-      profitability:      fetchProfitability,
-      invoices_payments:  fetchInvoices,
-      mileage_tax:        fetchMileage,
+    if (config.reportType === "custom") {
+      const sections = await fetchCustom(
+        supabase, user.id, startTs, endTs,
+        config.jobFilterType, config.jobFilterValues,
+        config.customSections ?? []
+      );
+      return { rows: [], sections, totalRows: sections.reduce((s, sec) => s + sec.rows.length, 0) };
+    }
+
+    const fetchers: Record<string, (...args: Parameters<typeof fetchJobProfitability>) => Promise<Record<string, unknown>[]>> = {
+      job_profitability: fetchJobProfitability,
+      materials_cost:    fetchMaterialsCost,
+      labor:             fetchLabor,
+      invoices_payments: fetchInvoicesPayments,
+      mileage:           fetchMileage,
+      waste_variance:    fetchWasteVariance,
     };
 
-    const fn = fetchers[config.reportType as keyof typeof fetchers];
-    const rows = fn ? await fn(supabase, user.id, startTs, endTs, config.jobFilterType, config.jobFilterValues, limit) : [];
-    return { rows };
+    const fn = fetchers[config.reportType];
+    if (!fn) return { rows: [], error: `Unknown report type: ${config.reportType}` };
+
+    const rows = await fn(supabase, user.id, startTs, endTs, config.jobFilterType, config.jobFilterValues);
+    return { rows, totalRows: rows.length };
   } catch (err) {
     return { rows: [], error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
 
-export async function saveReportTemplate(
-  name: string,
-  config: ReportConfig
-): Promise<{ id?: string; error?: string }> {
+// ── Template management ───────────────────────────────────────────────────────
+
+export async function saveReportTemplate(name: string, config: ReportConfig): Promise<{ id?: string; error?: string }> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
