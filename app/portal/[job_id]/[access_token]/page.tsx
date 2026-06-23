@@ -7,7 +7,7 @@ import { sendPushToUser } from "@/lib/push";
 import { shouldSendWithTTL } from "@/lib/notif-dedup";
 import PortalPhotoGallery from "@/components/PortalPhotoGallery";
 import PortalMessageThread from "@/components/PortalMessageThread";
-import { approveChangeOrderPortal, declineChangeOrderPortal } from "@/app/actions/change-orders";
+import PortalChangeOrderActions from "@/components/PortalChangeOrderActions";
 import { getPortalMessages } from "@/app/actions/portal-messages";
 import PortalPayButton from "./PortalPayButton";
 
@@ -466,8 +466,6 @@ export default async function PortalPage({
         {(pendingChangeOrders ?? []).map((co) => {
           const amt = Number(co.amount);
           const sign = amt >= 0 ? "+" : "";
-          const approveAction = approveChangeOrderPortal.bind(null, co.id, params.job_id, params.access_token);
-          const declineAction = declineChangeOrderPortal.bind(null, co.id, params.job_id, params.access_token);
           return (
             <div key={co.id} className="bg-[#1A1A1A] border border-orange-500/30 rounded-2xl overflow-hidden mb-5">
               <div className="px-5 py-4 border-b border-[#2a2a2a]">
@@ -482,18 +480,11 @@ export default async function PortalPage({
                 <p className={`font-black text-2xl mb-4 ${amt >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {sign}${Math.abs(amt).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
-                <div className="flex gap-3">
-                  <form action={approveAction} className="flex-1">
-                    <button type="submit" className="w-full bg-green-600 text-white font-bold text-base py-3.5 rounded-xl active:scale-95 transition-transform">
-                      Approve
-                    </button>
-                  </form>
-                  <form action={declineAction} className="flex-1">
-                    <button type="submit" className="w-full bg-[#242424] border border-[#2a2a2a] text-gray-300 font-bold text-base py-3.5 rounded-xl active:scale-95 transition-transform">
-                      Decline
-                    </button>
-                  </form>
-                </div>
+                <PortalChangeOrderActions
+                  changeOrderId={co.id}
+                  jobId={params.job_id}
+                  accessToken={params.access_token}
+                />
               </div>
             </div>
           );

@@ -74,7 +74,7 @@ export async function approveChangeOrderPortal(
   changeOrderId: string,
   jobId: string,
   accessToken: string
-): Promise<void> {
+): Promise<{ success?: boolean; error?: string }> {
   const admin = adminClient();
 
   // Validate token
@@ -85,14 +85,14 @@ export async function approveChangeOrderPortal(
     .eq("portal_token", accessToken)
     .eq("portal_enabled", true)
     .single();
-  if (!job) return;
+  if (!job) return { error: "This portal link is no longer valid." };
 
   const { error } = await admin
     .from("change_orders")
     .update({ status: "approved" })
     .eq("id", changeOrderId)
     .eq("job_id", jobId);
-  if (error) return;
+  if (error) return { error: "Could not approve right now. Please try again." };
 
   // Fetch change order description and amount for notification
   const { data: co } = await admin
@@ -122,13 +122,14 @@ export async function approveChangeOrderPortal(
   }
 
   revalidatePath(`/portal/${jobId}/${accessToken}`);
+  return { success: true };
 }
 
 export async function declineChangeOrderPortal(
   changeOrderId: string,
   jobId: string,
   accessToken: string
-): Promise<void> {
+): Promise<{ success?: boolean; error?: string }> {
   const admin = adminClient();
 
   const { data: job } = await admin
@@ -138,13 +139,14 @@ export async function declineChangeOrderPortal(
     .eq("portal_token", accessToken)
     .eq("portal_enabled", true)
     .single();
-  if (!job) return;
+  if (!job) return { error: "This portal link is no longer valid." };
 
   const { error } = await admin
     .from("change_orders")
     .update({ status: "declined" })
     .eq("id", changeOrderId)
     .eq("job_id", jobId);
-  if (error) return;
+  if (error) return { error: "Could not record your response. Please try again." };
   revalidatePath(`/portal/${jobId}/${accessToken}`);
+  return { success: true };
 }

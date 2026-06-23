@@ -69,6 +69,10 @@ export async function clockIn(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  if (!Number.isFinite(rate) || rate < 0 || rate > 10000) {
+    return { error: "Enter a valid hourly rate." };
+  }
+
   // Close any existing open sessions first
   await supabase
     .from("clock_sessions")
@@ -120,6 +124,10 @@ export async function clockOut(
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  if (!Number.isFinite(rate) || rate < 0 || rate > 10000) {
+    return { error: "Enter a valid hourly rate." };
+  }
 
   // Fetch session to get start time and job_id
   const { data: session } = await supabase

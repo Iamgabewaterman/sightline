@@ -28,6 +28,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import JobOverviewCard from "@/components/JobOverviewCard";
 import DeleteJobButton from "@/components/DeleteJobButton";
 import GettingStartedHint from "@/components/GettingStartedHint";
+import { sumMaterialActualCost } from "@/lib/material-cost";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -69,7 +70,7 @@ export default async function JobDetailPage({
       .returns<Photo[]>(),
     supabase
       .from("materials")
-      .select("id, job_id, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, category, trade, receipt_id, normalized_name, material_category, created_at")
+      .select("id, job_id, name, unit, quantity_ordered, quantity_used, unit_cost, length_ft, notes, category, trade, receipt_id, normalized_name, material_category, actual_quantity, actual_total_cost, created_at")
       .eq("job_id", params.id)
       .order("created_at", { ascending: false })
       .returns<Material[]>(),
@@ -203,11 +204,7 @@ export default async function JobDetailPage({
     timelineInsight = { min, max, type: sharedType };
   }
 
-  const initialMaterialCost = (materials ?? []).reduce((sum, m) => {
-    if (m.unit_cost === null) return sum;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    return sum + Number(qty) * Number(m.unit_cost);
-  }, 0);
+  const initialMaterialCost = sumMaterialActualCost(materials);
 
   const initialLaborCost = (laborLogs ?? []).reduce(
     (s, l) => s + Number(l.hours) * Number(l.rate), 0

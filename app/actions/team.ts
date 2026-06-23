@@ -198,31 +198,44 @@ export async function updateMemberPermissions(
 
 // ── Owner: remove field member ────────────────────────────────────────────
 
-export async function removeMember(memberId: string): Promise<{ error?: string }> {
+export async function removeMember(memberId: string): Promise<{ error?: string; success?: boolean }> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Get user_id before deleting
+  // The caller must own the company the member belongs to.
+  const { data: myCompany } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+  if (!myCompany) return { error: "Only the account owner can remove team members." };
+
   const { data: member } = await supabase
     .from("company_members")
-    .select("user_id")
+    .select("user_id, company_id")
     .eq("id", memberId)
-    .single();
+    .maybeSingle();
+  if (!member) return { error: "Team member not found." };
+  if (member.company_id !== myCompany.id) return { error: "That member isn't on your team." };
+
+  // Never auto-promote. The owner can't remove themselves this way.
+  if (member.user_id === user.id) {
+    return { error: "Transfer ownership to another member before leaving the team." };
+  }
 
   const { error } = await supabase
     .from("company_members")
     .delete()
     .eq("id", memberId);
+  if (error) return { error: error.message };
 
-  // Reset their profile
-  if (!error && member) {
-    await supabase.from("profiles")
-      .update({ role: "owner", company_id: null, can_see_financials: false, can_see_all_jobs: false, can_see_client_info: false })
-      .eq("id", member.user_id);
-  }
+  // Detach the removed member's profile WITHOUT changing their role to owner.
+  await supabase.from("profiles")
+    .update({ company_id: null, can_see_financials: false, can_see_all_jobs: false, can_see_client_info: false })
+    .eq("id", member.user_id);
 
-  return error ? { error: error.message } : {};
+  return { success: true };
 }
 
 // ── Owner: regenerate invite code ─────────────────────────────────────────

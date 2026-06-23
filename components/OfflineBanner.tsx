@@ -5,6 +5,7 @@ import { getQueue, clearQueue, type QueuedAction } from "@/hooks/useOfflineQueue
 import { togglePunchListItem } from "@/app/actions/punch-list";
 import { addLaborLog } from "@/app/actions/labor";
 import { addDailyLog } from "@/app/actions/daily-logs";
+import { addMaterial } from "@/app/actions/materials";
 
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
@@ -21,7 +22,16 @@ export default function OfflineBanner() {
       try {
         const { action } = item;
 
-        if (action.type === "toggle_punch") {
+        if (action.type === "add_material") {
+          const fd = new FormData();
+          fd.set("name", action.payload.name);
+          fd.set("unit", action.payload.unit);
+          fd.set("quantity_ordered", action.payload.quantity_ordered);
+          fd.set("unit_cost", action.payload.unit_cost);
+          const res = await addMaterial(action.payload.jobId, fd);
+          if (res.error) failed.push(item);
+          else synced++;
+        } else if (action.type === "toggle_punch") {
           await togglePunchListItem(action.payload.itemId, action.payload.completed);
           synced++;
         } else if (action.type === "add_labor") {
@@ -65,6 +75,13 @@ export default function OfflineBanner() {
   useEffect(() => {
     // Set initial state
     setIsOffline(!navigator.onLine);
+
+    // Flush any pending queue immediately on mount when already online — covers
+    // the case where the app was closed offline and reopened while back online,
+    // so the "online" event never fires.
+    if (navigator.onLine) {
+      syncQueue();
+    }
 
     function handleOffline() {
       setIsOffline(true);

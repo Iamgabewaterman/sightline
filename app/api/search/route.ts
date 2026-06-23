@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       .from("jobs")
       .select("id, name")
       .eq("user_id", user.id)
-      .limit(500),
+      .limit(5000),
   ]);
 
   const jobIds = (allJobsRes.data ?? []).map((j) => j.id);
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       .from("invoices")
       .select("id, job_id, total_amount, status, client_id")
       .in("job_id", jobIds)
-      .limit(200),  // fetch all; filter below
+      .limit(2000),  // fetch all; filter below
   ]);
 
   // ── Materials: attach job name ────────────────────────────────────────────

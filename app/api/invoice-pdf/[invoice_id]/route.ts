@@ -14,8 +14,6 @@ const PAYMENT_TERMS_LABELS: Record<string, string> = {
   net_15: "Net 15",
   net_30: "Net 30",
   net_45: "Net 45",
-  net_60: "Net 60",
-  custom: "Custom",
 };
 
 export async function GET(

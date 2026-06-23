@@ -20,10 +20,13 @@ function dueDateForTerms(terms: PaymentTerms): string | null {
 
 export async function getInvoiceForJob(jobId: string): Promise<Invoice | null> {
   const supabase = createClient();
+  // order().limit(1) so a (legacy) job with more than one invoice never throws.
   const { data } = await supabase
     .from("invoices")
     .select("*")
     .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle<Invoice>();
   return data;
 }
@@ -41,6 +44,16 @@ export async function createInvoice(
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // One invoice per job — return the existing one instead of creating a duplicate.
+  const { data: existing } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<Invoice>();
+  if (existing) return { invoice: existing };
 
   const terms = opts?.paymentTerms ?? "due_on_receipt";
   const due_date = dueDateForTerms(terms);

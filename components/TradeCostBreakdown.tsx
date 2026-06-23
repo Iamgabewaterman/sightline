@@ -1,6 +1,7 @@
 "use client";
 
 import { Material, LaborLog } from "@/types";
+import { materialActualCost } from "@/lib/material-cost";
 
 const TYPE_LABELS: Record<string, string> = {
   drywall: "Drywall",
@@ -60,9 +61,8 @@ export default function TradeCostBreakdown({
   let untaggedLaborCost = 0;
 
   for (const m of materials) {
-    if (m.unit_cost === null) continue;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    const cost = Number(qty) * Number(m.unit_cost);
+    const cost = materialActualCost(m);
+    if (cost === 0) continue;
     if (m.trade && tradeMap.has(m.trade)) {
       tradeMap.get(m.trade)!.materialCost += cost;
     } else {

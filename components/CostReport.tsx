@@ -1,6 +1,7 @@
 "use client";
 
 import { Material, LaborLog, QuoteAddon } from "@/types";
+import { sumMaterialActualCost } from "@/lib/material-cost";
 
 interface QuoteSnapshot {
   material_total: number;
@@ -29,11 +30,7 @@ export default function CostReport({
   changeOrdersTotal: number;
   subsTotal: number;
 }) {
-  const actualMaterials = materials.reduce((s, m) => {
-    if (m.unit_cost === null) return s;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    return s + Number(qty) * Number(m.unit_cost);
-  }, 0);
+  const actualMaterials = sumMaterialActualCost(materials);
 
   const actualLabor =
     laborLogs.reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0) +

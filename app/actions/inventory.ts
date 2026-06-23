@@ -26,28 +26,29 @@ export async function disposeMaterialReturn(
   returnQty: number,
 ) {
   const supabase = createClient();
-  const { data: mat } = await supabase
-    .from("materials")
-    .select("quantity_ordered, quantity_used, unit_cost, disposition_status")
-    .eq("id", materialId)
-    .single();
-  if (!mat) return { error: "Material not found" };
-  if (mat.disposition_status) return { error: "Already disposed" };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
 
-  const ordered = Number(mat.quantity_ordered);
-  const newUsed = Math.max(0, ordered - returnQty);
-  const newActualCost = mat.unit_cost != null ? newUsed * Number(mat.unit_cost) : null;
+  // Atomic: cost update + disposition flag land together (see
+  // 20260622000000_dispose_material_return_rpc.sql), guarding against
+  // double-taps and partial failures.
+  const { data, error } = await supabase.rpc("dispose_material_return", {
+    p_material_id: materialId,
+    p_return_qty: returnQty,
+  });
 
-  const update: Record<string, unknown> = {
-    quantity_used: newUsed,
-    disposition_status: "returned",
-    disposition_qty: returnQty,
+  if (error) {
+    if (error.message.includes("already_disposed")) return { error: "Already disposed" };
+    if (error.message.includes("not_found")) return { error: "Material not found" };
+    return { error: error.message };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    success: true,
+    newQuantityUsed: row?.quantity_used != null ? Number(row.quantity_used) : null,
+    newActualCost: row?.actual_total_cost != null ? Number(row.actual_total_cost) : null,
   };
-  if (newActualCost != null) update.actual_total_cost = newActualCost;
-
-  const { error } = await supabase.from("materials").update(update).eq("id", materialId);
-  if (error) return { error: error.message };
-  return { success: true, newQuantityUsed: newUsed, newActualCost };
 }
 
 export async function disposeMaterialStore(

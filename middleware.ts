@@ -12,14 +12,27 @@ const OWNER_ONLY_ROUTES = [
   "/receipts",
   "/settings",
   "/people",
+  "/profit",
+  "/reports",      // covers /reports and /reports-hub
+  "/inventory",
+  "/calculator",
 ];
 
-// Routes field members CAN access (whitelist within dashboard)
-const FIELD_MEMBER_ALLOWED = [
-  "/jobs",
-  "/account",
-  "/subscribe",
-];
+// ── Short-lived middleware cache (Fix 14) ───────────────────────────────────
+// Eliminates the profile + subscription DB reads on every navigation. Keyed by
+// user id, 30s TTL. Module scope persists across requests on a warm instance.
+const MW_TTL_MS = 30_000;
+type MwProfile = {
+  is_lifetime: boolean | null;
+  role: string | null;
+  can_see_financials: boolean | null;
+  can_see_all_jobs: boolean | null;
+  can_see_client_info: boolean | null;
+  onboarding_complete: boolean | null;
+  trials_completed_jobs: number | null;
+};
+type MwCacheEntry = { profile: MwProfile | null; sub: { status: string } | null; at: number };
+const mwCache = new Map<string, MwCacheEntry>();
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -93,16 +106,39 @@ export async function middleware(request: NextRequest) {
 
   // Logged-in user on a protected route — check profile and subscription
   {
-    // Use service-role client so RLS never blocks the profile read in Edge Runtime
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete, trials_completed_jobs")
-      .eq("id", user.id)
-      .maybeSingle();
+    // Serve profile + subscription from the short-lived cache when possible,
+    // otherwise read once (and cache) so navigation isn't 2 DB round-trips each.
+    let profile: MwProfile | null;
+    let cachedSub: { status: string } | null = null;
+    const cached = mwCache.get(user.id);
+    if (cached && Date.now() - cached.at < MW_TTL_MS) {
+      profile = cached.profile;
+      cachedSub = cached.sub;
+    } else {
+      // Use service-role client so RLS never blocks the profile read in Edge Runtime
+      const admin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data } = await admin
+        .from("profiles")
+        .select("is_lifetime, role, can_see_financials, can_see_all_jobs, can_see_client_info, onboarding_complete, trials_completed_jobs")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = (data as MwProfile) ?? null;
+
+      // Owners that aren't lifetime may need the subscription status — fetch it
+      // now so it's cached alongside the profile.
+      if (profile && profile.role !== "field_member" && !profile.is_lifetime) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        cachedSub = sub ?? null;
+      }
+      mwCache.set(user.id, { profile, sub: cachedSub, at: Date.now() });
+    }
 
     // ── Onboarding redirect (owners only, once) ──────────────────────────────
     if (
@@ -138,13 +174,7 @@ export async function middleware(request: NextRequest) {
       const onTrial = timeOk && jobsOk;
 
       if (!onTrial) {
-        const { data: sub } = await supabase
-          .from("subscriptions")
-          .select("status")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        const isActive = sub?.status === "active" || sub?.status === "trialing";
+        const isActive = cachedSub?.status === "active" || cachedSub?.status === "trialing";
         if (!isActive) {
           return NextResponse.redirect(new URL("/subscribe", request.url));
         }

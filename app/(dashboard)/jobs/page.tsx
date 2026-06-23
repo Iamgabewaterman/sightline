@@ -14,6 +14,7 @@ import DashboardWeatherBar from "@/components/DashboardWeatherBar";
 import { getUnreadPortalMessageCounts } from "@/app/actions/portal-messages";
 import { getTrialStatus } from "@/app/actions/trial";
 import TrialBanner from "@/components/TrialBanner";
+import { sumMaterialActualCost } from "@/lib/material-cost";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,17 @@ function fmt$(n: number) {
 }
 function todayLabel() {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return days === 1 ? "yesterday" : `${days}d ago`;
 }
 
 function extractCity(address: string | null): string | null {
@@ -196,7 +208,7 @@ export default async function DashboardPage() {
       ? supabase.from("invoices").select("total_amount").in("job_id", completedIds).eq("status", "paid")
       : Promise.resolve({ data: [] }),
     completedIds.length > 0
-      ? supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost").in("job_id", completedIds)
+      ? supabase.from("materials").select("quantity_ordered, quantity_used, unit_cost, actual_total_cost, actual_quantity").in("job_id", completedIds)
       : Promise.resolve({ data: [] }),
     completedIds.length > 0
       ? supabase.from("labor_logs").select("hours, rate").in("job_id", completedIds)
@@ -209,11 +221,7 @@ export default async function DashboardPage() {
   ]);
 
   const monthRevenuePaid = (paidInvoicesThisMonth ?? []).reduce((s, inv) => s + Number(inv.total_amount), 0);
-  const monthMaterialCost = (completedMaterials ?? []).reduce((s, m) => {
-    if (m.unit_cost === null) return s;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    return s + Number(qty) * Number(m.unit_cost);
-  }, 0);
+  const monthMaterialCost = sumMaterialActualCost(completedMaterials);
   const monthLaborCost = (completedLabor ?? []).reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
   const monthlyProfit = monthRevenuePaid - monthMaterialCost - monthLaborCost;
 
@@ -267,7 +275,9 @@ export default async function DashboardPage() {
         {/* Primary Stats — Monthly Profit + Estimated Revenue */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Overview</p>
-          <p className="text-gray-600 text-xs">Updated just now</p>
+          {allJobs[0]?.updated_at && (
+            <p className="text-gray-600 text-xs">Updated {relativeTime(allJobs[0].updated_at)}</p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-3 py-5 text-center">
@@ -290,7 +300,7 @@ export default async function DashboardPage() {
             <p className="text-orange-500 text-3xl font-black leading-none mb-1">{fmt$(monthlyRevenue)}</p>
             <p className="text-gray-400 text-xs uppercase tracking-wider mt-1 flex items-center justify-center gap-1">
               Rev. Est.
-              <InfoTooltip text="Estimated from saved quotes on active jobs. Add a quote to a job to see your projected revenue." />
+              <InfoTooltip text="Total of the quotes you saved this month. Save a quote on a job to grow your projected revenue." />
             </p>
           </div>
         </div>

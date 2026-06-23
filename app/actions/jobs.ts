@@ -80,6 +80,8 @@ export async function createJob(formData: FormData) {
 
 export async function updateJob(id: string, formData: FormData) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
 
   const name = formData.get("name") as string;
   const types = formData.getAll("types") as string[];
@@ -107,7 +109,8 @@ export async function updateJob(id: string, formData: FormData) {
   const { error } = await supabase
     .from("jobs")
     .update({ name, types, address, notes: notes || null, lockbox_code: lockbox_code || null, estimated_completion_date, client_id: client_id || null, job_number: job_number || null, updated_at: new Date().toISOString(), ...coordUpdates })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id); // defence-in-depth alongside RLS
 
   if (error) {
     return { error: error.message };
@@ -126,10 +129,14 @@ export async function updateJobDimensions(
   }
 ) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
   const { error } = await supabase
     .from("jobs")
     .update({ ...dims, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
   if (error) return { error: error.message };
   return { success: true };
 }

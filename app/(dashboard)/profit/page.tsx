@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfitClient, { ProfitRow, ProfitInsight } from "./ProfitClient";
 import { QuoteAddon } from "@/types";
+import { materialActualCost } from "@/lib/material-cost";
 
 export default async function ProfitabilityPage() {
   const supabase = createClient();
@@ -28,7 +29,6 @@ export default async function ProfitabilityPage() {
     { data: estimates },
     { data: materials },
     { data: laborLogs },
-    { data: clockSessions },
     { data: invoices },
     { data: changeOrders },
   ] = await Promise.all([
@@ -39,19 +39,12 @@ export default async function ProfitabilityPage() {
       .eq("type", "job_quote"),
     supabase
       .from("materials")
-      .select("job_id, quantity_ordered, quantity_used, unit_cost")
-      .in("job_id", jobIds)
-      .not("unit_cost", "is", null),
+      .select("job_id, quantity_ordered, quantity_used, unit_cost, actual_total_cost, actual_quantity")
+      .in("job_id", jobIds),
     supabase
       .from("labor_logs")
       .select("job_id, hours, rate")
       .in("job_id", jobIds),
-    supabase
-      .from("clock_sessions")
-      .select("job_id, hours, rate, total")
-      .in("job_id", jobIds)
-      .not("clocked_out_at", "is", null)
-      .not("hours", "is", null),
     supabase
       .from("invoices")
       .select("job_id, total_amount, status")
@@ -77,23 +70,23 @@ export default async function ProfitabilityPage() {
     });
   }
 
-  // Aggregate actual materials per job
+  // Aggregate actual materials per job.
+  // actual_total_cost is the consolidation-aware source of truth (sums every
+  // re-order). Fall back to qty × unit_cost only for legacy rows where it's null.
   const actualMaterialsByJob = new Map<string, number>();
   for (const m of materials ?? []) {
-    const qty = (m.quantity_used ?? m.quantity_ordered) as number;
-    const cost = Number(qty) * Number(m.unit_cost);
+    const cost = materialActualCost(m);
+    if (cost === 0) continue;
     actualMaterialsByJob.set(m.job_id, (actualMaterialsByJob.get(m.job_id) ?? 0) + cost);
   }
 
-  // Aggregate actual labor per job (labor_logs + clock_sessions)
+  // Aggregate actual labor per job. labor_logs is the single source of truth —
+  // a clock_session becomes a labor_log on clock-out, so counting both would
+  // double-count the same hours.
   const actualLaborByJob = new Map<string, number>();
   for (const l of laborLogs ?? []) {
     const cost = Number(l.hours) * Number(l.rate);
     actualLaborByJob.set(l.job_id, (actualLaborByJob.get(l.job_id) ?? 0) + cost);
-  }
-  for (const cs of clockSessions ?? []) {
-    const cost = cs.total !== null ? Number(cs.total) : Number(cs.hours ?? 0) * Number(cs.rate ?? 0);
-    actualLaborByJob.set(cs.job_id, (actualLaborByJob.get(cs.job_id) ?? 0) + cost);
   }
 
   // Aggregate change orders per job

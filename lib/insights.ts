@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { materialActualCost } from "@/lib/material-cost";
 
 export interface InsightBreakdownRow {
   label: string;
@@ -43,6 +44,8 @@ interface MaterialRow {
   quantity_ordered: number;
   quantity_used: number | null;
   unit_cost: number | null;
+  actual_quantity: number | null;
+  actual_total_cost: number | null;
 }
 
 interface LaborRow {
@@ -127,7 +130,7 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
       .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
       .from("materials")
-      .select("job_id, quantity_ordered, quantity_used, unit_cost")
+      .select("job_id, quantity_ordered, quantity_used, unit_cost, actual_quantity, actual_total_cost")
       .eq("user_id", userId)
       .in("job_id", allIds.length > 0 ? allIds : ["__none__"]),
     supabase
@@ -168,9 +171,8 @@ export const computeInsights = cache(async function computeInsightsImpl(userId: 
 
   const actualMaterialsByJob = new Map<string, number>();
   for (const m of materials) {
-    if (m.unit_cost == null) continue;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    const cost = Number(qty) * Number(m.unit_cost);
+    const cost = materialActualCost(m);
+    if (cost === 0) continue;
     actualMaterialsByJob.set(m.job_id, (actualMaterialsByJob.get(m.job_id) ?? 0) + cost);
   }
 
@@ -644,15 +646,15 @@ export async function getHistoricalCostRange(
 
   const [{ data: estimates }, { data: materials }, { data: laborLogs }] = await Promise.all([
     supabase.from("estimates").select("job_id, material_total, labor_total").eq("type", "job_quote").in("job_id", jobIds),
-    supabase.from("materials").select("job_id, quantity_ordered, quantity_used, unit_cost").in("job_id", jobIds),
+    supabase.from("materials").select("job_id, quantity_ordered, quantity_used, unit_cost, actual_quantity, actual_total_cost").in("job_id", jobIds),
     supabase.from("labor_logs").select("job_id, hours, rate").in("job_id", jobIds),
   ]);
 
   const actualMatByJob = new Map<string, number>();
   for (const m of materials ?? []) {
-    if (m.unit_cost == null) continue;
-    const qty = m.quantity_used ?? m.quantity_ordered;
-    actualMatByJob.set(m.job_id, (actualMatByJob.get(m.job_id) ?? 0) + Number(qty) * Number(m.unit_cost));
+    const cost = materialActualCost(m);
+    if (cost === 0) continue;
+    actualMatByJob.set(m.job_id, (actualMatByJob.get(m.job_id) ?? 0) + cost);
   }
   const actualLabByJob = new Map<string, number>();
   for (const l of laborLogs ?? []) {

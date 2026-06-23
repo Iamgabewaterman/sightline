@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial } from "@/app/actions/materials";
+import { enqueue } from "@/hooks/useOfflineQueue";
 import { dismissPriceFlag, getPriceFlagsForJob } from "@/app/actions/price-flags";
 import { similarity } from "@/lib/fuzzy-match";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
@@ -239,6 +240,14 @@ function MaterialRow({
                   <line x1="16" y1="17" x2="8" y2="17"/>
                 </svg>
                 Receipt
+              </span>
+            )}
+            {(material as Material & { _queued?: boolean })._queued && (
+              <span className="inline-flex items-center gap-1 text-orange-300 text-xs font-semibold bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+                Queued
               </span>
             )}
             {reorderCount > 0 && (
@@ -739,6 +748,53 @@ export default function MaterialsSection({
     }
     bypassReceiptCheckRef.current = false;
     setReceiptWarning(null);
+
+    // Offline — queue the add instead of failing, and show it optimistically
+    // with a "Queued" badge until OfflineBanner syncs it back online.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueue({
+        type: "add_material",
+        payload: {
+          jobId,
+          name: data.name,
+          quantity_ordered: data.quantityOrdered.toString(),
+          unit: data.unit,
+          unit_cost: data.unitCost !== null ? data.unitCost.toString() : "",
+        },
+      });
+      const qty = data.quantityOrdered;
+      const cost = data.unitCost;
+      const optimistic = {
+        id: `queued-${crypto.randomUUID()}`,
+        job_id: jobId,
+        name: data.name,
+        unit: data.unit,
+        quantity_ordered: qty,
+        quantity_used: null,
+        unit_cost: cost,
+        length_ft: null,
+        notes: data.notes ?? null,
+        trade: data.trade ?? null,
+        category: null,
+        material_category: data.materialCategory ?? null,
+        normalized_name: null,
+        receipt_id: null,
+        baseline_quantity: qty,
+        baseline_unit_cost: cost,
+        actual_quantity: qty,
+        actual_total_cost: cost !== null ? qty * cost : null,
+        reorder_count: 0,
+        purchase_history: [],
+        created_at: new Date().toISOString(),
+        _queued: true,
+      } as unknown as Material;
+      setMaterials((prev) => [optimistic, ...prev]);
+      setShowForm(false);
+      setSaving(false);
+      setAddedToast("Saved offline — will sync");
+      setTimeout(() => setAddedToast(""), 2500);
+      return;
+    }
 
     const result = await addMaterial(jobId, fd);
 

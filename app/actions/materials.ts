@@ -382,6 +382,8 @@ export async function updateMaterial(
   }
 ) {
   const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) return { error: "Not authenticated" };
 
   const { data: existing } = await supabase
     .from("materials")
@@ -425,6 +427,9 @@ export async function updateMaterial(
 
 export async function deleteMaterial(id: string) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  // RLS scopes materials to the owning user's jobs; auth check is defense-in-depth.
   const { error } = await supabase.from("materials").delete().eq("id", id);
   if (error) return { error: error.message };
   return { success: true };
@@ -460,13 +465,54 @@ export async function getMaterialSuggestions(): Promise<MaterialSuggestion[]> {
 
   const historyNames = new Set(historySuggestions.map((s) => s.name.toLowerCase()));
 
-  // Tier 2: regional materials (seeded + other users in area)
-  const { data: regional } = await supabase
-    .from("regional_materials")
-    .select("material_name, unit, unit_cost")
-    .limit(300);
+  // Tier 2: regional materials, scoped to the contractor's area.
+  // Local zip first; widen to state, then national, only if we have <3 hits.
+  // (A true 25-mile radius needs zip→lat/lng geodata we don't store yet; zip →
+  // state → national is the documented fallback.)
+  type RegionalRow = { material_name: string; unit: string | null; unit_cost: number | string | null };
+  const { data: bp } = await supabase
+    .from("business_profiles")
+    .select("address")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const { zip, state } = parseAddress(bp?.address);
 
-  const regionalSuggestions: MaterialSuggestion[] = (regional ?? [])
+  const seen = new Set<string>();
+  const regional: RegionalRow[] = [];
+  const mergeRows = (rows: RegionalRow[] | null) => {
+    for (const r of rows ?? []) {
+      const key = (r.material_name as string).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      regional.push(r);
+    }
+  };
+
+  if (zip) {
+    const { data } = await supabase
+      .from("regional_materials")
+      .select("material_name, unit, unit_cost")
+      .eq("zip_code", zip)
+      .limit(300);
+    mergeRows(data);
+  }
+  if (regional.length < 3 && state) {
+    const { data } = await supabase
+      .from("regional_materials")
+      .select("material_name, unit, unit_cost")
+      .eq("state", state)
+      .limit(300);
+    mergeRows(data);
+  }
+  if (regional.length < 3) {
+    const { data } = await supabase
+      .from("regional_materials")
+      .select("material_name, unit, unit_cost")
+      .limit(300);
+    mergeRows(data);
+  }
+
+  const regionalSuggestions: MaterialSuggestion[] = regional
     .filter((r) => !historyNames.has((r.material_name as string).toLowerCase()))
     .map((r) => ({
       name: r.material_name as string,
