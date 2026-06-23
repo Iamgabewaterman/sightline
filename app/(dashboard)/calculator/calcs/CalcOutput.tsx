@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ResultItem } from "./types";
 import { addMaterialsBulk, type BulkMaterialItem } from "@/app/actions/materials-bulk";
+import { useCalcAdd } from "@/components/CalcAddContext";
 
 interface Props {
   items: ResultItem[];
@@ -19,6 +20,24 @@ export default function CalcOutput({ items, jobs, tradeLabel, wasteNote, onReset
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(false);
   const [saveError,   setSaveError]   = useState("");
+
+  // When embedded (quote builder / job-detail drawer), a context handler
+  // replaces the standalone "Add to Job" job-picker with a single action.
+  const embedded = useCalcAdd();
+
+  async function handleEmbeddedAdd() {
+    if (!embedded) return;
+    setSaving(true); setSaveError("");
+    try {
+      await embedded.onAddResult(items, tradeLabel);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setSaveError("Could not add. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const totalLow  = items.reduce((s, i) => s + i.unitCost * i.qty * 0.85, 0);
   const totalHigh = items.reduce((s, i) => s + i.unitCost * i.qty * 1.15, 0);
@@ -110,15 +129,17 @@ export default function CalcOutput({ items, jobs, tradeLabel, wasteNote, onReset
           Recalculate
         </button>
         <button
-          onClick={() => setJobPickerOpen(true)}
-          className="bg-orange-500 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform hover:bg-orange-400 text-sm"
+          onClick={embedded ? handleEmbeddedAdd : () => setJobPickerOpen(true)}
+          disabled={saving}
+          className="bg-orange-500 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform hover:bg-orange-400 text-sm disabled:opacity-50"
         >
-          {saved ? "✓ Added!" : "Add to Job"}
+          {saved ? "✓ Added!" : saving ? "Adding…" : embedded ? embedded.addLabel : "Add to Job"}
         </button>
       </div>
+      {embedded && saveError && <p className="text-red-400 text-xs text-center">{saveError}</p>}
 
-      {/* Job picker modal */}
-      {jobPickerOpen && (
+      {/* Job picker modal — only in standalone mode */}
+      {!embedded && jobPickerOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center">
           <div className="w-full max-w-md bg-[#141414] border border-[#2a2a2a] rounded-t-2xl p-5 pb-10">
             <div className="w-10 h-1 bg-[#3a3a3a] rounded-full mx-auto mb-5" />

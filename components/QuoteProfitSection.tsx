@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { saveJobQuote, saveLineItem, sendForSignature } from "@/app/actions/quotes";
+import { saveJobQuote, sendForSignature } from "@/app/actions/quotes";
 import { fetchHistoricalCostRange } from "@/app/actions/insights";
-import { Job, Material, LaborLog, QuoteAddon, SavedLineItem } from "@/types";
+import { Job, Material, LaborLog } from "@/types";
+import InlineCalculatorDrawer from "@/components/InlineCalculatorDrawer";
+import type { ResultItem } from "@/app/(dashboard)/calculator/calcs/types";
 import { HistoricalCostRange } from "@/lib/insights";
 import { useJobCost } from "@/components/JobCostContext";
 import { useRole } from "@/hooks/useRole";
@@ -125,8 +127,6 @@ export default function QuoteProfitSection({
   // Overlay
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [margin, setMargin] = useState(20);
-  const [addons, setAddons] = useState<QuoteAddon[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -142,12 +142,13 @@ export default function QuoteProfitSection({
   // Fetched data
   const [materials, setMaterials] = useState<Material[]>([]);
   const [laborLogs, setLaborLogs] = useState<LaborLog[]>([]);
-  const [savedItems, setSavedItems] = useState<SavedLineItem[]>([]);
   const [subTotal, setSubTotal] = useState(0);
+  const [receiptsTotal, setReceiptsTotal] = useState(0);
 
-  // Per-row "saved" tracking
-  const [savingItemIdx, setSavingItemIdx] = useState<number | null>(null);
-  const [savedIdxSet, setSavedIdxSet] = useState<Set<number>>(new Set());
+  // Internal cost reference UI
+  const [costRefOpen, setCostRefOpen] = useState(false);
+  const [calcDrawerOpen, setCalcDrawerOpen] = useState(false);
+  const [calcEstimates, setCalcEstimates] = useState<{ label: string; amount: number }[]>([]);
 
   // Historical cost range banner
   const [historicalRange, setHistoricalRange] = useState<HistoricalCostRange | null>(null);
@@ -156,31 +157,35 @@ export default function QuoteProfitSection({
     setOpen(true);
     setSaved(false);
     setSaveError("");
-    setSavedIdxSet(new Set());
     setLoading(true);
 
-    if (quoteData) {
-      setMargin(quoteData.profitMarginPct);
-      setAddons(quoteData.addons.map((a) => ({ name: a.name, amount: a.amount })));
-    } else {
-      setMargin(20);
-      setAddons([]);
-    }
-
     const supabase = createClient();
-    const [{ data: mats }, { data: labor }, { data: saved }, { data: subs }, range] = await Promise.all([
+    const [{ data: mats }, { data: labor }, { data: subs }, { data: rcpts }, range] = await Promise.all([
       supabase.from("materials").select("*").eq("job_id", job.id).returns<Material[]>(),
       supabase.from("labor_logs").select("*").eq("job_id", job.id).returns<LaborLog[]>(),
-      supabase.from("saved_line_items").select("*").order("name").returns<SavedLineItem[]>(),
       supabase.from("subcontractor_logs").select("quoted_amount").eq("job_id", job.id),
+      supabase.from("receipts").select("amount").eq("job_id", job.id),
       fetchHistoricalCostRange(job.types, job.calculated_sqft ?? null),
     ]);
 
     setMaterials(mats ?? []);
     setLaborLogs(labor ?? []);
-    setSavedItems(saved ?? []);
     setSubTotal((subs ?? []).reduce((s, r) => s + Number(r.quoted_amount ?? 0), 0));
+    setReceiptsTotal((rcpts ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0));
+    setCalcEstimates([]);
     setHistoricalRange(range);
+
+    // Default Section 1 to one "Professional Services" row with the suggested
+    // total (internal cost grossed up to a 20% margin). Overridden below if the
+    // saved estimate already has client line items.
+    const matTot = (mats ?? []).filter((m) => m.unit_cost !== null).reduce((s, m) => s + m.quantity_ordered * Number(m.unit_cost), 0);
+    const labTot = (labor ?? []).reduce((s, l) => s + Number(l.hours) * Number(l.rate), 0);
+    const suggested = matTot + labTot > 0 ? Math.round((matTot + labTot) / 0.8) : 0;
+    setClientLineItems([{
+      id: Math.random().toString(36).slice(2),
+      name: "Professional Services",
+      amount: suggested ? suggested.toString() : "",
+    }]);
 
     // Load display settings from DB if estimate exists
     if (localEstimateId) {
@@ -193,12 +198,10 @@ export default function QuoteProfitSection({
         setDisplayShowAddress(est.quote_display_show_address ?? true);
         setDisplayShowValidUntil(est.quote_display_show_valid_until ?? true);
         setDisplayNotes(est.quote_display_notes ?? "");
-        const savedItems = (est.quote_client_line_items as { name: string; amount: number }[] | null) ?? [];
-        setClientLineItems(
-          savedItems.length > 0
-            ? savedItems.map((x) => ({ id: Math.random().toString(36).slice(2), name: x.name, amount: x.amount.toString() }))
-            : [newLineItemRow()]
-        );
+        const savedRows = (est.quote_client_line_items as { name: string; amount: number }[] | null) ?? [];
+        if (savedRows.length > 0) {
+          setClientLineItems(savedRows.map((x) => ({ id: Math.random().toString(36).slice(2), name: x.name, amount: x.amount.toString() })));
+        }
       }
     }
 
@@ -215,58 +218,47 @@ export default function QuoteProfitSection({
     (s, l) => s + Number(l.hours) * Number(l.rate),
     0
   );
-  const baseSubtotal = materialsTotal + laborTotal + subTotal;
-  const profitAmount = baseSubtotal * (margin / 100);
-  const baseQuote = baseSubtotal + profitAmount;
-  const addonsTotal = addons.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-  const grandTotal = baseQuote + addonsTotal;
   const hasData = materialsTotal > 0 || laborTotal > 0 || subTotal > 0;
 
-  // ── Addon helpers ─────────────────────────────────────
-  function addBlankAddon() {
-    setAddons((prev) => [...prev, { name: "", amount: 0 }]);
-    setSaved(false);
-  }
+  // ── New 3-section model ───────────────────────────────
+  // Section 2 — internal cost basis used to compute margin (reference only,
+  // never shown to the client). Receipts are shown for reference but excluded
+  // from the basis to avoid double-counting logged materials.
+  const calcEstimatesTotal = calcEstimates.reduce((s, c) => s + c.amount, 0);
+  const costBasis = materialsTotal + laborTotal + subTotal + calcEstimatesTotal;
 
-  function removeAddon(i: number) {
-    setAddons((prev) => prev.filter((_, idx) => idx !== i));
-    setSavedIdxSet((prev) => {
-      const next = new Set(Array.from(prev));
-      next.delete(i);
-      return next;
+  // Section 1 — the client-facing line items ARE the quote total.
+  const quoteTotal = clientLineItems.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+
+  // Section 3 — gross margin, updating in real time.
+  const marginPct = quoteTotal > 0 ? ((quoteTotal - costBasis) / quoteTotal) * 100 : 0;
+  const marginColor = marginPct >= 20 ? "text-green-400" : marginPct >= 10 ? "text-yellow-400" : "text-red-400";
+  const marginBarColor = marginPct >= 20 ? "#22c55e" : marginPct >= 10 ? "#eab308" : "#ef4444";
+
+  // Editing the headline total adjusts the first line item so the rows still sum
+  // to the entered total (lets the contractor "enter total directly").
+  function setQuoteTotalDirect(value: string) {
+    const target = parseFloat(value) || 0;
+    setClientLineItems((rows) => {
+      if (rows.length === 0) {
+        return [{ id: Math.random().toString(36).slice(2), name: "Professional Services", amount: target ? target.toString() : "" }];
+      }
+      const othersTotal = rows.slice(1).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const firstAmount = Math.max(0, target - othersTotal);
+      return rows.map((r, i) => (i === 0 ? { ...r, amount: firstAmount ? firstAmount.toString() : "" } : r));
     });
     setSaved(false);
   }
 
-  function updateAddon(i: number, field: "name" | "amount", value: string | number) {
-    setAddons((prev) =>
-      prev.map((a, idx) => (idx === i ? { ...a, [field]: value } : a))
-    );
+  function addCalcEstimate(label: string, amount: number) {
+    setCalcEstimates((prev) => [...prev, { label, amount: Math.round(amount) }]);
+    setCostRefOpen(true);
     setSaved(false);
-  }
-
-  function addFromSaved(item: SavedLineItem) {
-    setAddons((prev) => [...prev, { name: item.name, amount: item.amount }]);
-    setSaved(false);
-  }
-
-  async function handleSaveItem(i: number) {
-    const addon = addons[i];
-    if (!addon.name.trim() || !addon.amount) return;
-    setSavingItemIdx(i);
-    const result = await saveLineItem(addon.name.trim(), Number(addon.amount));
-    if (result.item) {
-      setSavedItems((prev) =>
-        [...prev, result.item!].sort((a, b) => a.name.localeCompare(b.name))
-      );
-      setSavedIdxSet((prev) => { const next = new Set(Array.from(prev)); next.add(i); return next; });
-    }
-    setSavingItemIdx(null);
   }
 
   // ── Share text ────────────────────────────────────────
   function buildShareText() {
-    const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
+    const rows = rowsToLineItems(clientLineItems);
     const lines = [
       "QUOTE",
       `Generated ${today()} · Sightline`,
@@ -274,22 +266,13 @@ export default function QuoteProfitSection({
       job.name,
       job.address ?? "",
       "",
-      `Materials:        ${fmt(materialsTotal)}`,
-      `Labor:            ${fmt(laborTotal)}`,
-      ...(subTotal > 0 ? [`Subcontractors:   ${fmt(subTotal)}`] : []),
     ];
-    if (validAddons.length > 0) {
-      lines.push("", "Add-Ons:");
-      for (const a of validAddons) {
-        lines.push(`  ${a.name}: ${fmt(Number(a.amount))}`);
-      }
+    for (const r of rows) {
+      lines.push(`${r.name}: ${fmt(r.amount)}`);
     }
     lines.push(
-      "",
       `──────────────────────────`,
-      `Profit (${margin}% on work): +${fmt(profitAmount)}`,
-      `──────────────────────────`,
-      `TOTAL:            ${fmt(grandTotal)}`
+      `TOTAL:            ${fmt(quoteTotal)}`
     );
     return lines.join("\n");
   }
@@ -336,7 +319,6 @@ export default function QuoteProfitSection({
         signatureData = est?.signature_data ?? null;
       }
 
-      const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
       const { generateAndDownloadQuotePDF } = await import("@/lib/generateQuotePDF");
       await generateAndDownloadQuotePDF({
         contractorEmail: user?.email ?? "",
@@ -346,8 +328,8 @@ export default function QuoteProfitSection({
         jobNumber: job.job_number ?? undefined,
         date: today(),
         quoteNumber: `QUO-${job.id.slice(0, 8).toUpperCase()}`,
-        grandTotal,
-        addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
+        grandTotal: quoteTotal,
+        addons: [],
         businessProfile: bp,
         logoUrl,
         showAddress: displayShowAddress,
@@ -369,14 +351,14 @@ export default function QuoteProfitSection({
   async function handleSave() {
     setSaving(true);
     setSaveError("");
-    const validAddons = addons.filter((a) => a.name.trim() && Number(a.amount) > 0);
+    const roundedMargin = Math.round(marginPct);
     const result = await saveJobQuote({
       jobId: job.id,
       materialTotal: Math.round(materialsTotal),
       laborTotal: Math.round(laborTotal),
-      profitMarginPct: margin,
-      finalQuote: Math.round(baseQuote),
-      addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
+      profitMarginPct: roundedMargin,
+      finalQuote: Math.round(quoteTotal),
+      addons: [],
       displayShowAddress,
       displayShowValidUntil,
       displayNotes: displayNotes.trim() || null,
@@ -392,13 +374,12 @@ export default function QuoteProfitSection({
         setLocalEstimateId(result.estimateId);
         setLocalQuoteStatus("draft");
       }
-      setAddons(validAddons);
       setQuoteData({
         materialBudget: Math.round(materialsTotal),
         laborBudget: Math.round(laborTotal),
-        profitMarginPct: margin,
-        finalQuote: Math.round(baseQuote),
-        addons: validAddons.map((a) => ({ name: a.name, amount: Number(a.amount) })),
+        profitMarginPct: roundedMargin,
+        finalQuote: Math.round(quoteTotal),
+        addons: [],
       });
     }
     setSaving(false);
@@ -428,9 +409,6 @@ export default function QuoteProfitSection({
     else if (isOverBudget) { barStatus = "Eating into margin"; statusColor = "text-yellow-400"; fillHex = "#eab308"; }
     else { barStatus = "On track"; statusColor = "text-green-400"; fillHex = "#22c55e"; }
   }
-
-  const inputCls =
-    "bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm px-3 rounded-lg min-h-[44px] placeholder-gray-600 focus:outline-none focus:border-orange-500";
 
   return (
     <>
@@ -700,107 +678,123 @@ export default function QuoteProfitSection({
             </div>
           ) : (
             <div className="flex-1 px-5 pb-8">
-              {/* ── Quote document preview ── */}
-              <div className="bg-[#141414] border border-[#242424] rounded-2xl overflow-hidden mb-6">
-                <div className="px-5 py-5 border-b border-[#242424]">
-                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3">
-                    {quoteData ? "Edit Quote" : "Quote"} · {today()}
-                  </p>
-                  <h2 className="text-white font-black text-2xl leading-tight mb-1">
-                    {job.name}
-                  </h2>
-                  <p className="text-gray-400 text-sm">{job.address}</p>
-                </div>
+              {/* Doc header */}
+              <div className="mb-5">
+                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">
+                  {quoteData ? "Edit Quote" : "New Quote"} · {today()}
+                </p>
+                <h2 className="text-white font-black text-2xl leading-tight">{job.name}</h2>
+                <p className="text-gray-400 text-sm">{job.address}</p>
+              </div>
 
-                <div className="px-5 py-5 flex flex-col gap-3">
-                  {/* Materials */}
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-gray-300 font-semibold text-base">Materials</p>
-                      {materialsWithCost.length > 0 && (
-                        <p className="text-gray-500 text-xs mt-0.5">
-                          {materialsWithCost.length} item
-                          {materialsWithCost.length !== 1 ? "s" : ""} · auto
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`font-bold text-lg ${
-                        materialsTotal > 0 ? "text-white" : "text-gray-600"
-                      }`}
-                    >
-                      {materialsTotal > 0 ? fmt(materialsTotal) : "—"}
-                    </span>
+              {/* ── SECTION 1 — Client-facing line items ── */}
+              <div className="mb-6">
+                <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider">1 · Client Line Items</p>
+                <p className="text-gray-600 text-xs mt-0.5 mb-3">What the client sees on the quote. Every field is editable.</p>
+                <LineItemBuilder
+                  items={clientLineItems}
+                  onItemsChange={(items) => { setClientLineItems(items); setSaved(false); }}
+                  totalToMatch={0}
+                />
+              </div>
+
+              {/* ── SECTION 2 — Internal cost reference (collapsed) ── */}
+              <div className="mb-6 bg-[#141414] border border-[#242424] rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setCostRefOpen((o) => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 active:opacity-80"
+                >
+                  <div className="text-left">
+                    <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider">2 · Internal Cost Reference</p>
+                    <p className="text-gray-600 text-xs mt-0.5">Your costs — never shown to the client</p>
                   </div>
-
-                  {/* Labor */}
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-gray-300 font-semibold text-base">Labor</p>
-                      {laborLogs.length > 0 && (
-                        <p className="text-gray-500 text-xs mt-0.5">
-                          {laborLogs.length} entr{laborLogs.length !== 1 ? "ies" : "y"} · auto
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`font-bold text-lg ${
-                        laborTotal > 0 ? "text-white" : "text-gray-600"
-                      }`}
-                    >
-                      {laborTotal > 0 ? fmt(laborTotal) : "—"}
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-white font-bold text-sm">{fmt(costBasis)}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                      className="text-gray-500" style={{ transform: costRefOpen ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
                   </div>
-
-                  {/* Subcontractors */}
-                  {subTotal > 0 && (
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-gray-300 font-semibold text-base">Subcontractors</p>
-                        <p className="text-gray-500 text-xs mt-0.5">quoted · auto</p>
+                </button>
+                {costRefOpen && (
+                  <div className="border-t border-[#242424] px-4 py-3 flex flex-col gap-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Logged materials</span>
+                      <span className="text-gray-200 font-semibold">{fmt(materialsTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Logged labor</span>
+                      <span className="text-gray-200 font-semibold">{fmt(laborTotal)}</span>
+                    </div>
+                    {subTotal > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Subcontractors (quoted)</span>
+                        <span className="text-gray-200 font-semibold">{fmt(subTotal)}</span>
                       </div>
-                      <span className="text-white font-bold text-lg">{fmt(subTotal)}</span>
+                    )}
+                    {calcEstimates.map((c, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400 flex items-center gap-1.5">
+                          <span className="text-orange-500/70 text-xs">📐</span> {c.label}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-gray-200 font-semibold">{fmt(c.amount)}</span>
+                          <button
+                            type="button"
+                            onClick={() => { setCalcEstimates((prev) => prev.filter((_, idx) => idx !== i)); setSaved(false); }}
+                            className="text-gray-600 active:text-red-400 text-base leading-none"
+                            aria-label="Remove estimate"
+                          >×</button>
+                        </span>
+                      </div>
+                    ))}
+                    {receiptsTotal > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Receipts logged (reference)</span>
+                        <span className="text-gray-600">{fmt(receiptsTotal)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm pt-2 border-t border-[#242424]">
+                      <span className="text-gray-300 font-bold">Internal cost basis</span>
+                      <span className="text-white font-bold">{fmt(costBasis)}</span>
                     </div>
-                  )}
-
-                  {/* Add-on line items in preview */}
-                  {addons.filter((a) => a.name && Number(a.amount) > 0).length > 0 && (
-                    <div className="border-t border-[#2a2a2a] pt-3 flex flex-col gap-2">
-                      <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                        Add-Ons
-                      </p>
-                      {addons
-                        .filter((a) => a.name && Number(a.amount) > 0)
-                        .map((a, i) => (
-                          <div key={i} className="flex justify-between items-center">
-                            <p className="text-gray-300 text-sm font-semibold">{a.name}</p>
-                            <span className="text-white font-bold text-sm">
-                              {fmt(Number(a.amount))}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Profit */}
-                  <div className="flex justify-between items-center pt-3 border-t border-[#2a2a2a]">
-                    <p className="text-gray-400 font-semibold text-base">
-                      Profit{" "}
-                      <span className="text-orange-500 font-bold">({margin}% on work)</span>
-                    </p>
-                    <span className="text-orange-500 font-bold text-lg">
-                      +{fmt(profitAmount)}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCalcDrawerOpen(true)}
+                      className="mt-1 w-full flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform min-h-[48px]"
+                    >
+                      <span>📐</span> Pull from Calculator
+                    </button>
                   </div>
-                </div>
+                )}
+              </div>
 
-                {/* Grand Total */}
-                <div className="bg-[#1a1a1a] border-t border-[#242424] px-5 py-6 flex justify-between items-center">
-                  <p className="text-white font-black text-xl uppercase tracking-wide">Total</p>
-                  <p className="text-orange-500 font-black text-4xl leading-none">
-                    {fmt(grandTotal)}
-                  </p>
+              {/* ── SECTION 3 — Margin & total ── */}
+              <div className="mb-6 bg-[#141414] border border-[#242424] rounded-2xl px-5 py-5">
+                <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">3 · Quote Total & Margin</p>
+                <div className="flex items-center gap-1.5 mb-4">
+                  <span className="text-orange-500 font-black text-3xl leading-none">$</span>
+                  <input
+                    inputMode="decimal"
+                    value={quoteTotal ? String(Math.round(quoteTotal)) : ""}
+                    onChange={(e) => setQuoteTotalDirect(e.target.value)}
+                    placeholder="0"
+                    className="flex-1 min-w-0 bg-transparent text-orange-500 font-black text-4xl leading-none focus:outline-none placeholder-orange-500/30"
+                  />
                 </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-400 text-sm font-semibold">Margin</span>
+                  <span className={`font-black text-2xl ${marginColor}`}>{marginPct.toFixed(1)}%</span>
+                </div>
+                <div className="h-2 bg-[#242424] rounded-full overflow-hidden">
+                  <div className="h-full transition-all duration-300" style={{ width: `${Math.max(0, Math.min(100, marginPct))}%`, backgroundColor: marginBarColor }} />
+                </div>
+                <p className="text-gray-600 text-xs mt-2">
+                  {costBasis > 0
+                    ? `Cost basis ${fmt(costBasis)} · profit ${fmt(quoteTotal - costBasis)}`
+                    : "Add costs in the reference above to see your margin"}
+                </p>
               </div>
 
               {/* Historical cost range banner */}
@@ -868,146 +862,6 @@ export default function QuoteProfitSection({
                 </div>
               )}
 
-              {/* ── Profit margin slider ── */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider">
-                    Profit Margin
-                  </p>
-                  <span className="text-orange-500 font-black text-xl">{margin}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={50}
-                  step={1}
-                  value={margin}
-                  onChange={(e) => {
-                    setMargin(Number(e.target.value));
-                    setSaved(false);
-                  }}
-                  className="range-slider w-full"
-                />
-                <div className="flex justify-between text-gray-600 text-xs mt-1">
-                  <span>0%</span>
-                  <span>50%</span>
-                </div>
-                {margin === 0 && (
-                  <p className="text-red-400 text-xs mt-2 font-semibold">
-                    No profit margin — you will break even on this job at best.
-                  </p>
-                )}
-                {margin > 0 && margin < 10 && (
-                  <p className="text-yellow-400 text-xs mt-2 font-semibold">
-                    Low margin — consider your overhead costs.
-                  </p>
-                )}
-              </div>
-
-              {/* ── Add-On Line Items ── */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider">
-                    Add-On Line Items
-                  </p>
-                  <button
-                    onClick={addBlankAddon}
-                    className="text-orange-500 font-bold text-sm px-3 py-2 border border-orange-500/30 rounded-lg active:scale-95 transition-transform min-h-[44px]"
-                  >
-                    + Add
-                  </button>
-                </div>
-
-                {/* Saved items dropdown */}
-                {savedItems.length > 0 && (
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      const item = savedItems.find((si) => si.id === e.target.value);
-                      if (item) {
-                        addFromSaved(item);
-                        e.target.value = "";
-                      }
-                    }}
-                    className="w-full mb-3 bg-[#1A1A1A] border border-[#2a2a2a] text-gray-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500"
-                  >
-                    <option value="">Add from saved items...</option>
-                    {savedItems.map((si) => (
-                      <option key={si.id} value={si.id}>
-                        {si.name} — ${Number(si.amount).toLocaleString()}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {addons.length === 0 ? (
-                  <p className="text-gray-600 text-sm">
-                    No line items yet. Add charges for permits, travel, upgrades, etc.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {addons.map((a, i) => (
-                      <div
-                        key={i}
-                        className="bg-[#141414] border border-[#242424] rounded-xl px-4 py-3 flex flex-col gap-2"
-                      >
-                        {/* Name row */}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={a.name}
-                            onChange={(e) => updateAddon(i, "name", e.target.value)}
-                            placeholder="Item name (e.g. Permit fee)"
-                            className={inputCls + " flex-1"}
-                          />
-                          <button
-                            onClick={() => removeAddon(i)}
-                            className="text-gray-500 text-xl w-11 h-11 flex items-center justify-center active:scale-95 shrink-0"
-                            aria-label="Remove"
-                          >
-                            ×
-                          </button>
-                        </div>
-
-                        {/* Amount + Save row */}
-                        <div className="flex gap-2">
-                          <div className="flex items-center gap-2 flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 min-h-[44px]">
-                            <span className="text-gray-500 text-sm shrink-0">$</span>
-                            <input
-                              type="number"
-                              value={a.amount || ""}
-                              onChange={(e) => updateAddon(i, "amount", e.target.value)}
-                              placeholder="0"
-                              min="0"
-                              className="flex-1 bg-transparent text-white text-sm focus:outline-none"
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleSaveItem(i)}
-                            disabled={
-                              savingItemIdx === i ||
-                              !a.name.trim() ||
-                              !Number(a.amount)
-                            }
-                            className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold min-h-[44px] min-w-[64px] active:scale-95 transition-all border disabled:opacity-40 ${
-                              savedIdxSet.has(i)
-                                ? "text-green-400 border-green-800 bg-green-900/20"
-                                : "text-gray-400 border-[#2a2a2a] bg-[#1a1a1a]"
-                            }`}
-                          >
-                            {savingItemIdx === i
-                              ? "..."
-                              : savedIdxSet.has(i)
-                              ? "✓ Saved"
-                              : "Save"}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* ── Quote Display Settings ── */}
               <div className="mb-6">
                 <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-4">
@@ -1035,19 +889,6 @@ export default function QuoteProfitSection({
                       </div>
                     </button>
                   ))}
-                </div>
-
-                {/* Client line items */}
-                <div className="mb-4">
-                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">Client Line Items</p>
-                  <p className="text-gray-600 text-xs mb-3 leading-snug">
-                    What the client sees on the quote. If blank, add-on items are shown.
-                  </p>
-                  <LineItemBuilder
-                    items={clientLineItems}
-                    onItemsChange={(items) => { setClientLineItems(items); setSaved(false); }}
-                    totalToMatch={grandTotal}
-                  />
                 </div>
 
                 {/* Notes / Terms */}
@@ -1170,6 +1011,18 @@ export default function QuoteProfitSection({
           </div>
         </>
       )}
+
+      {/* ── Inline calculator drawer (Pull from Calculator) ── */}
+      <InlineCalculatorDrawer
+        open={calcDrawerOpen}
+        onClose={() => setCalcDrawerOpen(false)}
+        title="Pull from Calculator"
+        addLabel="Add to Cost Reference"
+        onAddResult={(items: ResultItem[], tradeLabel: string) => {
+          const est = items.reduce((s, i) => s + i.unitCost * i.qty, 0);
+          addCalcEstimate(tradeLabel, est);
+        }}
+      />
     </>
   );
 }

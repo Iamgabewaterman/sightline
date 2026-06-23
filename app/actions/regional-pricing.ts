@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { ParsedAddress } from "@/lib/address-parser";
+import { ParsedAddress, parseAddress } from "@/lib/address-parser";
 import {
   TradePricingResult,
   RegionalCalcPricing,
@@ -107,6 +107,20 @@ function buildResult(
     label: `Be the first in ${areaHint} to log prices`,
     isBaseline: true,
   };
+}
+
+// Convenience for embedding the calculator anywhere (quote builder, job detail):
+// resolves the signed-in contractor's region and returns their calc pricing.
+export async function getCalcPricingForUser(): Promise<RegionalCalcPricing> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return BASELINE_PRICES;
+  const { data: biz } = await supabase
+    .from("business_profiles")
+    .select("address")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return getRegionalCalcPricing(parseAddress(biz?.address));
 }
 
 export async function getRegionalCalcPricing(

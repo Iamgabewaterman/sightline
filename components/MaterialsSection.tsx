@@ -2,7 +2,10 @@
 
 import { useState, useRef, useMemo, useEffect } from "react";
 import { addMaterial, updateMaterial, deleteMaterial } from "@/app/actions/materials";
+import { addMaterialsBulk, type BulkMaterialItem } from "@/app/actions/materials-bulk";
 import { enqueue } from "@/hooks/useOfflineQueue";
+import InlineCalculatorDrawer from "@/components/InlineCalculatorDrawer";
+import type { ResultItem } from "@/app/(dashboard)/calculator/calcs/types";
 import { dismissPriceFlag, getPriceFlagsForJob } from "@/app/actions/price-flags";
 import { similarity } from "@/lib/fuzzy-match";
 import { normalizeMaterialName } from "@/lib/material-normalizer";
@@ -690,6 +693,7 @@ export default function MaterialsSection({
   }, [materials, setActualMaterialCost]);
 
   const [showForm,     setShowForm]     = useState(false);
+  const [calcOpen,     setCalcOpen]     = useState(false);
   const [showShopping, setShowShopping] = useState(false);
   const [showImport,   setShowImport]   = useState(false);
   const [saving,       setSaving]       = useState(false);
@@ -828,6 +832,31 @@ export default function MaterialsSection({
     setTimeout(() => setAddedToast(""), 2000);
   }
 
+  async function handleCalcAddToJob(items: ResultItem[], tradeLabel: string) {
+    const mats: BulkMaterialItem[] = items.map((i) => ({
+      name: i.name,
+      quantity_ordered: i.qty,
+      unit: i.unit,
+      unit_cost: i.unitCost,
+      material_category: i.category ?? "materials",
+      notes: `From ${tradeLabel} calculator`,
+    }));
+    const result = await addMaterialsBulk(jobId, mats);
+    if (result.error) throw new Error(result.error);
+    // Refresh the list so the calculated materials show immediately.
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: fresh } = await supabase
+        .from("materials").select("*").eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+      if (fresh) setMaterials(fresh as Material[]);
+    } catch { /* keep current */ }
+    setShowForm(false);
+    setAddedToast(`${items.length} material${items.length !== 1 ? "s" : ""} added`);
+    setTimeout(() => setAddedToast(""), 2500);
+  }
+
   function handleUpdate(id: string, fields: Partial<Material>) {
     setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...fields } : m)));
   }
@@ -916,6 +945,13 @@ export default function MaterialsSection({
       {/* ── Structured add form ── */}
       {showForm && (
         <>
+          <button
+            type="button"
+            onClick={() => setCalcOpen(true)}
+            className="w-full mb-3 flex items-center justify-center gap-2 border border-orange-500/40 text-orange-400 font-semibold text-sm py-3 rounded-xl active:scale-95 transition-transform min-h-[48px]"
+          >
+            <span>📐</span> Calculate from Measurements
+          </button>
           <StructuredMaterialForm
             jobTypes={jobTypes as string[]}
             onSubmit={handleAdd}
@@ -1051,6 +1087,15 @@ export default function MaterialsSection({
           ✓ {disposeToast}
         </div>
       )}
+
+      {/* Inline calculator drawer — opens in this job's context */}
+      <InlineCalculatorDrawer
+        open={calcOpen}
+        onClose={() => setCalcOpen(false)}
+        title="Calculate from Measurements"
+        addLabel="Add to This Job"
+        onAddResult={handleCalcAddToJob}
+      />
     </div>
   );
 }

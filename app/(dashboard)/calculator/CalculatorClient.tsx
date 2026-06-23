@@ -23,7 +23,7 @@ interface Props {
 }
 
 // ── Trade categories ─────────────────────────────────────────────────────────
-const CATEGORIES = [
+export const CATEGORIES = [
   {
     id: "roofing", label: "Roofing", icon: "🏠",
     subs: [
@@ -109,8 +109,8 @@ const CATEGORIES = [
   },
 ] as const;
 
-type CategoryId = typeof CATEGORIES[number]["id"];
-type SubId = string;
+export type CategoryId = typeof CATEGORIES[number]["id"];
+export type SubId = string;
 
 const CALC_LABELS: Record<string, string> = {};
 for (const cat of CATEGORIES) {
@@ -119,7 +119,7 @@ for (const cat of CATEGORIES) {
   }
 }
 
-function renderCalc(catId: CategoryId, subId: SubId, pricing: RegionalCalcPricing, jobs: Props["jobs"]): React.ReactNode {
+export function renderCalc(catId: CategoryId, subId: SubId, pricing: RegionalCalcPricing, jobs: { id: string; name: string }[]): React.ReactNode {
   const tradeLabel = CALC_LABELS[`${catId}:${subId}`] ?? subId;
   const cp = { pricing, jobs, tradeLabel };
 
