@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PunchListItem, PunchListPhoto } from "@/types";
 import { compressImage } from "@/lib/compress-image";
+import { photoProxyUrl } from "@/lib/photo-url";
 import {
   addPunchListItem,
   togglePunchListItem,
@@ -76,10 +77,7 @@ export default function PunchListSection({
     };
   }, [pendingPreview]);
 
-  const getPublicUrl = useCallback(
-    (path: string) => supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl,
-    [supabase]
-  );
+  const getPublicUrl = useCallback((path: string) => photoProxyUrl(path), []);
 
   const open = items.filter((i) => !i.completed);
   const done = items.filter((i) => i.completed);

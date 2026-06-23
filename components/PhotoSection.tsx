@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
+import { photoProxyUrl } from "@/lib/photo-url";
 import { deletePhoto } from "@/app/actions/photos";
 import type { PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
@@ -80,10 +81,8 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
   const markupQueueRef  = useRef<File[]>([]);   // remaining files not yet shown
   const processedRef    = useRef<File[]>([]);   // files done with markup editor
 
-  const getPublicUrl = useCallback(
-    (path: string) => supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl,
-    [supabase]
-  );
+  // job-photos is a private bucket — serve through the authorizing proxy.
+  const getPublicUrl = useCallback((path: string) => photoProxyUrl(path), []);
 
   // Called when files are selected — shows markup editor for each file before upload
   function handleFiles(files: FileList | null) {

@@ -5,6 +5,7 @@ import { PortalMessage } from "@/types";
 import { getPortalMessages, sendPortalMessage } from "@/app/actions/portal-messages";
 import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
 import { compressImage } from "@/lib/compress-image";
+import { portalPhotoProxyUrl } from "@/lib/photo-url";
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -104,8 +105,9 @@ export default function PortalMessageThread({
       fd.append("portalToken", portalToken);
       const res = await fetch("/api/portal-upload", { method: "POST", body: fd });
       const json = await res.json();
-      if (json.url) {
-        await handleSend(inputText, json.url);
+      // Store the storage path; it's served via the authorizing portal photo proxy.
+      if (json.path) {
+        await handleSend(inputText, json.path);
       }
     } finally {
       setUploadingPhoto(false);
@@ -162,10 +164,10 @@ export default function PortalMessageThread({
                       {msg.attachment_url && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={msg.attachment_url}
+                          src={portalPhotoProxyUrl(msg.attachment_url, jobId, portalToken)}
                           alt="attachment"
                           className="w-full max-w-xs rounded-xl mb-2 object-cover cursor-pointer"
-                          onClick={() => window.open(msg.attachment_url!, "_blank")}
+                          onClick={() => window.open(portalPhotoProxyUrl(msg.attachment_url!, jobId, portalToken), "_blank")}
                         />
                       )}
                       {msg.message_text && (

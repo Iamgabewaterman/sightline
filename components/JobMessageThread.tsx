@@ -10,6 +10,7 @@ import {
 import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
+import { photoProxyUrl } from "@/lib/photo-url";
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -120,8 +121,8 @@ export default function JobMessageThread({
         .from("job-photos")
         .upload(path, compressed, { contentType: "image/jpeg" });
       if (!error && data) {
-        const url = supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
-        await handleSend(inputText, url);
+        // Store the storage path; it's served via the authorizing photo proxy.
+        await handleSend(inputText, path);
       }
     } finally {
       setUploadingPhoto(false);
@@ -171,10 +172,10 @@ export default function JobMessageThread({
                     {msg.attachment_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={msg.attachment_url}
+                        src={photoProxyUrl(msg.attachment_url)}
                         alt="attachment"
                         className="w-full max-w-xs rounded-xl mb-2 object-cover cursor-pointer"
-                        onClick={() => window.open(msg.attachment_url!, "_blank")}
+                        onClick={() => window.open(photoProxyUrl(msg.attachment_url!), "_blank")}
                       />
                     )}
                     {msg.message_text && (

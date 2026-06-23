@@ -44,8 +44,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const url = admin.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
-    return NextResponse.json({ url });
+    // Return the storage path — the bucket is private; images are served via
+    // the authorizing /api/portal-photo proxy.
+    return NextResponse.json({ path });
   } catch {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }

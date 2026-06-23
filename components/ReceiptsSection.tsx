@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { deleteReceipt, updateReceiptCategory } from "@/app/actions/receipts";
 import { ExpenseCategory, Material } from "@/types";
 import { CATEGORY_CONFIG, ALL_CATEGORIES, detectCategoryFromVendor } from "@/lib/expense-category";
+import { photoProxyUrl } from "@/lib/photo-url";
 
 function TrashIcon() {
   return (
@@ -80,7 +81,7 @@ export default function ReceiptsSection({
   }, [highlightReceiptScan, setHighlightReceiptScan]);
 
   function getPublicUrl(path: string) {
-    return supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
+    return photoProxyUrl(path);
   }
 
   async function refreshMaterialCost() {

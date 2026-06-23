@@ -8,6 +8,7 @@ import { shouldSendWithTTL } from "@/lib/notif-dedup";
 import PortalPhotoGallery from "@/components/PortalPhotoGallery";
 import PortalMessageThread from "@/components/PortalMessageThread";
 import PortalChangeOrderActions from "@/components/PortalChangeOrderActions";
+import { portalPhotoProxyUrl } from "@/lib/photo-url";
 import { getPortalMessages } from "@/app/actions/portal-messages";
 import PortalPayButton from "./PortalPayButton";
 
@@ -142,7 +143,8 @@ export default async function PortalPage({
   }
 
   function getPhotoUrl(path: string) {
-    return supabase.storage.from("job-photos").getPublicUrl(path).data.publicUrl;
+    // job-photos is private — serve through the token-authorizing portal proxy.
+    return portalPhotoProxyUrl(path, params.job_id, params.access_token);
   }
 
   const statusInfo = STATUS_INFO[job.status] ?? STATUS_INFO.active;
