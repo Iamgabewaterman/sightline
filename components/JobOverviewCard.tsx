@@ -8,6 +8,7 @@ import JobStatus from "@/components/JobStatus";
 import LockboxCode from "@/components/LockboxCode";
 import TimelineSection from "@/components/TimelineSection";
 import DimensionsSection from "@/components/DimensionsSection";
+import NavigateAddress from "@/components/NavigateAddress";
 
 const TYPE_LABELS: Record<string, string> = {
   drywall: "Drywall", framing: "Framing", plumbing: "Plumbing",
@@ -122,11 +123,11 @@ export default function JobOverviewCard({
             <TypeTags types={job.types} />
           </div>
 
-          {/* Address */}
+          {/* Address — tappable for turn-by-turn navigation */}
           {job.address && (
             <div>
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Address</p>
-              <p className="text-white text-base">{job.address}</p>
+              <NavigateAddress address={job.address} />
             </div>
           )}
 

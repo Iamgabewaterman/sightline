@@ -16,16 +16,29 @@ export async function createJob(formData: FormData) {
   const address = formData.get("address") as string;
   const notes = formData.get("notes") as string;
   const job_number = formData.get("job_number") as string;
+  const lockbox_code = formData.get("lockbox_code") as string;
+  const estimated_completion_date_raw = formData.get("estimated_completion_date") as string;
 
-  if (types.length === 0) {
-    return { error: "Select at least one job type." };
+  if (!name?.trim()) {
+    return { error: "Job name is required." };
   }
 
+  const estimated_completion_date = estimated_completion_date_raw?.trim() || null;
   const client_id = formData.get("client_id") as string | null;
 
   const { data: job, error } = await supabase
     .from("jobs")
-    .insert({ name, types, address, notes: notes || null, user_id: user.id, client_id: client_id || null, job_number: job_number || null })
+    .insert({
+      name,
+      types,
+      address,
+      notes: notes || null,
+      user_id: user.id,
+      client_id: client_id || null,
+      job_number: job_number || null,
+      lockbox_code: lockbox_code || null,
+      estimated_completion_date,
+    })
     .select("id")
     .single();
 

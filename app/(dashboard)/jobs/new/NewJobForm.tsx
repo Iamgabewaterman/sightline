@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createJob } from "@/app/actions/jobs";
 import { applyTemplateToJob } from "@/app/actions/templates";
 import { getCustomJobTypes, saveCustomJobType } from "@/app/actions/custom-job-types";
-import ClientSelector from "@/components/ClientSelector";
+import { createClientRecord } from "@/app/actions/clients";
+import ClientNameAutocomplete from "@/components/ClientNameAutocomplete";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const BUILT_IN_TYPES = [
   { value: "drywall", label: "Drywall" },
@@ -21,7 +23,7 @@ const BUILT_IN_TYPES = [
   { value: "concrete", label: "Concrete" },
   { value: "landscaping", label: "Landscaping" },
   { value: "decks_patios", label: "Decks & Patios" },
-  { value: "fencing",      label: "Fencing" },
+  { value: "fencing", label: "Fencing" },
 ];
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(BUILT_IN_TYPES.map((t) => [t.value, t.label]));
@@ -36,15 +38,15 @@ interface Template {
 
 export default function NewJobForm({ templates }: { templates: Template[] }) {
   const router = useRouter();
-  const [status, setStatus]             = useState<"idle" | "saving" | "error">("idle");
-  const [errorMsg, setErrorMsg]         = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [photoNames, setPhotoNames]     = useState<string[]>([]);
-  const [clientId, setClientId]         = useState<string | null>(null);
+  const [photoNames, setPhotoNames] = useState<string[]>([]);
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [templateSheetOpen, setTemplateSheetOpen] = useState(false);
   const [showOptional, setShowOptional] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
 
   // Custom job types
   const [customTypes, setCustomTypes] = useState<{ value: string; label: string }[]>([]);
@@ -80,19 +82,14 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
 
   function pickTemplate(t: Template) {
     setSelectedTemplate(t);
-    // Pre-fill job types from template
     setSelectedTypes(t.job_types);
     setTemplateSheetOpen(false);
   }
 
-  function clearTemplate() {
-    setSelectedTemplate(null);
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (selectedTypes.length === 0) {
-      setErrorMsg("Select at least one job type.");
+    if (!clientName.trim()) {
+      setErrorMsg("Client name is required.");
       setStatus("error");
       return;
     }
@@ -102,22 +99,34 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
     const formData = new FormData(e.currentTarget);
     formData.delete("types");
     selectedTypes.forEach((t) => formData.append("types", t));
-    if (clientId) formData.set("client_id", clientId);
+
+    // Resolve the client: use the selected one, or create a new client from the typed name.
+    let resolvedClientId = clientId;
+    if (!resolvedClientId && clientName.trim()) {
+      const res = await createClientRecord({ name: clientName.trim() });
+      if (res.error || !res.client) {
+        setErrorMsg(res.error ?? "Could not save the client. Try again.");
+        setStatus("error");
+        return;
+      }
+      resolvedClientId = res.client.id;
+    }
+    if (resolvedClientId) formData.set("client_id", resolvedClientId);
 
     const result = await createJob(formData);
 
-    if (result.error) {
-      setErrorMsg(result.error);
+    if (result.error || !result.jobId) {
+      setErrorMsg(result.error ?? "Could not create the job. Try again.");
       setStatus("error");
       return;
     }
 
-    // Apply template if one was selected
-    if (selectedTemplate && result.jobId) {
+    if (selectedTemplate) {
       await applyTemplateToJob(result.jobId, selectedTemplate.id);
     }
 
-    router.push(result.jobId ? `/jobs/${result.jobId}` : "/jobs");
+    // Always go straight to the job detail page — never the jobs list.
+    router.push(`/jobs/${result.jobId}`);
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -126,70 +135,13 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] px-4 py-8">
+    <div className="min-h-screen bg-[#0F0F0F] px-4 py-6">
       <div className="max-w-lg mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <p className="text-gray-400 text-sm uppercase tracking-widest mb-1">Sightline</p>
-          <h1 className="text-3xl font-bold text-white">New Job</h1>
-        </div>
+        <h1 className="text-2xl font-bold text-white mb-5">New Job</h1>
 
-        {/* Template picker */}
-        {templates.length > 0 && (
-          <div className="mb-6">
-            {selectedTemplate ? (
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-orange-400 text-xs font-bold uppercase tracking-wider mb-0.5">Template applied</p>
-                  <p className="text-white font-semibold text-sm">{selectedTemplate.name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">
-                    {selectedTemplate.materials.length} materials · {selectedTemplate.punch_list_items.length} punch list items will be added
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={clearTemplate}
-                  className="text-gray-500 text-xs font-semibold active:text-white ml-4 min-h-[44px] px-2"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setTemplateSheetOpen(true)}
-                className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      <line x1="9" y1="9" x2="15" y2="9"/>
-                      <line x1="9" y1="13" x2="15" y2="13"/>
-                      <line x1="9" y1="17" x2="12" y2="17"/>
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-white font-semibold text-sm">Start from a template</p>
-                    <p className="text-gray-500 text-xs">{templates.length} template{templates.length !== 1 ? "s" : ""} available</p>
-                  </div>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-
-        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {/* Client */}
-          <ClientSelector
-            selectedClientId={clientId}
-            onChange={(id) => setClientId(id)}
-          />
-
-          {/* Job Name */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* 1 — Job Name (prominent) */}
           <div className="flex flex-col gap-2">
             <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
               Job Name
@@ -201,111 +153,181 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
               placeholder="e.g. Johnson Kitchen Remodel"
               autoCapitalize="words"
               autoCorrect="on"
-              className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
+              autoFocus
+              className="w-full bg-[#1A1A1A] border border-[#2a2a2a] text-white text-xl font-semibold rounded-xl px-4 py-5 placeholder:text-gray-600 placeholder:font-normal focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
 
-          {/* Job Type — multi-select */}
-          <div className="flex flex-col gap-3">
-            <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-              Job Type <span className="text-gray-500 normal-case">(select all that apply)</span>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {allTypes.map(({ value, label }) => {
-                const checked = selectedTypes.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => toggleType(value)}
-                    className={`flex items-center gap-3 px-4 py-4 rounded-xl border text-left transition-colors active:scale-95
-                      ${checked
-                        ? "bg-orange-500 text-white border-orange-500 font-semibold"
-                        : "bg-[#1A1A1A] text-white border-[#2a2a2a]"
-                      }`}
-                  >
-                    <span className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center
-                      ${checked ? "bg-white border-white" : "border-gray-500"}`}
-                    >
-                      {checked && (
-                        <svg className="w-3 h-3 text-orange-500" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="text-base">{label}</span>
-                  </button>
-                );
-              })}
-              {/* Custom type button */}
-              {!showCustomInput && (
-                <button
-                  type="button"
-                  onClick={() => setShowCustomInput(true)}
-                  className="flex items-center gap-3 px-4 py-4 rounded-xl border border-dashed border-[#2a2a2a] bg-[#1A1A1A] text-gray-500 text-left transition-colors active:scale-95"
-                >
-                  <span className="w-5 h-5 shrink-0 rounded border-2 border-gray-600 flex items-center justify-center text-gray-600 text-lg leading-none">+</span>
-                  <span className="text-base">Custom…</span>
-                </button>
-              )}
-            </div>
-            {showCustomInput && (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="e.g. Masonry, Demolition…"
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmCustomType(); } }}
-                  autoCapitalize="words"
-                  className="flex-1 bg-[#1A1A1A] border border-orange-500 text-white rounded-xl px-4 py-4 text-base focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={confirmCustomType}
-                  className="bg-orange-500 text-white font-bold px-5 py-4 rounded-xl active:scale-95 transition-transform"
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowCustomInput(false); setCustomInput(""); }}
-                  className="bg-[#242424] text-gray-400 font-bold px-4 py-4 rounded-xl active:scale-95 transition-transform"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
+          {/* 2 — Client Name (required, autocomplete) */}
+          <ClientNameAutocomplete
+            onChange={(id, name) => {
+              setClientId(id);
+              setClientName(name);
+            }}
+          />
 
-          {/* Optional details toggle */}
+          {/* 3 — Job Address (required, prominent) */}
+          <AddressAutocomplete />
+
+          {/* Optional section — collapsed by default */}
           <button
             type="button"
             onClick={() => setShowOptional((v) => !v)}
-            className="flex items-center gap-2 text-gray-500 text-sm font-semibold active:text-gray-300 transition-colors self-start"
+            className="flex items-center gap-2 text-gray-400 text-sm font-semibold active:text-gray-200 transition-colors self-start min-h-[44px]"
           >
             <svg
               width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
               className={`transition-transform duration-200 ${showOptional ? "rotate-90" : ""}`}
             >
-              <path d="M9 18l6-6-6-6"/>
+              <path d="M9 18l6-6-6-6" />
             </svg>
-            {showOptional ? "Hide optional details" : "Add address, notes, photos (optional)"}
+            Optional — job type, dates, lockbox, notes, photos
           </button>
 
           {showOptional && (
-            <>
-              {/* Address */}
+            <div className="flex flex-col gap-5 border-l-2 border-[#2a2a2a] pl-4">
+              {/* Template picker */}
+              {templates.length > 0 && (
+                selectedTemplate ? (
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-400 text-xs font-bold uppercase tracking-wider mb-0.5">Template applied</p>
+                      <p className="text-white font-semibold text-sm">{selectedTemplate.name}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        {selectedTemplate.materials.length} materials · {selectedTemplate.punch_list_items.length} punch list items will be added
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplate(null)}
+                      className="text-gray-500 text-xs font-semibold active:text-white ml-4 min-h-[44px] px-2"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setTemplateSheetOpen(true)}
+                    className="w-full flex items-center justify-between bg-[#1A1A1A] border border-[#2a2a2a] rounded-xl px-4 py-4 active:scale-95 transition-transform"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <line x1="9" y1="9" x2="15" y2="9" />
+                          <line x1="9" y1="13" x2="15" y2="13" />
+                          <line x1="9" y1="17" x2="12" y2="17" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-white font-semibold text-sm">Start from a template</p>
+                        <p className="text-gray-500 text-xs">{templates.length} template{templates.length !== 1 ? "s" : ""} available</p>
+                      </div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </button>
+                )
+              )}
+
+              {/* Job Type — multi-select */}
+              <div className="flex flex-col gap-3">
+                <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Job Type <span className="text-gray-500 normal-case">(select all that apply)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {allTypes.map(({ value, label }) => {
+                    const checked = selectedTypes.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => toggleType(value)}
+                        className={`flex items-center gap-3 px-4 py-4 rounded-xl border text-left transition-colors active:scale-95
+                          ${checked
+                            ? "bg-orange-500 text-white border-orange-500 font-semibold"
+                            : "bg-[#1A1A1A] text-white border-[#2a2a2a]"
+                          }`}
+                      >
+                        <span className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center
+                          ${checked ? "bg-white border-white" : "border-gray-500"}`}
+                        >
+                          {checked && (
+                            <svg className="w-3 h-3 text-orange-500" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-base">{label}</span>
+                      </button>
+                    );
+                  })}
+                  {!showCustomInput && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomInput(true)}
+                      className="flex items-center gap-3 px-4 py-4 rounded-xl border border-dashed border-[#2a2a2a] bg-[#1A1A1A] text-gray-500 text-left transition-colors active:scale-95"
+                    >
+                      <span className="w-5 h-5 shrink-0 rounded border-2 border-gray-600 flex items-center justify-center text-gray-600 text-lg leading-none">+</span>
+                      <span className="text-base">Custom…</span>
+                    </button>
+                  )}
+                </div>
+                {showCustomInput && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="e.g. Masonry, Demolition…"
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmCustomType(); } }}
+                      autoCapitalize="words"
+                      className="flex-1 bg-[#1A1A1A] border border-orange-500 text-white rounded-xl px-4 py-4 text-base focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={confirmCustomType}
+                      className="bg-orange-500 text-white font-bold px-5 py-4 rounded-xl active:scale-95 transition-transform"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCustomInput(false); setCustomInput(""); }}
+                      className="bg-[#242424] text-gray-400 font-bold px-4 py-4 rounded-xl active:scale-95 transition-transform"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Estimated completion date */}
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                  Address <span className="text-gray-600 normal-case font-normal">(optional)</span>
+                  Estimated Completion <span className="text-gray-600 normal-case font-normal">(optional)</span>
                 </label>
                 <input
-                  name="address"
+                  name="estimated_completion_date"
+                  type="date"
+                  className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 focus:outline-none focus:border-orange-500 transition-colors"
+                />
+              </div>
+
+              {/* Lockbox code */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                  Lockbox Code <span className="text-gray-600 normal-case font-normal">(optional)</span>
+                </label>
+                <input
+                  name="lockbox_code"
                   type="text"
-                  placeholder="e.g. 123 Main St, Hillsboro, OR"
+                  inputMode="numeric"
+                  placeholder="e.g. 1234"
                   className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors"
                 />
               </div>
@@ -318,12 +340,12 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
                 <textarea
                   name="notes"
                   rows={3}
-                  placeholder="Scope of work, client info, access instructions..."
+                  placeholder="Scope of work, access instructions, crew notes..."
                   className="bg-[#1A1A1A] border border-[#2a2a2a] text-white text-lg rounded-xl px-4 py-4 placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors resize-none"
                 />
               </div>
 
-              {/* Photo Upload */}
+              {/* Before photos */}
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-sm font-medium uppercase tracking-wider">
                   Before Photos <span className="text-gray-600 normal-case font-normal">(optional)</span>
@@ -352,7 +374,7 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
                   </ul>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {/* Error */}
@@ -362,24 +384,21 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
             </p>
           )}
 
-          {/* Submit — always visible, no scrolling needed */}
+          {/* Submit — large, orange, visible without scrolling */}
           <button
             type="submit"
             disabled={status === "saving"}
-            className="mt-2 bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-orange-500 text-white font-bold text-xl py-5 rounded-xl active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {status === "saving" ? "Creating job…" : "Create Job"}
           </button>
         </form>
       </div>
 
-      {/* ── Template picker sheet ── */}
+      {/* Template picker sheet */}
       {templateSheetOpen && (
         <>
-          <div
-            className="fixed inset-0 z-50 bg-black/60"
-            onClick={() => setTemplateSheetOpen(false)}
-          />
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setTemplateSheetOpen(false)} />
           <div
             className="fixed bottom-0 left-0 right-0 z-50 bg-[#141414] border-t border-[#2a2a2a] rounded-t-2xl"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
@@ -397,10 +416,10 @@ export default function NewJobForm({ templates }: { templates: Template[] }) {
                 >
                   <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0 mt-0.5">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      <line x1="9" y1="9" x2="15" y2="9"/>
-                      <line x1="9" y1="13" x2="15" y2="13"/>
-                      <line x1="9" y1="17" x2="12" y2="17"/>
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="9" y1="9" x2="15" y2="9" />
+                      <line x1="9" y1="13" x2="15" y2="13" />
+                      <line x1="9" y1="17" x2="12" y2="17" />
                     </svg>
                   </div>
                   <div className="min-w-0">
