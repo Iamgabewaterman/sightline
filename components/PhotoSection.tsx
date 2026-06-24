@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Photo, PhotoCategory } from "@/types";
 import { compressImage } from "@/lib/compress-image";
 import { photoProxyUrl } from "@/lib/photo-url";
+import { useJobCost } from "@/components/JobCostContext";
 import { deletePhoto } from "@/app/actions/photos";
 import type { PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
@@ -75,6 +76,12 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
   const cameraInputRef  = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
+
+  // Open the camera when "Add Photo" is tapped in the quick-actions row.
+  const { photoTrigger } = useJobCost();
+  useEffect(() => {
+    if (photoTrigger > 0) cameraInputRef.current?.click();
+  }, [photoTrigger]);
 
   // Markup queue: files waiting to be marked up before upload
   const [markupFile, setMarkupFile] = useState<File | null>(null);

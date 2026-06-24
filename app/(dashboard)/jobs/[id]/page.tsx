@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Job, Photo, Material, Estimate, Receipt, LaborLog, Invoice, ChangeOrder, PunchListItem, PunchListPhoto, JobDocument, SubcontractorLog, PaymentMilestone, DailyLog } from "@/types";
 import dynamic from "next/dynamic";
 import PhotoSection from "@/components/PhotoSection";
-import JobMessageThread from "@/components/JobMessageThread";
+import JobQuickActions from "@/components/JobQuickActions";
 import QuoteProfitSection from "@/components/QuoteProfitSection";
 import ReceiptsSection from "@/components/ReceiptsSection";
 import JobMaterialsWrapper from "@/components/JobMaterialsWrapper";
@@ -268,7 +268,7 @@ export default async function JobDetailPage({
           initialOpenMaterialForm={searchParams.open === "materials"}
           initialOpenLaborForm={searchParams.open === "labor"}
         >
-          {/* 1 — Job Overview Card (collapsed by default) */}
+          {/* 1 — Job Overview (collapsed by default) */}
           <JobOverviewCard
             job={job}
             jobClient={jobClient ? { id: jobClient.id, name: jobClient.name } : null}
@@ -277,7 +277,7 @@ export default async function JobDetailPage({
             timelineInsight={timelineInsight}
           />
 
-          {/* 2 — Profitability (always open) */}
+          {/* 2 — Profitability (always visible) */}
           <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Job Profitability — Internal</p>
           <div className="mb-4">
             <QuoteProfitSection
@@ -289,7 +289,12 @@ export default async function JobDetailPage({
             />
           </div>
 
-          {/* 3 — Invoice & Payments + Client Portal (always open) */}
+          {/* 3 — Quick Actions row */}
+          <JobQuickActions
+            isNew={(materials ?? []).length === 0 && (receipts ?? []).length === 0 && (laborLogs ?? []).length === 0}
+          />
+
+          {/* 4 — Client Facing card (invoice + payments + portal + messages) */}
           <p className="text-orange-500 text-[10px] font-bold uppercase tracking-widest mb-1 px-1">Client Facing</p>
           <div className="mb-4">
             <InvoiceSection
@@ -304,26 +309,17 @@ export default async function JobDetailPage({
               stripeConnected={stripeConnected}
               initialEnabled={job.portal_enabled ?? false}
               initialToken={job.portal_token ?? null}
+              initialMessages={jobMessages}
+              unreadCount={unreadMessageCount}
             />
           </div>
-
-          {/* 4 — Punch List */}
-          <CollapsibleSection
-            title="Punch List"
-            count={(punchListItems ?? []).length}
-          >
-            <PunchListSection
-              jobId={job.id}
-              initialItems={punchListItems ?? []}
-              initialPhotos={punchListPhotos ?? []}
-            />
-          </CollapsibleSection>
 
           {/* 5 — Materials */}
           <CollapsibleSection
             title="Materials"
             count={(materials ?? []).length}
             defaultOpen={searchParams.open === "materials"}
+            sectionId="materials"
           >
             <div id="section-materials">
               <JobMaterialsWrapper
@@ -339,11 +335,12 @@ export default async function JobDetailPage({
             </div>
           </CollapsibleSection>
 
-          {/* 8 — Labor & Subcontractors (merged) */}
+          {/* 6 — Labor & Subcontractors */}
           <CollapsibleSection
             title="Labor & Subs"
             count={(laborLogs ?? []).length + (subLogs ?? []).length}
             defaultOpen={searchParams.open === "labor"}
+            sectionId="labor"
           >
             <div id="section-labor">
               <LaborSubsSection
@@ -355,45 +352,49 @@ export default async function JobDetailPage({
             </div>
           </CollapsibleSection>
 
-          {/* 9 — Receipts */}
+          {/* 7 — Receipts */}
           <CollapsibleSection
             title="Receipts"
             count={(receipts ?? []).length}
+            sectionId="receipts"
           >
             <div id="section-receipts">
               <ReceiptsSection jobId={job.id} initialReceipts={receipts ?? []} />
             </div>
           </CollapsibleSection>
 
-          {/* 9 — Photos */}
+          {/* 8 — Photos */}
           <CollapsibleSection
             title="Photos"
             count={(photos ?? []).length}
+            sectionId="photos"
           >
-            <PhotoSection
-              jobId={job.id}
-              jobName={job.name}
-              jobAddress={job.address}
-              jobNumber={job.job_number ?? undefined}
-              clientName={jobClient?.name ?? null}
-              initialPhotos={photos ?? []}
-              documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
-            />
+            <div id="section-photos">
+              <PhotoSection
+                jobId={job.id}
+                jobName={job.name}
+                jobAddress={job.address}
+                jobNumber={job.job_number ?? undefined}
+                clientName={jobClient?.name ?? null}
+                initialPhotos={photos ?? []}
+                documents={(documents ?? []).map((d) => ({ name: d.name, category: d.category, created_at: d.created_at }))}
+              />
+            </div>
           </CollapsibleSection>
 
-          {/* 10 — Client Messages */}
+          {/* 9 — Punch List */}
           <CollapsibleSection
-            title="Messages"
-            count={jobMessages.length}
-            accentCount={unreadMessageCount}
+            title="Punch List"
+            count={(punchListItems ?? []).length}
           >
-            <JobMessageThread
-              initialMessages={jobMessages}
+            <PunchListSection
               jobId={job.id}
+              initialItems={punchListItems ?? []}
+              initialPhotos={punchListPhotos ?? []}
             />
           </CollapsibleSection>
 
-          {/* 11 — Documents */}
+          {/* 10 — Documents */}
           <CollapsibleSection
             title="Documents"
             count={(documents ?? []).length}
@@ -404,7 +405,7 @@ export default async function JobDetailPage({
             />
           </CollapsibleSection>
 
-          {/* 12 — Daily Logs */}
+          {/* 11 — Daily Logs */}
           <CollapsibleSection
             title="Daily Logs"
             count={(dailyLogs ?? []).length}

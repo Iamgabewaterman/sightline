@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client, PaymentMilestone } from "@/types";
+import { Invoice, InvoiceStatus, PaymentTerms, Estimate, QuoteAddon, Client, PaymentMilestone, PortalMessage } from "@/types";
 import { createInvoice, updateInvoiceStatus, updateInvoice } from "@/app/actions/invoices";
+import JobMessageThread from "@/components/JobMessageThread";
 import { saveMilestones } from "@/app/actions/milestones";
 import { createClient } from "@/lib/supabase/client";
 import { enablePortal, disablePortal } from "@/app/actions/portal";
@@ -156,6 +157,8 @@ export default function InvoiceSection({
   stripeConnected = false,
   initialEnabled,
   initialToken,
+  initialMessages = [],
+  unreadCount = 0,
 }: {
   jobId: string;
   jobName: string;
@@ -168,6 +171,8 @@ export default function InvoiceSection({
   stripeConnected?: boolean;
   initialEnabled: boolean;
   initialToken: string | null;
+  initialMessages?: PortalMessage[];
+  unreadCount?: number;
 }) {
   const { role, can_see_financials } = useRole();
   const { changeOrders, setChangeOrders } = useJobCost();
@@ -196,6 +201,9 @@ export default function InvoiceSection({
   const [notesDraft, setNotesDraft] = useState(initialInvoice?.notes ?? "");
   const [editingDisplay, setEditingDisplay] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
+
+  // Messages (Client-Facing card)
+  const [messagesOpen, setMessagesOpen] = useState(false);
 
   // Portal state
   const [portalEnabled, setPortalEnabled] = useState(initialEnabled);
@@ -857,6 +865,34 @@ export default function InvoiceSection({
     </div>
   );
 
+  // Messages — part of the client relationship, lives directly below the portal
+  // toggle inside this card. Expandable inline so the contractor never leaves.
+  const messagesSection = (
+    <div className="mt-4 pt-4 border-t border-[#2a2a2a]">
+      <button
+        onClick={() => setMessagesOpen((o) => !o)}
+        className="w-full flex items-center justify-between min-h-[44px] active:opacity-70"
+        aria-expanded={messagesOpen}
+      >
+        <div className="flex items-center gap-2">
+          <p className="text-white font-semibold text-base">Messages</p>
+          {unreadCount > 0 ? (
+            <span className="text-xs font-bold bg-orange-500 text-white px-2 py-0.5 rounded-full min-w-[1.5rem] text-center tabular-nums">{unreadCount}</span>
+          ) : initialMessages.length > 0 ? (
+            <span className="text-xs font-bold text-gray-500 bg-[#222] border border-[#2a2a2a] px-2 py-0.5 rounded-full min-w-[1.5rem] text-center tabular-nums">{initialMessages.length}</span>
+          ) : null}
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+          className="text-gray-500" style={{ transform: messagesOpen ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      <div className={messagesOpen ? "mt-3" : "hidden"}>
+        <JobMessageThread initialMessages={initialMessages} jobId={jobId} />
+      </div>
+    </div>
+  );
+
   // ── Change Order Bottom Sheet (shared by both views) ─────────────────────
 
   const coSheet = coSheetOpen ? (
@@ -1031,6 +1067,7 @@ export default function InvoiceSection({
 
         {changeOrdersSection}
         {portalSection}
+        {messagesSection}
       </div>
       {coSheet}
     </>);
@@ -1326,6 +1363,7 @@ export default function InvoiceSection({
 
       {changeOrdersSection}
       {portalSection}
+      {messagesSection}
     </div>
     {coSheet}
   </>);

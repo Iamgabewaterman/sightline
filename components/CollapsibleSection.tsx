@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useJobCost } from "@/components/JobCostContext";
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -27,14 +28,23 @@ export default function CollapsibleSection({
   accentCount,
   children,
   defaultOpen = false,
+  sectionId,
 }: {
   title: string;
   count?: number;
   accentCount?: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  /** When set, a quick-action requestOpen(sectionId) expands this section. */
+  sectionId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const { openRequests } = useJobCost();
+  const signal = sectionId ? openRequests[sectionId] : undefined;
+
+  useEffect(() => {
+    if (signal) setOpen(true);
+  }, [signal]);
 
   return (
     <div className="mt-4">

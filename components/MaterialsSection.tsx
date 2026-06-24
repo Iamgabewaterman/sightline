@@ -672,7 +672,7 @@ export default function MaterialsSection({
 }) {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const groupedMaterials = useMemo(() => groupByNormalized(materials), [materials]);
-  const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm } = useJobCost();
+  const { setActualMaterialCost, openMaterialForm, setOpenMaterialForm, openCalcDrawer, setOpenCalcDrawer } = useJobCost();
   const [disposingMaterial, setDisposingMaterial] = useState<Material | null>(null);
   const [priceFlagsMap, setPriceFlagsMap] = useState<Map<string, { changePct: number; avgCost: number }>>(() => {
     const map = new Map<string, { changePct: number; avgCost: number }>();
@@ -707,6 +707,13 @@ export default function MaterialsSection({
     setOpenMaterialForm(false);
     setShowForm(true);
   }, [openMaterialForm, setOpenMaterialForm]);
+
+  // Open the inline calculator drawer when triggered from quick actions
+  useEffect(() => {
+    if (!openCalcDrawer) return;
+    setOpenCalcDrawer(false);
+    setCalcOpen(true);
+  }, [openCalcDrawer, setOpenCalcDrawer]);
 
   // Kept for duplicate detection (receipt-linked materials check)
   const [receiptWarning, setReceiptWarning] = useState<string | null>(null);

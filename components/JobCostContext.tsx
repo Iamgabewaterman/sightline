@@ -31,6 +31,15 @@ interface JobCostContextType {
   setOpenLaborForm: (v: boolean) => void;
   highlightReceiptScan: boolean;
   setHighlightReceiptScan: (v: boolean) => void;
+  openCalcDrawer: boolean;
+  setOpenCalcDrawer: (v: boolean) => void;
+  photoTrigger: number;
+  triggerPhoto: () => void;
+  quoteTrigger: number;
+  triggerQuote: () => void;
+  // Request a collapsed section (by id) to expand — value increments per request
+  openRequests: Record<string, number>;
+  requestOpen: (sectionId: string) => void;
 }
 
 const JobCostContext = createContext<JobCostContextType>({
@@ -52,6 +61,14 @@ const JobCostContext = createContext<JobCostContextType>({
   setOpenLaborForm: () => {},
   highlightReceiptScan: false,
   setHighlightReceiptScan: () => {},
+  openCalcDrawer: false,
+  setOpenCalcDrawer: () => {},
+  photoTrigger: 0,
+  triggerPhoto: () => {},
+  quoteTrigger: 0,
+  triggerQuote: () => {},
+  openRequests: {},
+  requestOpen: () => {},
 });
 
 export function JobCostProvider({
@@ -84,6 +101,14 @@ export function JobCostProvider({
   const [openMaterialForm, setOpenMaterialForm] = useState(initialOpenMaterialForm ?? false);
   const [openLaborForm, setOpenLaborForm] = useState(initialOpenLaborForm ?? false);
   const [highlightReceiptScan, setHighlightReceiptScan] = useState(false);
+  const [openCalcDrawer, setOpenCalcDrawer] = useState(false);
+  const [photoTrigger, setPhotoTrigger] = useState(0);
+  const [quoteTrigger, setQuoteTrigger] = useState(0);
+  const [openRequests, setOpenRequests] = useState<Record<string, number>>({});
+  const triggerPhoto = () => setPhotoTrigger((n) => n + 1);
+  const triggerQuote = () => setQuoteTrigger((n) => n + 1);
+  const requestOpen = (sectionId: string) =>
+    setOpenRequests((prev) => ({ ...prev, [sectionId]: (prev[sectionId] ?? 0) + 1 }));
 
   return (
     <JobCostContext.Provider
@@ -106,6 +131,14 @@ export function JobCostProvider({
         setOpenLaborForm,
         highlightReceiptScan,
         setHighlightReceiptScan,
+        openCalcDrawer,
+        setOpenCalcDrawer,
+        photoTrigger,
+        triggerPhoto,
+        quoteTrigger,
+        triggerQuote,
+        openRequests,
+        requestOpen,
       }}
     >
       {children}

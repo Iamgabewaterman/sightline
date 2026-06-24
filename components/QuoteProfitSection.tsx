@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { saveJobQuote, sendForSignature } from "@/app/actions/quotes";
 import { fetchHistoricalCostRange } from "@/app/actions/insights";
@@ -39,7 +39,7 @@ export default function QuoteProfitSection({
   signedByName: string | null;
 }) {
   const { role, can_see_financials } = useRole();
-  const { actualMaterialCost, actualLaborCost, actualSubCost, quoteData, setQuoteData, changeOrders } = useJobCost();
+  const { actualMaterialCost, actualLaborCost, actualSubCost, quoteData, setQuoteData, changeOrders, quoteTrigger } = useJobCost();
 
   // Field members without financial permission see nothing here
   if (role === "field_member" && !can_see_financials) return null;
@@ -207,6 +207,12 @@ export default function QuoteProfitSection({
 
     setLoading(false);
   }
+
+  // Open the quote builder when "Generate Quote" is tapped in quick actions.
+  useEffect(() => {
+    if (quoteTrigger > 0) handleOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteTrigger]);
 
   // ── Calculations ──────────────────────────────────────
   const materialsWithCost = materials.filter((m) => m.unit_cost !== null);
