@@ -10,7 +10,7 @@ const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
 const sc = (a: boolean) => `flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 text-center ${a ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-white border-[#2a2a2a]"}`;
 
-type PlumbCalcId = "roughin" | "piperun";
+type PlumbCalcId = "roughin" | "piperun" | "drainsizing";
 
 const FIXTURE_UNITS: Record<string, { supply: string; drain: string; label: string }> = {
   toilet:    { supply: "1/2",   drain: "3",  label: "Toilet" },
@@ -26,6 +26,13 @@ const FIXTURE_UNITS: Record<string, { supply: string; drain: string; label: stri
 export default function PlumbingCalc({ calcId, pricing, jobs, tradeLabel }: CalcProps & { calcId: PlumbCalcId }) {
   const [result, setResult] = useState<ResultItem[] | null>(null);
   const [wasteNote, setWasteNote] = useState("");
+
+  // Drain Sizing fixture counts (DFU method)
+  const [dToilets, setDToilets] = useState("1");
+  const [dLavs, setDLavs]       = useState("1");
+  const [dTubs, setDTubs]       = useState("1");
+  const [dSinks, setDSinks]     = useState("1");
+  const [dLaundry, setDLaundry] = useState("0");
 
   // Rough-In fixture counts
   const [toilets,    setToilets]    = useState("1");
@@ -154,10 +161,32 @@ export default function PlumbingCalc({ calcId, pricing, jobs, tradeLabel }: Calc
     setResult(items);
   }
 
+  function calcDrainSizing() {
+    // Drainage Fixture Units (IPC/UPC typical)
+    const dfu = n(dToilets) * 3 + n(dLavs) * 1 + n(dTubs) * 2 + n(dSinks) * 2 + n(dLaundry) * 2;
+    // Building drain size from total DFU (½%–slope ranges, simplified)
+    const drainSize = dfu <= 21 ? 3 : dfu <= 160 ? 4 : dfu <= 620 ? 6 : 8;
+    const pipeMap: Record<number, { price: number; label: string }> = {
+      3: { price: P.pvc3_10, label: '3" PVC (10ft)' }, 4: { price: P.pvc4_10, label: '4" PVC (10ft)' },
+      6: { price: P.pvc4_10 * 1.7, label: '6" PVC (10ft)' }, 8: { price: P.pvc4_10 * 2.6, label: '8" PVC (10ft)' },
+    };
+    const pm = pipeMap[drainSize];
+    setResult([
+      { name: `Building Drain — ${pm.label.split(" ")[0]} dia`, qty: 1, unit: "size", unitCost: 0,
+        calc: `${dfu} total DFU → ${drainSize}" building drain (toilet=3, tub/sink/laundry=2, lav=1 DFU)`, category: "materials" },
+      { name: pm.label, qty: 5, unit: "sticks", unitCost: pm.price,
+        calc: `Estimate ~5 sticks for a typical branch+main run at ${drainSize}" — adjust to actual run length`, category: "materials" },
+      { name: '2" Branch (lav/tub/sink)', qty: 3, unit: "sticks", unitCost: P.pvc2_10,
+        calc: `2" branches for fixtures ≤6 DFU; vent each per code`, category: "materials" },
+    ]);
+    setWasteNote(`${dfu} drainage fixture units → ${drainSize}" building drain. Toilet branch min 3"; lav/sink/tub branches 1.5–2". Verify against local code slope tables.`);
+  }
+
   function handleCalc() {
     setResult(null);
     if (calcId === "roughin")  calcRoughIn();
     if (calcId === "piperun")  calcPipeRun();
+    if (calcId === "drainsizing") calcDrainSizing();
   }
 
   if (result) return <CalcOutput items={result} jobs={jobs} tradeLabel={tradeLabel} wasteNote={wasteNote} onReset={() => setResult(null)} />;
@@ -184,6 +213,20 @@ export default function PlumbingCalc({ calcId, pricing, jobs, tradeLabel }: Calc
       </div>
       <div><label className={lc}>Average Run to Fixtures (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="25" value={avgRunFt} onChange={e => setAvgRunFt(e.target.value)} /></div>
       <button onClick={handleCalc} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform">Calculate Plumbing Rough-In</button>
+    </div>
+  );
+
+  if (calcId === "drainsizing") return (
+    <div className="flex flex-col gap-4">
+      <label className={lc}>Fixture Count (drainage fixture units)</label>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lc}>Toilets (3 DFU)</label><input className={ic} type="number" inputMode="numeric" value={dToilets} onChange={e => setDToilets(e.target.value)} /></div>
+        <div><label className={lc}>Lavatories (1)</label><input className={ic} type="number" inputMode="numeric" value={dLavs} onChange={e => setDLavs(e.target.value)} /></div>
+        <div><label className={lc}>Tubs/Showers (2)</label><input className={ic} type="number" inputMode="numeric" value={dTubs} onChange={e => setDTubs(e.target.value)} /></div>
+        <div><label className={lc}>Sinks (2)</label><input className={ic} type="number" inputMode="numeric" value={dSinks} onChange={e => setDSinks(e.target.value)} /></div>
+        <div><label className={lc}>Laundry (2)</label><input className={ic} type="number" inputMode="numeric" value={dLaundry} onChange={e => setDLaundry(e.target.value)} /></div>
+      </div>
+      <button onClick={handleCalc} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Size the Drain</button>
     </div>
   );
 

@@ -198,6 +198,9 @@ export const P: Record<string, number> = {
   chemStripperGal: 32.00,  // gallon texture/popcorn stripping solution
   disposalBagsBox: 18.00,  // box of heavy disposal bags
   plasticSheet4: 24.00,    // 10-ft × 25-ft 4-mil sheeting roll
+  // Roofing ventilation
+  ridgeVent4: 18.00,       // 4-ft ridge vent section
+  soffitVent: 4.00,        // soffit/eave vent each
 };
 
 /** Apply regional pricing scale factor to a baseline price. */

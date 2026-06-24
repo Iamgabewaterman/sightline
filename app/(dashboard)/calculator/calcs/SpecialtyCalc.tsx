@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { CalcProps } from "./types";
-import { n } from "./types";
+import type { CalcProps, ResultItem } from "./types";
+import { n, cu } from "./types";
+import { P } from "./pricing";
+import CalcOutput from "./CalcOutput";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -18,10 +20,28 @@ function ResultCard({ label, value, sub }: { label: string; value: string; sub?:
   );
 }
 
-type SpecCalcId = "riserun" | "boardfeet" | "wastefactor" | "sqft" | "angle" | "grade";
+type SpecCalcId = "riserun" | "boardfeet" | "wastefactor" | "sqft" | "angle" | "grade" | "markup" | "lf2board" | "weightload";
 
-export default function SpecialtyCalc({ calcId }: CalcProps & { calcId: SpecCalcId }) {
+export default function SpecialtyCalc({ calcId, jobs, tradeLabel }: CalcProps & { calcId: SpecCalcId }) {
   const [result, setResult] = useState<{ label: string; value: string; sub?: string }[] | null>(null);
+  const [matResult, setMatResult] = useState<ResultItem[] | null>(null);
+
+  // Markup & Margin
+  const [mkMat, setMkMat] = useState("");
+  const [mkLabor, setMkLabor] = useState("");
+  const [mkMargin, setMkMargin] = useState("30");
+  const [mkBid, setMkBid] = useState("");
+  const [mkMode, setMkMode] = useState<"forward" | "reverse">("forward");
+
+  // Linear Feet → Board Count
+  const [lfNeeded, setLfNeeded] = useState("");
+  const [lfBoard, setLfBoard] = useState("8");
+  const [lfCost, setLfCost] = useState("");
+
+  // Weight Load Check
+  const [wlSpan, setWlSpan] = useState("");
+  const [wlTrib, setWlTrib] = useState("");
+  const [wlLoad, setWlLoad] = useState<"floor" | "roof">("floor");
 
   // Rise & Run
   const [rrRise, setRrRise] = useState("");
@@ -140,14 +160,75 @@ export default function SpecialtyCalc({ calcId }: CalcProps & { calcId: SpecCalc
     ]);
   }
 
+  function calcMarkup() {
+    const mat = n(mkMat), labor = n(mkLabor), cost = mat + labor;
+    if (mkMode === "forward") {
+      const m = n(mkMargin) / 100;
+      const bid = m < 1 ? cost / (1 - m) : cost;
+      const profit = bid - cost;
+      const markupPct = cost > 0 ? (profit / cost) * 100 : 0;
+      setResult([
+        { label: "Bid Price", value: `$${bid.toFixed(2)}`, sub: `Cost $${cost.toFixed(2)} ÷ (1 − ${mkMargin}% margin)` },
+        { label: "Profit", value: `$${profit.toFixed(2)}`, sub: `${mkMargin}% of bid price` },
+        { label: "Markup on Cost", value: `${markupPct.toFixed(1)}%`, sub: "Profit as % of cost (vs. margin = % of price)" },
+      ]);
+    } else {
+      const bid = n(mkBid);
+      const profit = bid - cost;
+      const margin = bid > 0 ? (profit / bid) * 100 : 0;
+      const markupPct = cost > 0 ? (profit / cost) * 100 : 0;
+      setResult([
+        { label: "Gross Margin", value: `${margin.toFixed(1)}%`, sub: `Profit $${profit.toFixed(2)} ÷ bid $${bid.toFixed(2)}` },
+        { label: "Markup on Cost", value: `${markupPct.toFixed(1)}%`, sub: `Profit ÷ cost $${cost.toFixed(2)}` },
+        { label: "Profit", value: `$${profit.toFixed(2)}`, sub: profit < 0 ? "⚠ Bidding below cost" : "Gross profit on this job" },
+      ]);
+    }
+  }
+
+  function calcLf2Board() {
+    const lf = n(lfNeeded), board = n(lfBoard), unitCost = n(lfCost);
+    const boards = cu((lf / board) * 1.1); // 10% cut waste
+    const purchasedLF = boards * board;
+    setMatResult([
+      { name: `Boards (${board}-ft)`, qty: boards, unit: "boards", unitCost: unitCost || P.stud2x4,
+        calc: `${lf} LF needed ÷ ${board} ft/board × 10% waste = ${boards} boards (${purchasedLF} LF purchased)`,
+        category: "materials" },
+    ]);
+  }
+
+  function calcWeightLoad() {
+    const span = n(wlSpan), trib = n(wlTrib);
+    // Typical residential design loads (psf): floor 40 live + 10 dead = 50; roof 30.
+    const psf = wlLoad === "floor" ? 50 : 30;
+    const plf = trib * psf; // pounds per linear foot on the member
+    const totalLoad = plf * span;
+    // Rough joist adequacy (No.2 SPF, 16" OC) max spans
+    const ok = (size: string, maxSpan: number) => span <= maxSpan ? `✓ ${size} OK to ${maxSpan}'` : `✗ ${size} over (${maxSpan}' max)`;
+    const sizeCheck =
+      span <= 9 ? "2×6 adequate (≤9'4\")" :
+      span <= 12 ? "2×8 adequate (≤12'7\")" :
+      span <= 15 ? "2×10 adequate (≤15'5\")" :
+      span <= 18 ? "2×12 adequate (≤18')" : "⚠ Engineered beam / LVL required";
+    setResult([
+      { label: "Load per Linear Foot", value: `${plf.toFixed(0)} plf`, sub: `${trib}' tributary × ${psf} psf (${wlLoad})` },
+      { label: "Total Load on Member", value: `${totalLoad.toFixed(0)} lb`, sub: `${plf.toFixed(0)} plf × ${span}' span` },
+      { label: "Lumber Size Check", value: sizeCheck, sub: "No.2 SPF joist @ 16\" OC — verify with span tables / engineer" },
+      { label: "Quick Reference", value: ok("2×10", 15), sub: "Common floor joist at 16\" OC" },
+    ]);
+  }
+
   function handleCalc() {
     setResult(null);
+    setMatResult(null);
     if (calcId === "riserun")    calcRiseRun();
     if (calcId === "boardfeet")  calcBoardFeet();
     if (calcId === "wastefactor")calcWaste();
     if (calcId === "sqft")       calcSqft();
     if (calcId === "angle")      calcAngle();
     if (calcId === "grade")      calcGrade();
+    if (calcId === "markup")     calcMarkup();
+    if (calcId === "lf2board")   calcLf2Board();
+    if (calcId === "weightload") calcWeightLoad();
   }
 
   function addRoom() {
@@ -158,10 +239,63 @@ export default function SpecialtyCalc({ calcId }: CalcProps & { calcId: SpecCalc
     setSfRooms(r => r.map((room, i) => i === idx ? { ...room, [field]: val } : room));
   }
 
+  if (matResult) return <CalcOutput items={matResult} jobs={jobs} tradeLabel={tradeLabel} onReset={() => setMatResult(null)} />;
+
   if (result) return (
     <div className="flex flex-col gap-3 mt-4">
       {result.map((r, i) => <ResultCard key={i} label={r.label} value={r.value} sub={r.sub} />)}
       <button onClick={() => setResult(null)} className="bg-[#1A1A1A] border border-[#2a2a2a] text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform mt-2">Recalculate</button>
+    </div>
+  );
+
+  if (calcId === "markup") return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        <button onClick={() => setMkMode("forward")} className={sc(mkMode === "forward")}>Costs → Bid</button>
+        <button onClick={() => setMkMode("reverse")} className={sc(mkMode === "reverse")}>Bid → Margin</button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lc}>Material Cost ($)</label><input className={ic} type="number" inputMode="decimal" placeholder="2000" value={mkMat} onChange={e => setMkMat(e.target.value)} /></div>
+        <div><label className={lc}>Labor Cost ($)</label><input className={ic} type="number" inputMode="decimal" placeholder="1500" value={mkLabor} onChange={e => setMkLabor(e.target.value)} /></div>
+      </div>
+      {mkMode === "forward" ? (
+        <div>
+          <label className={lc}>Desired Margin</label>
+          <div className="flex gap-2 flex-wrap">{["20", "25", "30", "35", "40", "50"].map(m => <button key={m} onClick={() => setMkMargin(m)} className={sc(mkMargin === m)}>{m}%</button>)}</div>
+        </div>
+      ) : (
+        <div><label className={lc}>Your Bid Price ($)</label><input className={ic} type="number" inputMode="decimal" placeholder="5000" value={mkBid} onChange={e => setMkBid(e.target.value)} /></div>
+      )}
+      <button onClick={handleCalc} disabled={mkMode === "forward" ? (!mkMat && !mkLabor) : !mkBid} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate</button>
+    </div>
+  );
+
+  if (calcId === "lf2board") return (
+    <div className="flex flex-col gap-4">
+      <div><label className={lc}>Linear Feet Needed</label><input className={ic} type="number" inputMode="decimal" placeholder="240" value={lfNeeded} onChange={e => setLfNeeded(e.target.value)} /></div>
+      <div>
+        <label className={lc}>Board Length (ft)</label>
+        <div className="flex gap-2 flex-wrap">{["8", "10", "12", "16", "20"].map(b => <button key={b} onClick={() => setLfBoard(b)} className={sc(lfBoard === b)}>{b}&apos;</button>)}</div>
+      </div>
+      <div><label className={lc}>Cost per Board ($, optional)</label><input className={ic} type="number" inputMode="decimal" placeholder="4.80" value={lfCost} onChange={e => setLfCost(e.target.value)} /></div>
+      <button onClick={handleCalc} disabled={!lfNeeded} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Board Count</button>
+    </div>
+  );
+
+  if (calcId === "weightload") return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lc}>Span (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={wlSpan} onChange={e => setWlSpan(e.target.value)} /></div>
+        <div><label className={lc}>Tributary Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="8" value={wlTrib} onChange={e => setWlTrib(e.target.value)} /></div>
+      </div>
+      <div>
+        <label className={lc}>Load Type</label>
+        <div className="flex gap-2">
+          <button onClick={() => setWlLoad("floor")} className={sc(wlLoad === "floor")}>Floor (50 psf)</button>
+          <button onClick={() => setWlLoad("roof")} className={sc(wlLoad === "roof")}>Roof (30 psf)</button>
+        </div>
+      </div>
+      <button onClick={handleCalc} disabled={!wlSpan || !wlTrib} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Check Load</button>
     </div>
   );
 

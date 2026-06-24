@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P, rScale } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -242,8 +243,8 @@ export default function FramingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
   if (calcId === "wall") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Wall Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="24" value={wLen} onChange={e => setWLen(e.target.value)} /></div>
-        <div><label className={lc}>Wall Height (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="9" value={wHgt} onChange={e => setWHgt(e.target.value)} /></div>
+        <div><label className={lc}>Wall Length</label><DimensionInput value={wLen} onChange={setWLen} placeholder="24" /></div>
+        <div><label className={lc}>Wall Height</label><DimensionInput value={wHgt} onChange={setWHgt} placeholder="9" /></div>
       </div>
       <div>
         <label className={lc}>Stud Size</label>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORIES, renderCalc, type CategoryId } from "@/app/(dashboard)/calculator/CalculatorClient";
 import { CalcAddProvider } from "@/components/CalcAddContext";
+import { UnitProvider, UnitToggle } from "@/app/(dashboard)/calculator/calcs/measure";
 import { getCalcPricingForUser } from "@/app/actions/regional-pricing";
 import type { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 import type { ResultItem } from "@/app/(dashboard)/calculator/calcs/types";
@@ -87,7 +88,10 @@ export default function InlineCalculatorDrawer({ open, onClose, title, addLabel,
             <p className="text-gray-500 text-sm animate-pulse text-center py-10">Loading calculators…</p>
           ) : subDef && category ? (
             <CalcAddProvider handler={{ onAddResult: handleAdd, addLabel }}>
-              {renderCalc(category.id, subDef.id, pricing, [])}
+              <UnitProvider>
+                <UnitToggle />
+                {renderCalc(category.id, subDef.id, pricing, [])}
+              </UnitProvider>
             </CalcAddProvider>
           ) : category ? (
             <div className="flex flex-col gap-2">

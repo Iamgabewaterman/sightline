@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -360,10 +361,10 @@ export default function RestorationCalc({ calcId, pricing, jobs, tradeLabel }: C
               <button onClick={() => setRooms(rs => rs.filter((_, x) => x !== i))} className="text-gray-500 active:text-red-400 text-lg leading-none px-1">×</button>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            <input className={ic} type="number" inputMode="decimal" placeholder="Length" value={room.len} onChange={e => setRooms(rs => rs.map((r, x) => x === i ? { ...r, len: e.target.value } : r))} />
-            <input className={ic} type="number" inputMode="decimal" placeholder="Width" value={room.wid} onChange={e => setRooms(rs => rs.map((r, x) => x === i ? { ...r, wid: e.target.value } : r))} />
-            <input className={ic} type="number" inputMode="decimal" placeholder="Ceil ht" value={room.ht} onChange={e => setRooms(rs => rs.map((r, x) => x === i ? { ...r, ht: e.target.value } : r))} />
+          <div className="flex flex-col gap-2 mb-2">
+            <DimensionInput value={room.len} onChange={v => setRooms(rs => rs.map((r, x) => x === i ? { ...r, len: v } : r))} placeholder="Length" />
+            <DimensionInput value={room.wid} onChange={v => setRooms(rs => rs.map((r, x) => x === i ? { ...r, wid: v } : r))} placeholder="Width" />
+            <DimensionInput value={room.ht} onChange={v => setRooms(rs => rs.map((r, x) => x === i ? { ...r, ht: v } : r))} placeholder="Ceiling height" />
           </div>
           <button onClick={() => setRooms(rs => rs.map((r, x) => x === i ? { ...r, ceiling: !r.ceiling } : r))}
             className="flex items-center gap-2 text-sm">

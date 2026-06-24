@@ -17,11 +17,15 @@ const ic  = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-x
 const lc  = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
 const sc  = (active: boolean) => `flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 text-center ${active ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-white border-[#2a2a2a]"}`;
 
-type RoofCalcId = "shingles" | "pitch" | "rafter" | "gutters";
+type RoofCalcId = "shingles" | "pitch" | "rafter" | "gutters" | "ventilation";
 
 export default function RoofingCalc({ calcId, pricing, jobs, tradeLabel }: CalcProps & { calcId: RoofCalcId }) {
   const [result, setResult] = useState<ResultItem[] | null>(null);
   const [wasteNote, setWasteNote] = useState("");
+
+  // ── Ventilation ─────────────────────────────────────────────────────────────
+  const [vAttic, setVAttic]   = useState("");
+  const [vRatio, setVRatio]   = useState<"150" | "300">("150");
 
   // ── Shingles ────────────────────────────────────────────────────────────────
   const [sLen, setSLen]           = useState("");
@@ -205,12 +209,37 @@ export default function RoofingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
     setResult(items);
   }
 
+  function calcVentilation() {
+    const attic = n(vAttic);
+    const ratio = Number(vRatio);
+    // Net Free Area required (sqft) = attic ÷ ratio; split 50% intake / 50% exhaust.
+    const nfaSqft = attic / ratio;
+    const nfaSqin = nfaSqft * 144;
+    const intakeSqin = nfaSqin / 2;
+    const exhaustSqin = nfaSqin / 2;
+    // Ridge vent ≈ 18 sq-in NFA per LF; sold in 4-ft sections.
+    const ridgeLF = exhaustSqin / 18;
+    const ridgeSections = cu(ridgeLF / 4);
+    // Soffit vents ≈ 9 sq-in NFA each (standard 8×16 with ~9 sq-in net).
+    const soffitVents = cu(intakeSqin / 9);
+
+    setResult([
+      { name: "Ridge Vent (4-ft section)", qty: ridgeSections, unit: "sections", unitCost: P.ridgeVent4,
+        calc: `Exhaust ${exhaustSqin.toFixed(0)} sq-in ÷ 18 sq-in/LF = ${ridgeLF.toFixed(0)} LF ÷ 4 = ${ridgeSections} sections`, category: "materials" },
+      { name: "Soffit/Intake Vents", qty: soffitVents, unit: "vents", unitCost: P.soffitVent,
+        calc: `Intake ${intakeSqin.toFixed(0)} sq-in ÷ 9 sq-in/vent = ${soffitVents} vents`, category: "materials" },
+    ]);
+    const ok = ridgeSections > 0 && soffitVents > 0;
+    setWasteNote(`Required Net Free Area: ${nfaSqft.toFixed(2)} sqft (${nfaSqin.toFixed(0)} sq-in) at 1:${ratio}. Balanced 50% intake / 50% exhaust. ${ok ? "✓ Meets" : "✗ Does not meet"} 1:${ratio} ratio with the above.`);
+  }
+
   function handleCalc() {
     setResult(null);
     if (calcId === "shingles") calcShingles();
     else if (calcId === "pitch")   calcPitch();
     else if (calcId === "rafter")  calcRafter();
     else if (calcId === "gutters") calcGutters();
+    else if (calcId === "ventilation") calcVentilation();
   }
 
   if (result) {
@@ -289,6 +318,23 @@ export default function RoofingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
         </div>
       </div>
       <button onClick={handleCalc} disabled={!rSpan} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform hover:bg-orange-400 disabled:opacity-40">Calculate Rafter</button>
+    </div>
+  );
+
+  if (calcId === "ventilation") return (
+    <div className="flex flex-col gap-4">
+      <div><label className={lc}>Attic Floor Area (sqft)</label><input className={ic} type="number" inputMode="decimal" placeholder="1200" value={vAttic} onChange={e => setVAttic(e.target.value)} /></div>
+      <div>
+        <label className={lc}>Ventilation Ratio</label>
+        <div className="flex gap-2">
+          <button onClick={() => setVRatio("150")} className={sc(vRatio === "150")}>1:150 (no vapor barrier)</button>
+          <button onClick={() => setVRatio("300")} className={sc(vRatio === "300")}>1:300 (balanced + barrier)</button>
+        </div>
+      </div>
+      <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5">
+        <p className="text-gray-400 text-xs">IRC allows 1:300 when a vapor retarder is installed or vents are balanced 50/50 intake/exhaust; otherwise 1:150.</p>
+      </div>
+      <button onClick={handleCalc} disabled={!vAttic} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform hover:bg-orange-400 disabled:opacity-40">Calculate Ventilation</button>
     </div>
   );
 

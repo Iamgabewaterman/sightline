@@ -16,6 +16,7 @@ import HVACCalc from "./calcs/HVACCalc";
 import SpecialtyCalc from "./calcs/SpecialtyCalc";
 import CustomCalc from "./calcs/CustomCalc";
 import RestorationCalc from "./calcs/RestorationCalc";
+import { UnitProvider, UnitToggle } from "./calcs/measure";
 
 interface Props {
   jobs: { id: string; name: string }[];
@@ -31,6 +32,7 @@ export const CATEGORIES = [
       { id: "shingles", label: "Shingles & Full Roof",   desc: "Squares, bundles, ridge cap, valley, felt" },
       { id: "pitch",    label: "Pitch & Slope",           desc: "Rise/run → slope factor, angle, grade" },
       { id: "rafter",   label: "Rafter Length",           desc: "Common, hip, valley rafters + birdsmouth" },
+      { id: "ventilation", label: "Ventilation",          desc: "Net free area, ridge/soffit count, 1:150/1:300 check" },
       { id: "gutters",  label: "Gutters & Downspouts",    desc: "LF, downspouts, hangers, end caps" },
     ],
   },
@@ -75,7 +77,9 @@ export const CATEGORIES = [
     id: "electrical", label: "Electrical", icon: "⚡",
     subs: [
       { id: "roughin",  label: "Rough-In",      desc: "Wire, boxes, outlets, switches by sqft" },
-      { id: "conduit",  label: "Conduit Run",   desc: "EMT or PVC, THHN wire, connectors" },
+      { id: "wirepull", label: "Wire Pull",     desc: "Romex footage +20% waste, ampacity check" },
+      { id: "conduit",  label: "Conduit Fill",  desc: "EMT or PVC, THHN wire, NEC 40% fill" },
+      { id: "panelload", label: "Panel Load",   desc: "Circuit loads → panel size + upgrade check" },
       { id: "service",  label: "Service Size",  desc: "Panel, meter socket, SEC, ground rods" },
     ],
   },
@@ -84,6 +88,7 @@ export const CATEGORIES = [
     subs: [
       { id: "roughin",  label: "Fixture Rough-In", desc: "PEX/copper supply + ABS/PVC drain by fixture count" },
       { id: "piperun",  label: "Pipe Run",          desc: "Single material/size run with fittings" },
+      { id: "drainsizing", label: "Drain Pipe Sizing", desc: "Fixture-unit method → drain & branch diameters" },
     ],
   },
   {
@@ -97,7 +102,10 @@ export const CATEGORIES = [
     id: "specialty", label: "Specialty Math", icon: "📐",
     subs: [
       { id: "riserun",     label: "Rise & Run",         desc: "Hypotenuse, slope factor, angle, grade" },
+      { id: "markup",      label: "Markup & Margin",    desc: "Costs → bid, or bid → margin. Reversible" },
       { id: "boardfeet",   label: "Board Feet",          desc: "T × W × L / 12 for lumber volume" },
+      { id: "lf2board",    label: "Linear Ft → Boards",  desc: "LF needed → board count, waste, cost" },
+      { id: "weightload",  label: "Weight Load Check",   desc: "Span + tributary → plf + lumber size check" },
       { id: "wastefactor", label: "Waste Factor",        desc: "Add % waste to any quantity" },
       { id: "sqft",        label: "Square Footage",      desc: "Multi-room total + waste" },
       { id: "angle",       label: "Triangle / Angles",   desc: "Sides → angle or angle → sides" },
@@ -185,7 +193,10 @@ export default function CalculatorClient({ jobs, pricing, locationSource }: Prop
         <p className="text-gray-500 text-xs mt-0.5">{sub.desc}</p>
       </div>
       <div className="flex-1 px-4 py-4">
-        {renderCalc(selectedCat, selectedSub, pricing, jobs)}
+        <UnitProvider>
+          <UnitToggle />
+          {renderCalc(selectedCat, selectedSub, pricing, jobs)}
+        </UnitProvider>
       </div>
     </div>
   );

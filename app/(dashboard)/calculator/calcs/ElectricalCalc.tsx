@@ -10,11 +10,19 @@ const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
 const sc = (a: boolean) => `flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 text-center ${a ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-white border-[#2a2a2a]"}`;
 
-type ElecCalcId = "roughin" | "conduit" | "service";
+type ElecCalcId = "roughin" | "conduit" | "service" | "wirepull" | "panelload";
 
 export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: CalcProps & { calcId: ElecCalcId }) {
   const [result, setResult] = useState<ResultItem[] | null>(null);
   const [wasteNote, setWasteNote] = useState("");
+
+  // Wire Pull
+  const [wpLen, setWpLen]       = useState("");
+  const [wpGauge, setWpGauge]   = useState("12");
+  const [wpCircuits, setWpCircuits] = useState("1");
+
+  // Panel Load
+  const [plCircuits, setPlCircuits] = useState<{ amps: string; volts: string }[]>([{ amps: "20", volts: "120" }]);
 
   // Rough-In
   const [sqft,        setSqft]        = useState("");
@@ -191,11 +199,51 @@ export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: Ca
     setResult(items);
   }
 
+  // Ampacity (60/75°C copper NM/THHN, common residential) per AWG
+  const AMPACITY: Record<string, number> = { "14": 15, "12": 20, "10": 30, "8": 40, "6": 55 };
+  const ROMEX_SPOOL: Record<string, { price: number; key: string }> = {
+    "14": { price: P.romex14_250, key: "14/2" }, "12": { price: P.romex12_250, key: "12/2" }, "10": { price: P.romex10_250, key: "10/2" },
+  };
+
+  function calcWirePull() {
+    const len = n(wpLen), circuits = n(wpCircuits);
+    const totalFt = len * circuits * 1.2; // +20% waste
+    const spool = ROMEX_SPOOL[wpGauge] ?? ROMEX_SPOOL["12"];
+    const spools = cu(totalFt / 250);
+    const amp = AMPACITY[wpGauge] ?? 20;
+    setResult([
+      { name: `Romex ${spool.key} (250-ft spool)`, qty: spools, unit: "spools", unitCost: spool.price,
+        calc: `${len} ft × ${circuits} circuits × 1.2 (20% waste) = ${totalFt.toFixed(0)} ft ÷ 250 = ${spools} spools`, category: "electrical" },
+      { name: "Wire Staples (box)", qty: Math.max(1, cu(totalFt / 250)), unit: "boxes", unitCost: P.wireStaples,
+        calc: `~1 box per 250 ft = ${Math.max(1, cu(totalFt / 250))} boxes`, category: "electrical" },
+      { name: "Wire Nuts (bag)", qty: Math.max(1, cu(circuits / 5)), unit: "bags", unitCost: P.wireNuts,
+        calc: `~1 bag per 5 circuits = ${Math.max(1, cu(circuits / 5))} bags`, category: "electrical" },
+    ]);
+    setWasteNote(`${wpGauge} AWG carries ${amp}A max. ${totalFt.toFixed(0)} ft total incl. 20% waste. Derate for >3 current-carrying conductors or long runs (voltage drop).`);
+  }
+
+  function calcPanelLoad() {
+    const totalVA = plCircuits.reduce((s, c) => s + (n(c.amps) * n(c.volts)), 0);
+    const totalAmps = totalVA / 240; // service amps at 240V
+    const withDemand = totalAmps * 0.8; // rough 80% demand factor (not a full Art.220 calc)
+    const recommend = withDemand <= 80 ? 100 : withDemand <= 120 ? 150 : withDemand <= 160 ? 200 : 400;
+    const panelPrice: Record<number, number> = { 100: P.panel100, 150: P.panel150, 200: P.panel200, 400: P.panel200 * 1.6 };
+    setResult([
+      { name: `${recommend}A Main Panel (recommended)`, qty: 1, unit: "ea", unitCost: panelPrice[recommend],
+        calc: `${plCircuits.length} circuits = ${totalVA.toFixed(0)} VA ÷ 240V = ${totalAmps.toFixed(0)}A × 0.8 demand = ${withDemand.toFixed(0)}A → ${recommend}A panel`, category: "electrical" },
+      { name: "Breakers (per circuit)", qty: plCircuits.length, unit: "ea", unitCost: P.breaker20,
+        calc: `One breaker per circuit = ${plCircuits.length} breakers (size per circuit amperage)`, category: "electrical" },
+    ]);
+    setWasteNote(`Connected load ≈ ${totalAmps.toFixed(0)}A; with 80% demand ≈ ${withDemand.toFixed(0)}A. ${withDemand > recommend ? "⚠ Upgrade needed" : "✓ Within panel"} — ${recommend}A service recommended. This is a sizing estimate, not a full NEC Article 220 load calculation.`);
+  }
+
   function handleCalc() {
     setResult(null);
     if (calcId === "roughin")  calcRoughIn();
     if (calcId === "conduit")  calcConduit();
     if (calcId === "service")  calcService();
+    if (calcId === "wirepull") calcWirePull();
+    if (calcId === "panelload") calcPanelLoad();
   }
 
   if (result) return <CalcOutput items={result} jobs={jobs} tradeLabel={tradeLabel} wasteNote={wasteNote} onReset={() => setResult(null)} />;
@@ -264,6 +312,39 @@ export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: Ca
         </div>
       </div>
       <button onClick={handleCalc} disabled={!conduitRun} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Conduit Run</button>
+    </div>
+  );
+
+  if (calcId === "wirepull") return (
+    <div className="flex flex-col gap-4">
+      <div><label className={lc}>Circuit Length (ft, per circuit)</label><input className={ic} type="number" inputMode="decimal" placeholder="60" value={wpLen} onChange={e => setWpLen(e.target.value)} /></div>
+      <div>
+        <label className={lc}>Wire Gauge (AWG)</label>
+        <div className="flex gap-2">
+          {["14", "12", "10"].map(g => <button key={g} onClick={() => setWpGauge(g)} className={sc(wpGauge === g)}>{g} AWG</button>)}
+        </div>
+      </div>
+      <div><label className={lc}>Number of Circuits</label><input className={ic} type="number" inputMode="numeric" placeholder="1" value={wpCircuits} onChange={e => setWpCircuits(e.target.value)} /></div>
+      <button onClick={handleCalc} disabled={!wpLen} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Wire Pull</button>
+    </div>
+  );
+
+  if (calcId === "panelload") return (
+    <div className="flex flex-col gap-4">
+      <label className={lc}>Circuits (amps × volts)</label>
+      {plCircuits.map((c, i) => (
+        <div key={i} className="flex gap-2 items-center">
+          <input className={ic} type="number" inputMode="numeric" placeholder="Amps" value={c.amps} onChange={e => setPlCircuits(cs => cs.map((x, j) => j === i ? { ...x, amps: e.target.value } : x))} />
+          <div className="flex gap-1 shrink-0">
+            {["120", "240"].map(v => <button key={v} onClick={() => setPlCircuits(cs => cs.map((x, j) => j === i ? { ...x, volts: v } : x))} className={`px-3 py-3 rounded-xl text-xs font-semibold border ${c.volts === v ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-gray-400 border-[#2a2a2a]"}`}>{v}V</button>)}
+          </div>
+          {plCircuits.length > 1 && <button onClick={() => setPlCircuits(cs => cs.filter((_, j) => j !== i))} className="text-gray-500 active:text-red-400 text-lg px-1">×</button>}
+        </div>
+      ))}
+      {plCircuits.length < 30 && (
+        <button onClick={() => setPlCircuits(cs => [...cs, { amps: "20", volts: "120" }])} className="border border-dashed border-[#3a3a3a] text-gray-500 rounded-xl py-3 text-sm">+ Add Circuit</button>
+      )}
+      <button onClick={handleCalc} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Panel Load</button>
     </div>
   );
 
