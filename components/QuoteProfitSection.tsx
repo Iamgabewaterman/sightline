@@ -262,6 +262,15 @@ export default function QuoteProfitSection({
     setSaved(false);
   }
 
+  // Margin slider drives the total the other way: total = cost ÷ (1 − margin%).
+  // Needs a cost basis to compute from; the headline total stays editable too.
+  function setMarginTarget(marginValue: number) {
+    if (costBasis <= 0) return;
+    const m = Math.min(95, Math.max(0, marginValue)) / 100;
+    const target = Math.round(costBasis / (1 - m));
+    setQuoteTotalDirect(String(target));
+  }
+
   // ── Share text ────────────────────────────────────────
   function buildShareText() {
     const rows = rowsToLineItems(clientLineItems);
@@ -796,9 +805,27 @@ export default function QuoteProfitSection({
                 <div className="h-2 bg-[#242424] rounded-full overflow-hidden">
                   <div className="h-full transition-all duration-300" style={{ width: `${Math.max(0, Math.min(100, marginPct))}%`, backgroundColor: marginBarColor }} />
                 </div>
+                {/* Margin slider — drag to set the total from your cost basis */}
+                {costBasis > 0 && (
+                  <div className="mt-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={60}
+                      step={1}
+                      value={Math.round(Math.max(0, Math.min(60, marginPct)))}
+                      onChange={(e) => setMarginTarget(Number(e.target.value))}
+                      className="range-slider w-full"
+                      aria-label="Profit margin"
+                    />
+                    <div className="flex justify-between text-gray-600 text-[10px] mt-0.5">
+                      <span>0%</span><span>30%</span><span>60%</span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-gray-600 text-xs mt-2">
                   {costBasis > 0
-                    ? `Cost basis ${fmt(costBasis)} · profit ${fmt(quoteTotal - costBasis)}`
+                    ? `Cost basis ${fmt(costBasis)} · profit ${fmt(quoteTotal - costBasis)} · drag the slider or type a total above`
                     : "Add costs in the reference above to see your margin"}
                 </p>
               </div>

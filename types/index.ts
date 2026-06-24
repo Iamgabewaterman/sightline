@@ -368,6 +368,7 @@ export interface BusinessProfile {
   phone: string | null;
   email: string | null;
   logo_path: string | null;
+  trade: string | null;
   default_payment_terms: PaymentTerms;
   created_at: string;
 }

@@ -47,6 +47,7 @@ export default function OnboardingFlow({ inviteCode: _inviteCode }: { inviteCode
       business_name: bizName.trim(),
       owner_name: ownerName.trim(),
       address: cityZip.trim() || null,
+      trade: primaryTrade || null,
     });
 
     await completeOnboarding();
