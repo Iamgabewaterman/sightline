@@ -10,7 +10,7 @@ const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
 const sc = (a: boolean) => `flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 text-center ${a ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-white border-[#2a2a2a]"}`;
 
-type TileCalcId = "tile" | "lvp" | "hardwood" | "carpet";
+type TileCalcId = "tile" | "lvp" | "hardwood" | "carpet" | "ceiling";
 
 export default function TileCalc({ calcId, pricing, jobs, tradeLabel }: CalcProps & { calcId: TileCalcId }) {
   const [result, setResult] = useState<ResultItem[] | null>(null);
@@ -40,6 +40,11 @@ export default function TileCalc({ calcId, pricing, jobs, tradeLabel }: CalcProp
   const [cWid, setCWid]     = useState("");
   const [cPad, setCPad]     = useState("yes");
   const [cPattern, setCPattern] = useState("plain");
+
+  // Ceiling Tile (suspended grid)
+  const [ceLen, setCeLen]   = useState("");
+  const [ceWid, setCeWid]   = useState("");
+  const [ceSize, setCeSize] = useState("2x2");
 
   const wasteForPattern: Record<string, number> = {
     straight: 0.10, offset: 0.12, diagonal: 0.15, herringbone: 0.20,
@@ -203,12 +208,49 @@ export default function TileCalc({ calcId, pricing, jobs, tradeLabel }: CalcProp
     setResult(items);
   }
 
+  function calcCeiling() {
+    const L = n(ceLen), W = n(ceWid);
+    const area = L * W;
+    const tileArea = ceSize === "2x4" ? 8 : 4;
+    const tiles = cu((area / tileArea) * 1.1);
+    const mainRows = Math.max(1, Math.ceil(W / 4));
+    const mainPieces = cu((mainRows * L) / 12);
+    const crossAlong = ceSize === "2x4" ? Math.ceil(L / 4) : Math.ceil(L / 2);
+    const cross4 = mainRows * crossAlong;
+    const cross2 = ceSize === "2x2" ? cu(area / 4) : 0;
+    const wallAngleLF = 2 * (L + W);
+    const hangers = mainRows * Math.max(1, Math.ceil(L / 4));
+    const wireFt = hangers * 4;
+    const tileCost = ceSize === "2x4" ? P.ceilTile2x4 : P.ceilTile2x2;
+
+    const items: ResultItem[] = [
+      { name: `Ceiling Tile ${ceSize}`, qty: tiles, unit: "tiles", unitCost: tileCost,
+        calc: `${area.toFixed(0)} sqft ÷ ${tileArea} sqft/tile × 10% waste = ${tiles} tiles`, category: "materials" },
+      { name: "Main Tee Runners (12-ft)", qty: mainPieces, unit: "pieces", unitCost: P.gridMain12,
+        calc: `${mainRows} rows (W ${W}ft ÷ 4) × ${L}ft ÷ 12 = ${mainPieces} mains`, category: "materials" },
+      { name: "Cross Tees (4-ft)", qty: cross4, unit: "pieces", unitCost: P.gridCross4,
+        calc: `${mainRows} rows × ${crossAlong} along length = ${cross4} cross tees`, category: "materials" },
+    ];
+    if (cross2 > 0) items.push(
+      { name: "Cross Tees (2-ft)", qty: cross2, unit: "pieces", unitCost: P.gridCross2,
+        calc: `2×2 grid infill = ${area.toFixed(0)} sqft ÷ 4 = ${cross2} pieces`, category: "materials" });
+    items.push(
+      { name: "Wall Angle", qty: cu(wallAngleLF), unit: "LF", unitCost: P.wallAngleLf,
+        calc: `Room perimeter 2×(${L}+${W}) = ${wallAngleLF.toFixed(0)} LF`, category: "materials" },
+      { name: "Hanger Wire", qty: cu(wireFt), unit: "ft", unitCost: P.hangerWireFt,
+        calc: `${hangers} hangers (every 4ft on mains) × 4 ft drop = ${wireFt} ft`, category: "materials" },
+    );
+    setWasteNote(`${area.toFixed(0)} sqft suspended ceiling, ${ceSize} grid. 10% tile waste included. Add extra mains/tees for irregular rooms.`);
+    setResult(items);
+  }
+
   function handleCalc() {
     setResult(null);
     if (calcId === "tile")     calcTile();
     if (calcId === "lvp")      calcLVP();
     if (calcId === "hardwood") calcHardwood();
     if (calcId === "carpet")   calcCarpet();
+    if (calcId === "ceiling")  calcCeiling();
   }
 
   if (result) return <CalcOutput items={result} jobs={jobs} tradeLabel={tradeLabel} wasteNote={wasteNote} onReset={() => setResult(null)} />;
@@ -286,6 +328,23 @@ export default function TileCalc({ calcId, pricing, jobs, tradeLabel }: CalcProp
         </div>
       </div>
       <button onClick={handleCalc} disabled={!hLen || !hWid} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Hardwood</button>
+    </div>
+  );
+
+  if (calcId === "ceiling") return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lc}>Ceiling Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={ceLen} onChange={e => setCeLen(e.target.value)} /></div>
+        <div><label className={lc}>Ceiling Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="14" value={ceWid} onChange={e => setCeWid(e.target.value)} /></div>
+      </div>
+      <div>
+        <label className={lc}>Tile Size</label>
+        <div className="flex gap-2">
+          <button onClick={() => setCeSize("2x2")} className={sc(ceSize === "2x2")}>2×2</button>
+          <button onClick={() => setCeSize("2x4")} className={sc(ceSize === "2x4")}>2×4</button>
+        </div>
+      </div>
+      <button onClick={handleCalc} disabled={!ceLen || !ceWid} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Ceiling Grid</button>
     </div>
   );
 

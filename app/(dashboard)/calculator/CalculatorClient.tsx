@@ -15,6 +15,7 @@ import PlumbingCalc from "./calcs/PlumbingCalc";
 import HVACCalc from "./calcs/HVACCalc";
 import SpecialtyCalc from "./calcs/SpecialtyCalc";
 import CustomCalc from "./calcs/CustomCalc";
+import RestorationCalc from "./calcs/RestorationCalc";
 
 interface Props {
   jobs: { id: string; name: string }[];
@@ -58,6 +59,7 @@ export const CATEGORIES = [
       { id: "lvp",      label: "LVP / Laminate",    desc: "Boxes, underlayment, transitions" },
       { id: "hardwood", label: "Hardwood",           desc: "Boxes, nails, finish/stain" },
       { id: "carpet",   label: "Carpet",             desc: "Square yards, pad, tack strips" },
+      { id: "ceiling",  label: "Ceiling Tile (Drop)", desc: "Suspended grid: tiles, tees, wall angle, wire" },
     ],
   },
   {
@@ -66,6 +68,7 @@ export const CATEGORIES = [
       { id: "interior", label: "Interior Paint",    desc: "Walls, ceiling, trim by room dimensions" },
       { id: "exterior", label: "Exterior Paint",    desc: "Siding by perimeter + height + texture" },
       { id: "deck",     label: "Deck Stain/Sealer", desc: "Deck sqft + railing LF, coats" },
+      { id: "textureremoval", label: "Texture Removal", desc: "Stripper or dry-ice, sheeting, disposal" },
     ],
   },
   {
@@ -102,6 +105,18 @@ export const CATEGORIES = [
     ],
   },
   {
+    id: "restoration", label: "Restoration & Remediation", icon: "🔥",
+    subs: [
+      { id: "drywall",    label: "Drywall Calculator",        desc: "Multi-room: sheets, screws, mud, tape, bead, primer, paint" },
+      { id: "water",      label: "Water Damage Remediation",  desc: "Antimicrobial, scrubbers, dehus, mats, containment" },
+      { id: "flooring",   label: "Flooring Replacement",      desc: "Subfloor, flooring units, underlayment, transitions" },
+      { id: "insulation", label: "Insulation Replacement",    desc: "Batt or blown-in by R-value, auto thickness" },
+      { id: "texture",    label: "Texture & Skim Coat",       desc: "Orange peel, knockdown, skim, popcorn removal" },
+      { id: "fire",       label: "Fire Damage Estimator",     desc: "Multi-trade combined estimate by damage level" },
+      { id: "packout",    label: "Contents Pack-Out",         desc: "Boxes, paper, wardrobe boxes, truck size" },
+    ],
+  },
+  {
     id: "custom", label: "My Calculators", icon: "🔧",
     subs: [
       { id: "main", label: "Custom Calculator Builder", desc: "Name it, build inputs, write formula, save" },
@@ -132,6 +147,7 @@ export function renderCalc(catId: CategoryId, subId: SubId, pricing: RegionalCal
   if (catId === "plumbing")   return <PlumbingCalc   {...cp} calcId={subId as any} />;
   if (catId === "hvac")       return <HVACCalc       {...cp} calcId={subId as any} />;
   if (catId === "specialty")  return <SpecialtyCalc  {...cp} calcId={subId as any} />;
+  if (catId === "restoration") return <RestorationCalc {...cp} calcId={subId as any} />;
   if (catId === "custom")     return <CustomCalc     {...cp} />;
   return <p className="text-gray-500 text-sm">Calculator not found.</p>;
 }

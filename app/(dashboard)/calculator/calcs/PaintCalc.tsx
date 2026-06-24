@@ -10,7 +10,7 @@ const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
 const sc = (a: boolean) => `flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors active:scale-95 text-center ${a ? "bg-orange-500 text-white border-orange-500" : "bg-[#1A1A1A] text-white border-[#2a2a2a]"}`;
 
-type PaintCalcId = "interior" | "exterior" | "deck";
+type PaintCalcId = "interior" | "exterior" | "deck" | "textureremoval";
 
 export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcProps & { calcId: PaintCalcId }) {
   const [result, setResult] = useState<ResultItem[] | null>(null);
@@ -42,6 +42,11 @@ export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcPro
   const [deckRail,   setDeckRail]   = useState("yes");
   const [deckRailLF, setDeckRailLF] = useState("");
   const [deckType,   setDeckType]   = useState("semi-solid");
+
+  // Texture Removal
+  const [trSqft, setTrSqft] = useState("");
+  const [trType, setTrType] = useState<"popcorn" | "knockdown" | "wallpaper">("popcorn");
+  const [trMethod, setTrMethod] = useState<"wet" | "dryice">("wet");
 
   // Interior: subtract doors (21 sqft each) and windows (15 sqft each)
   function calcInterior() {
@@ -176,11 +181,35 @@ export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcPro
     setResult(items);
   }
 
+  function calcTextureRemoval() {
+    const sqft = n(trSqft);
+    const label: Record<string, string> = { popcorn: "Popcorn Ceiling", knockdown: "Knockdown Texture", wallpaper: "Wallpaper" };
+    const items: ResultItem[] = [];
+    if (trMethod === "wet") {
+      items.push({ name: `Stripping Solution (${label[trType]})`, qty: cu(sqft / 75), unit: "gal", unitCost: P.chemStripperGal,
+        calc: `${sqft} sqft ÷ 75 sqft/gal (spray, soak, scrape) = ${cu(sqft / 75)} gal`, category: "materials" });
+    } else {
+      items.push({ name: "Dry-Ice Blasting (area estimate)", qty: cu(sqft), unit: "sqft", unitCost: 1.25,
+        calc: `${sqft} sqft of dry-ice blasting ≈ $1.00–1.50/sqft incl. media & equipment`, category: "tools" });
+    }
+    items.push(
+      { name: "Plastic Sheeting (10×25, 4-mil)", qty: Math.max(1, cu(sqft / 250)), unit: "rolls", unitCost: P.plasticSheet4,
+        calc: `${sqft} sqft ÷ 250 = ${Math.max(1, cu(sqft / 250))} rolls to mask walls/floor`, category: "materials" },
+      { name: "Drop Cloths", qty: Math.max(1, cu(sqft / 150)), unit: "ea", unitCost: P.dropCloth,
+        calc: `${sqft} sqft ÷ 150 = ${Math.max(1, cu(sqft / 150))} cloths`, category: "materials" },
+      { name: "Disposal Bags (box)", qty: Math.max(1, cu(sqft / 200)), unit: "boxes", unitCost: P.disposalBagsBox,
+        calc: `${sqft} sqft ÷ 200 = ${Math.max(1, cu(sqft / 200))} boxes`, category: "materials" },
+    );
+    setWasteNote(`${sqft} sqft ${label[trType]} removal (${trMethod === "wet" ? "wet scrape" : "dry-ice"}). Test pre-1980 popcorn for asbestos before disturbing.`);
+    setResult(items);
+  }
+
   function handleCalc() {
     setResult(null);
     if (calcId === "interior") calcInterior();
     if (calcId === "exterior") calcExterior();
     if (calcId === "deck")     calcDeck();
+    if (calcId === "textureremoval") calcTextureRemoval();
   }
 
   if (result) return <CalcOutput items={result} jobs={jobs} tradeLabel={tradeLabel} wasteNote={wasteNote} onReset={() => setResult(null)} />;
@@ -264,6 +293,28 @@ export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcPro
         </div>
       </div>
       <button onClick={handleCalc} disabled={!extLen || !extWid || !extHeight} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Exterior Paint</button>
+    </div>
+  );
+
+  if (calcId === "textureremoval") return (
+    <div className="flex flex-col gap-4">
+      <div><label className={lc}>Square Footage</label><input className={ic} type="number" inputMode="decimal" placeholder="500" value={trSqft} onChange={e => setTrSqft(e.target.value)} /></div>
+      <div>
+        <label className={lc}>Texture Type</label>
+        <div className="flex gap-2">
+          <button onClick={() => setTrType("popcorn")} className={sc(trType === "popcorn")}>Popcorn</button>
+          <button onClick={() => setTrType("knockdown")} className={sc(trType === "knockdown")}>Knockdown</button>
+          <button onClick={() => setTrType("wallpaper")} className={sc(trType === "wallpaper")}>Wallpaper</button>
+        </div>
+      </div>
+      <div>
+        <label className={lc}>Removal Method</label>
+        <div className="flex gap-2">
+          <button onClick={() => setTrMethod("wet")} className={sc(trMethod === "wet")}>Wet Scrape</button>
+          <button onClick={() => setTrMethod("dryice")} className={sc(trMethod === "dryice")}>Dry-Ice Blasting</button>
+        </div>
+      </div>
+      <button onClick={handleCalc} disabled={!trSqft} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Texture Removal</button>
     </div>
   );
 

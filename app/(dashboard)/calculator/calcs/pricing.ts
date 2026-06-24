@@ -160,6 +160,44 @@ export const P: Record<string, number> = {
   hvacMastic: 22.00,      // gallon
   hvacMetalScrews: 5.00,  // box
   hvacDuctBoard4x8: 28.00,// sheet rigid duct board
+  // ── Restoration & Remediation ──────────────────────────────────────────────
+  // Drywall hang/finish consumables
+  dwSheet: 14.00,          // 4×8 ½" drywall sheet (regional via pricing.drywall)
+  dwScrew1lb: 7.00,        // 1-lb box drywall screws (~150 sqft coverage)
+  jointCompound45: 16.00,  // 4.5-gal bucket all-purpose joint compound
+  drywallTape500: 7.00,    // 500-ft roll paper joint tape
+  cornerBead8: 3.50,       // 8-ft metal outside corner bead
+  // Water damage remediation
+  antimicrobialGal: 35.00, // gallon antimicrobial/biocide treatment
+  airScrubberDay: 45.00,   // HEPA air scrubber rental, per day
+  dehumidifierDay: 65.00,  // LGR dehumidifier rental, per day
+  dryingMatDay: 18.00,     // floor drying mat, per day each
+  plasticSheet10: 55.00,   // 10-ft × 100-ft 6-mil containment roll
+  contractorBagsBox: 22.00,// box of 32 contractor bags (3-mil)
+  // moistureBarrier (500 sqft roll) reused from flooring section above
+  // Insulation
+  insulBattBag: 48.00,     // batt insulation, per bag/package
+  insulBlownBag: 42.00,    // blown-in insulation, per bag
+  // Texture / skim
+  textureSprayBag: 15.00,  // bag of wall/ceiling spray texture
+  // Contents pack-out
+  packBox: 2.50,           // medium moving box
+  packTapeRoll: 3.50,      // packing tape roll
+  packPaperReam: 22.00,    // ream of packing paper
+  wardrobeBox: 12.00,      // wardrobe box
+  mattressBag: 6.00,       // mattress bag
+  // Suspended ceiling grid
+  ceilTile2x2: 4.50,       // 2×2 acoustic ceiling tile
+  ceilTile2x4: 6.00,       // 2×4 acoustic ceiling tile
+  gridMain12: 8.00,        // 12-ft main tee runner
+  gridCross4: 3.00,        // 4-ft cross tee
+  gridCross2: 2.00,        // 2-ft cross tee
+  wallAngleLf: 0.60,       // wall angle, per LF
+  hangerWireFt: 0.15,      // suspension hanger wire, per ft
+  // Texture removal
+  chemStripperGal: 32.00,  // gallon texture/popcorn stripping solution
+  disposalBagsBox: 18.00,  // box of heavy disposal bags
+  plasticSheet4: 24.00,    // 10-ft × 25-ft 4-mil sheeting roll
 };
 
 /** Apply regional pricing scale factor to a baseline price. */
