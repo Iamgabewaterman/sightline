@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -211,7 +212,7 @@ export default function PlumbingCalc({ calcId, pricing, jobs, tradeLabel }: Calc
           <button onClick={() => setPipeType("copper")} className={sc(pipeType === "copper")}>Copper</button>
         </div>
       </div>
-      <div><label className={lc}>Average Run to Fixtures (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="25" value={avgRunFt} onChange={e => setAvgRunFt(e.target.value)} /></div>
+      <div><label className={lc}>Average Run to Fixtures (ft)</label><DimensionInput value={avgRunFt} onChange={setAvgRunFt} placeholder="25" /></div>
       <button onClick={handleCalc} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform">Calculate Plumbing Rough-In</button>
     </div>
   );
@@ -232,7 +233,7 @@ export default function PlumbingCalc({ calcId, pricing, jobs, tradeLabel }: Calc
 
   return (
     <div className="flex flex-col gap-4">
-      <div><label className={lc}>Run Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="50" value={runLen} onChange={e => setRunLen(e.target.value)} /></div>
+      <div><label className={lc}>Run Length (ft)</label><DimensionInput value={runLen} onChange={setRunLen} placeholder="50" /></div>
       <div>
         <label className={lc}>Pipe Material</label>
         <div className="flex gap-2">

@@ -5,6 +5,7 @@ import type { CalcProps, ResultItem } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -285,8 +286,8 @@ export default function SpecialtyCalc({ calcId, jobs, tradeLabel }: CalcProps & 
   if (calcId === "weightload") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Span (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={wlSpan} onChange={e => setWlSpan(e.target.value)} /></div>
-        <div><label className={lc}>Tributary Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="8" value={wlTrib} onChange={e => setWlTrib(e.target.value)} /></div>
+        <div><label className={lc}>Span (ft)</label><DimensionInput value={wlSpan} onChange={setWlSpan} placeholder="12" /></div>
+        <div><label className={lc}>Tributary Width (ft)</label><DimensionInput value={wlTrib} onChange={setWlTrib} placeholder="8" /></div>
       </div>
       <div>
         <label className={lc}>Load Type</label>
@@ -302,8 +303,8 @@ export default function SpecialtyCalc({ calcId, jobs, tradeLabel }: CalcProps & 
   if (calcId === "riserun") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Rise (vertical, ft or in)</label><input className={ic} type="number" inputMode="decimal" placeholder="4" value={rrRise} onChange={e => setRrRise(e.target.value)} /></div>
-        <div><label className={lc}>Run (horizontal, same unit)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={rrRun} onChange={e => setRrRun(e.target.value)} /></div>
+        <div><label className={lc}>Rise (vertical, ft or in)</label><DimensionInput value={rrRise} onChange={setRrRise} placeholder="4" /></div>
+        <div><label className={lc}>Run (horizontal, same unit)</label><DimensionInput value={rrRun} onChange={setRrRun} placeholder="12" /></div>
       </div>
       <button onClick={handleCalc} disabled={!rrRise || !rrRun} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate</button>
     </div>
@@ -319,7 +320,7 @@ export default function SpecialtyCalc({ calcId, jobs, tradeLabel }: CalcProps & 
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className={lc}>Width (inches)</label><input className={ic} type="number" inputMode="decimal" placeholder="6" value={bfWid} onChange={e => setBfWid(e.target.value)} /></div>
-        <div><label className={lc}>Length (feet)</label><input className={ic} type="number" inputMode="decimal" placeholder="8" value={bfLen} onChange={e => setBfLen(e.target.value)} /></div>
+        <div><label className={lc}>Length (feet)</label><DimensionInput value={bfLen} onChange={setBfLen} placeholder="8" /></div>
       </div>
       <div><label className={lc}>Number of Pieces</label><input className={ic} type="number" inputMode="numeric" placeholder="1" value={bfPcs} onChange={e => setBfPcs(e.target.value)} /></div>
       <button onClick={handleCalc} disabled={!bfWid || !bfLen} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform disabled:opacity-40">Calculate Board Feet</button>
@@ -387,8 +388,8 @@ export default function SpecialtyCalc({ calcId, jobs, tradeLabel }: CalcProps & 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Rise (vertical distance)</label><input className={ic} type="number" inputMode="decimal" placeholder="1" value={pgRise} onChange={e => setPgRise(e.target.value)} /></div>
-        <div><label className={lc}>Run (horizontal distance, same unit)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={pgRun} onChange={e => setPgRun(e.target.value)} /></div>
+        <div><label className={lc}>Rise (vertical distance)</label><DimensionInput value={pgRise} onChange={setPgRise} placeholder="1" /></div>
+        <div><label className={lc}>Run (horizontal distance, same unit)</label><DimensionInput value={pgRun} onChange={setPgRun} placeholder="12" /></div>
       </div>
       <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl px-4 py-2.5">
         <p className="text-gray-400 text-xs">Use any unit (feet, inches) as long as both are the same. Example: 1" rise over 12" run = 8.33% grade.</p>

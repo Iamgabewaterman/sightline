@@ -51,9 +51,15 @@ function evalFormula(formula: string, values: Record<string, string>): number | 
   } catch { return null; }
 }
 
-export default function CustomCalc({ jobs }: CalcProps) {
+export default function CustomCalc({
+  jobs,
+  initialMode,
+  initialRunDefId,
+  initialEditDefId,
+}: CalcProps & { initialMode?: "list" | "build"; initialRunDefId?: string; initialEditDefId?: string }) {
   const [defs, setDefs] = useState<CustomCalcDef[]>([]);
   const [mode, setMode] = useState<"list" | "build" | "run">("list");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedDef, setSelectedDef] = useState<CustomCalcDef | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<number | null>(null);
@@ -67,7 +73,30 @@ export default function CustomCalc({ jobs }: CalcProps) {
   const [bResultUnit,  setBResultUnit]  = useState("");
   const [saveError,    setSaveError]    = useState("");
 
-  useEffect(() => { setDefs(loadDefs()); }, []);
+  useEffect(() => {
+    const loaded = loadDefs();
+    setDefs(loaded);
+    // Open directly into run / build / edit when launched from the home screen.
+    if (initialRunDefId) {
+      const d = loaded.find((x) => x.id === initialRunDefId);
+      if (d) { setSelectedDef(d); setFieldValues({}); setResult(null); setMode("run"); return; }
+    }
+    if (initialEditDefId) {
+      const d = loaded.find((x) => x.id === initialEditDefId);
+      if (d) {
+        setEditingId(d.id);
+        setBName(d.name);
+        setBFields(d.fields.length ? d.fields : [{ id: "field_1", label: "", unit: "", type: "number" }]);
+        setBFormula(d.formula);
+        setBResultLabel(d.resultLabel);
+        setBResultUnit(d.resultUnit);
+        setMode("build");
+        return;
+      }
+    }
+    if (initialMode === "build") setMode("build");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMode, initialRunDefId, initialEditDefId]);
 
   function addField() {
     if (bFields.length >= 10) return;
@@ -89,7 +118,7 @@ export default function CustomCalc({ jobs }: CalcProps) {
     if (!bFormula.trim()) { setSaveError("Formula is required"); return; }
 
     const newDef: CustomCalcDef = {
-      id: `custom_${Date.now()}`,
+      id: editingId ?? `custom_${Date.now()}`,
       name: bName.trim(),
       fields: bFields.map((f, i) => ({ ...f, id: f.label.toLowerCase().replace(/\s+/g, "_") || `field_${i+1}` })),
       formula: bFormula.trim(),
@@ -97,9 +126,12 @@ export default function CustomCalc({ jobs }: CalcProps) {
       resultUnit: bResultUnit,
       createdAt: Date.now(),
     };
-    const updated = [...defs, newDef];
+    const updated = editingId
+      ? defs.map((d) => (d.id === editingId ? newDef : d))
+      : [...defs, newDef];
     saveDefs(updated);
     setDefs(updated);
+    setEditingId(null);
     setBName(""); setBFields([{ id: "field_1", label: "", unit: "", type: "number" }]);
     setBFormula(""); setBResultLabel("Result"); setBResultUnit("");
     setMode("list");

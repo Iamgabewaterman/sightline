@@ -268,10 +268,10 @@ export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcPro
   if (calcId === "exterior") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>House Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="40" value={extLen} onChange={e => setExtLen(e.target.value)} /></div>
-        <div><label className={lc}>House Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="30" value={extWid} onChange={e => setExtWid(e.target.value)} /></div>
+        <div><label className={lc}>House Length (ft)</label><DimensionInput value={extLen} onChange={setExtLen} placeholder="40" /></div>
+        <div><label className={lc}>House Width (ft)</label><DimensionInput value={extWid} onChange={setExtWid} placeholder="30" /></div>
       </div>
-      <div><label className={lc}>Wall Height (ft, avg)</label><input className={ic} type="number" inputMode="decimal" placeholder="10" value={extHeight} onChange={e => setExtHeight(e.target.value)} /></div>
+      <div><label className={lc}>Wall Height (ft, avg)</label><DimensionInput value={extHeight} onChange={setExtHeight} placeholder="10" /></div>
       <div>
         <label className={lc}>Siding Type</label>
         <div className="flex gap-2">
@@ -322,8 +322,8 @@ export default function PaintCalc({ calcId, pricing, jobs, tradeLabel }: CalcPro
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Deck Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={deckLen} onChange={e => setDeckLen(e.target.value)} /></div>
-        <div><label className={lc}>Deck Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={deckWid} onChange={e => setDeckWid(e.target.value)} /></div>
+        <div><label className={lc}>Deck Length (ft)</label><DimensionInput value={deckLen} onChange={setDeckLen} placeholder="20" /></div>
+        <div><label className={lc}>Deck Width (ft)</label><DimensionInput value={deckWid} onChange={setDeckWid} placeholder="12" /></div>
       </div>
       <div>
         <label className={lc}>Stain Type</label>

@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P, rScale } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 // Pitch slope factor lookup: pitch (x/12) → slope factor
 const PITCH_FACTOR: Record<string, number> = {
@@ -251,8 +252,8 @@ export default function RoofingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
   if (calcId === "shingles") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Roof Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="48" value={sLen} onChange={e => setSLen(e.target.value)} /></div>
-        <div><label className={lc}>Roof Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="28" value={sWid} onChange={e => setSWid(e.target.value)} /></div>
+        <div><label className={lc}>Roof Length (ft)</label><DimensionInput value={sLen} onChange={setSLen} placeholder="48" /></div>
+        <div><label className={lc}>Roof Width (ft)</label><DimensionInput value={sWid} onChange={setSWid} placeholder="28" /></div>
       </div>
       <div>
         <label className={lc}>Roof Pitch (x/12)</label>
@@ -300,7 +301,7 @@ export default function RoofingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
   if (calcId === "rafter") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Building Span (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="28" value={rSpan} onChange={e => setRSpan(e.target.value)} /></div>
+        <div><label className={lc}>Building Span (ft)</label><DimensionInput value={rSpan} onChange={setRSpan} placeholder="28" /></div>
         <div><label className={lc}>Overhang (inches)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={rOverhang} onChange={e => setROverhang(e.target.value)} /></div>
       </div>
       <div>

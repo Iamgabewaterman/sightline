@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -243,7 +244,7 @@ export default function HVACCalc({ calcId, pricing, jobs, tradeLabel }: CalcProp
         <div><label className={lc}>Supply Runs (blank=auto)</label><input className={ic} type="number" inputMode="numeric" placeholder="auto" value={supplyRuns} onChange={e => setSupplyRuns(e.target.value)} /></div>
         <div><label className={lc}>Return Runs (blank=auto)</label><input className={ic} type="number" inputMode="numeric" placeholder="auto" value={returnRuns} onChange={e => setReturnRuns(e.target.value)} /></div>
       </div>
-      <div><label className={lc}>Average Run Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={avgRunLen} onChange={e => setAvgRunLen(e.target.value)} /></div>
+      <div><label className={lc}>Average Run Length (ft)</label><DimensionInput value={avgRunLen} onChange={setAvgRunLen} placeholder="20" /></div>
       <div>
         <label className={lc}>Zones</label>
         <div className="flex gap-2">

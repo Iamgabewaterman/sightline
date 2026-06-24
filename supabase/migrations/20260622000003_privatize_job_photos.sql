@@ -1,3 +1,8 @@
+-- ============================================================================
+-- DO NOT APPLY until photo-proxy route is live on Vercel.
+-- (Requires /api/photo and /api/portal-photo serving signed URLs in production.)
+-- ============================================================================
+--
 -- Fix 4 — make the job-photos bucket private.
 --
 -- ⚠️ DEPLOY ORDERING: apply this ONLY AFTER the app code that serves photos via

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AIVisualEstimator from "@/components/AIVisualEstimator";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
 
@@ -164,12 +164,52 @@ export default function CalculatorClient({ jobs, pricing, locationSource }: Prop
   const [selectedCat, setSelectedCat] = useState<CategoryId | null>(null);
   const [selectedSub, setSelectedSub] = useState<SubId | null>(null);
   const [showAI, setShowAI]           = useState(false);
+  // Custom calculators (saved client-side) shown at the very top of the home screen.
+  const [customDefs, setCustomDefs] = useState<{ id: string; name: string; fields: unknown[] }[]>([]);
+  const [customView, setCustomView] = useState<{ mode: "build" | "run" | "edit"; defId?: string } | null>(null);
+
+  function loadCustomDefs() {
+    if (typeof window === "undefined") return;
+    try { setCustomDefs(JSON.parse(localStorage.getItem("sightline_custom_calcs") || "[]")); }
+    catch { setCustomDefs([]); }
+  }
+  useEffect(() => { loadCustomDefs(); }, [customView]);
+
+  function deleteCustom(id: string) {
+    try {
+      const next = customDefs.filter((d) => d.id !== id);
+      localStorage.setItem("sightline_custom_calcs", JSON.stringify(next));
+      setCustomDefs(next);
+    } catch { /* ignore */ }
+  }
 
   const category = CATEGORIES.find(c => c.id === selectedCat) ?? null;
   const sub = category?.subs.find(s => s.id === selectedSub) ?? null;
 
   function backToHome() { setSelectedCat(null); setSelectedSub(null); }
   function backToCategory() { setSelectedSub(null); }
+
+  // ── Custom calculator (build / edit / run) — launched from home ───────────
+  if (customView) return (
+    <div className="flex flex-col min-h-screen bg-[#0a0a0a]">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+        <button onClick={() => setCustomView(null)} className="text-gray-400 text-sm active:scale-95">← Calculators</button>
+        <h2 className="text-white font-bold text-lg flex-1">
+          {customView.mode === "run" ? "Custom Calculator" : customView.mode === "edit" ? "Edit Calculator" : "Build Calculator"}
+        </h2>
+      </div>
+      <div className="flex-1 px-4 pb-8">
+        <CustomCalc
+          jobs={jobs}
+          pricing={pricing}
+          tradeLabel="Custom"
+          initialMode={customView.mode === "build" ? "build" : undefined}
+          initialRunDefId={customView.mode === "run" ? customView.defId : undefined}
+          initialEditDefId={customView.mode === "edit" ? customView.defId : undefined}
+        />
+      </div>
+    </div>
+  );
 
   // ── AI Estimator ─────────────────────────────────────────────────────────
   if (showAI) return (
@@ -236,6 +276,36 @@ export default function CalculatorClient({ jobs, pricing, locationSource }: Prop
         )}
       </div>
 
+      {/* ── My Calculators — custom builder + saved customs, at the very top ── */}
+      <div className="px-4 mb-4">
+        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">My Calculators</p>
+        <div className="flex flex-col gap-2">
+          {customDefs.map((d) => (
+            <div key={d.id} className="bg-orange-500/10 border border-orange-500/40 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <button onClick={() => setCustomView({ mode: "run", defId: d.id })} className="flex-1 min-w-0 text-left active:scale-[0.98] transition-transform">
+                <p className="text-white font-bold text-sm truncate">{d.name}</p>
+                <p className="text-orange-400/70 text-xs mt-0.5">{d.fields?.length ?? 0} input{(d.fields?.length ?? 0) !== 1 ? "s" : ""} · custom</p>
+              </button>
+              <button onClick={() => setCustomView({ mode: "edit", defId: d.id })} className="shrink-0 text-gray-300 text-xs font-semibold border border-[#3a3a3a] rounded-lg px-3 py-2 active:scale-95">Edit</button>
+              <button onClick={() => deleteCustom(d.id)} className="shrink-0 text-red-400 text-xs font-semibold border border-red-500/30 rounded-lg px-3 py-2 active:scale-95">Delete</button>
+            </div>
+          ))}
+          <button
+            onClick={() => setCustomView({ mode: "build" })}
+            className="w-full bg-orange-500/10 border-2 border-orange-500/50 rounded-2xl px-5 py-4 text-left flex items-center gap-4 active:scale-[0.98] transition-transform hover:bg-orange-500/15"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-orange-300 font-bold text-base">Build My Own Calculator</p>
+              <p className="text-orange-400/60 text-xs mt-0.5">Name it, add inputs, write a formula, save</p>
+            </div>
+            <span className="text-orange-500 text-lg shrink-0">›</span>
+          </button>
+        </div>
+      </div>
+
       {/* AI Estimator CTA */}
       <div className="px-4 mb-4">
         <button
@@ -251,9 +321,9 @@ export default function CalculatorClient({ jobs, pricing, locationSource }: Prop
         </button>
       </div>
 
-      {/* Trade category grid */}
+      {/* Trade category grid (Custom is surfaced at top, so drop it here) */}
       <div className="px-4 pb-8 grid grid-cols-2 gap-3">
-        {CATEGORIES.map(cat => (
+        {CATEGORIES.filter(cat => cat.id !== "custom").map(cat => (
           <button
             key={cat.id}
             onClick={() => setSelectedCat(cat.id)}
@@ -262,7 +332,7 @@ export default function CalculatorClient({ jobs, pricing, locationSource }: Prop
             <span className="text-3xl">{cat.icon}</span>
             <div>
               <p className="text-white font-bold text-sm leading-tight">{cat.label}</p>
-              <p className="text-gray-600 text-xs mt-0.5">{cat.subs.length} calculator{cat.subs.length !== 1 ? "s" : ""}</p>
+              <p className="text-gray-600 text-xs mt-0.5">{cat.subs.length} calculator{(cat.subs.length as number) !== 1 ? "s" : ""}</p>
             </div>
           </button>
         ))}

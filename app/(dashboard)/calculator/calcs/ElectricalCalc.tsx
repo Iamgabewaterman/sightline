@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -285,7 +286,7 @@ export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: Ca
 
   if (calcId === "conduit") return (
     <div className="flex flex-col gap-4">
-      <div><label className={lc}>Conduit Run Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="50" value={conduitRun} onChange={e => setConduitRun(e.target.value)} /></div>
+      <div><label className={lc}>Conduit Run Length (ft)</label><DimensionInput value={conduitRun} onChange={setConduitRun} placeholder="50" /></div>
       <div>
         <label className={lc}>Conduit Type</label>
         <div className="flex gap-2">
@@ -317,7 +318,7 @@ export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: Ca
 
   if (calcId === "wirepull") return (
     <div className="flex flex-col gap-4">
-      <div><label className={lc}>Circuit Length (ft, per circuit)</label><input className={ic} type="number" inputMode="decimal" placeholder="60" value={wpLen} onChange={e => setWpLen(e.target.value)} /></div>
+      <div><label className={lc}>Circuit Length (ft, per circuit)</label><DimensionInput value={wpLen} onChange={setWpLen} placeholder="60" /></div>
       <div>
         <label className={lc}>Wire Gauge (AWG)</label>
         <div className="flex gap-2">
@@ -363,7 +364,7 @@ export default function ElectricalCalc({ calcId, pricing, jobs, tradeLabel }: Ca
           <button onClick={() => setVoltage("240")} className={sc(voltage === "240")}>240V (split phase)</button>
         </div>
       </div>
-      <div><label className={lc}>Service Run from Meter to Panel (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="50" value={svcRun} onChange={e => setSvcRun(e.target.value)} /></div>
+      <div><label className={lc}>Service Run from Meter to Panel (ft)</label><DimensionInput value={svcRun} onChange={setSvcRun} placeholder="50" /></div>
       <button onClick={handleCalc} className="bg-orange-500 text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-transform">Calculate Service</button>
     </div>
   );

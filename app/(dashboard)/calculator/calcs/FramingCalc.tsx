@@ -282,8 +282,8 @@ export default function FramingCalc({ calcId, pricing, jobs, tradeLabel }: CalcP
   if (calcId === "floor") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Span (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="16" value={fSpan} onChange={e => setFSpan(e.target.value)} /></div>
-        <div><label className={lc}>Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="24" value={fWid} onChange={e => setFWid(e.target.value)} /></div>
+        <div><label className={lc}>Span (ft)</label><DimensionInput value={fSpan} onChange={setFSpan} placeholder="16" /></div>
+        <div><label className={lc}>Width (ft)</label><DimensionInput value={fWid} onChange={setFWid} placeholder="24" /></div>
       </div>
       <div>
         <label className={lc}>Joist Size</label>

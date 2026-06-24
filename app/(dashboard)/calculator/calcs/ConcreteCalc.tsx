@@ -5,6 +5,7 @@ import type { ResultItem, CalcProps } from "./types";
 import { n, cu } from "./types";
 import { P } from "./pricing";
 import CalcOutput from "./CalcOutput";
+import { DimensionInput } from "./measure";
 
 const ic = "bg-[#1A1A1A] border border-[#2a2a2a] text-white text-base rounded-xl px-4 py-4 w-full placeholder:text-gray-600 focus:outline-none focus:border-orange-500 transition-colors min-h-[56px]";
 const lc = "text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1 block";
@@ -189,8 +190,8 @@ export default function ConcreteCalc({ calcId, pricing, jobs, tradeLabel }: Calc
   if (calcId === "slab") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={slLen} onChange={e => setSlLen(e.target.value)} /></div>
-        <div><label className={lc}>Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={slWid} onChange={e => setSlWid(e.target.value)} /></div>
+        <div><label className={lc}>Length (ft)</label><DimensionInput value={slLen} onChange={setSlLen} placeholder="20" /></div>
+        <div><label className={lc}>Width (ft)</label><DimensionInput value={slWid} onChange={setSlWid} placeholder="20" /></div>
       </div>
       <div>
         <label className={lc}>Thickness (inches)</label>
@@ -232,7 +233,7 @@ export default function ConcreteCalc({ calcId, pricing, jobs, tradeLabel }: Calc
 
   if (calcId === "footing") return (
     <div className="flex flex-col gap-4">
-      <div><label className={lc}>Footing Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="40" value={ftLen} onChange={e => setFtLen(e.target.value)} /></div>
+      <div><label className={lc}>Footing Length (ft)</label><DimensionInput value={ftLen} onChange={setFtLen} placeholder="40" /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className={lc}>Width (inches)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={ftWid} onChange={e => setFtWid(e.target.value)} /></div>
         <div><label className={lc}>Depth (inches)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={ftDep} onChange={e => setFtDep(e.target.value)} /></div>
@@ -251,8 +252,8 @@ export default function ConcreteCalc({ calcId, pricing, jobs, tradeLabel }: Calc
   if (calcId === "blockwall") return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Wall Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={bwLen} onChange={e => setBwLen(e.target.value)} /></div>
-        <div><label className={lc}>Wall Height (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="4" value={bwHgt} onChange={e => setBwHgt(e.target.value)} /></div>
+        <div><label className={lc}>Wall Length (ft)</label><DimensionInput value={bwLen} onChange={setBwLen} placeholder="20" /></div>
+        <div><label className={lc}>Wall Height (ft)</label><DimensionInput value={bwHgt} onChange={setBwHgt} placeholder="4" /></div>
       </div>
       <div>
         <label className={lc}>Block Size</label>
@@ -275,8 +276,8 @@ export default function ConcreteCalc({ calcId, pricing, jobs, tradeLabel }: Calc
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={lc}>Length (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="20" value={fwLen} onChange={e => setFwLen(e.target.value)} /></div>
-        <div><label className={lc}>Width (ft)</label><input className={ic} type="number" inputMode="decimal" placeholder="12" value={fwWid} onChange={e => setFwWid(e.target.value)} /></div>
+        <div><label className={lc}>Length (ft)</label><DimensionInput value={fwLen} onChange={setFwLen} placeholder="20" /></div>
+        <div><label className={lc}>Width (ft)</label><DimensionInput value={fwWid} onChange={setFwWid} placeholder="12" /></div>
       </div>
       <div>
         <label className={lc}>Thickness</label>
