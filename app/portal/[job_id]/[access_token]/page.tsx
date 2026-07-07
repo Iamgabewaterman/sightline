@@ -233,6 +233,25 @@ export default async function PortalPage({
           </div>
         )}
 
+        {/* ── Primary action, surfaced first so the homeowner never hunts ── */}
+        {invoice && !isPaid ? (
+          <a
+            href="#invoice-section"
+            className="mb-5 flex items-center justify-center gap-2 w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-2xl min-h-[48px] active:scale-95 transition-transform"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Pay Invoice — ${Number(invoice.total_amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+          </a>
+        ) : quoteIsUnsigned && signUrl ? (
+          <Link
+            href={signUrl}
+            className="mb-5 flex items-center justify-center gap-2 w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-2xl min-h-[48px] active:scale-95 transition-transform"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7-7-7"/><path d="M5 12h14"/></svg>
+            Review &amp; Sign Quote
+          </Link>
+        ) : null}
+
         {/* Greeting */}
         {client?.name && (
           <div className="mb-5 text-center">
@@ -358,7 +377,7 @@ export default async function PortalPage({
 
         {/* Invoice section */}
         {invoice && (
-          <div className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5">
+          <div id="invoice-section" className="bg-[#1A1A1A] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-5 scroll-mt-4">
             <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between">
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Invoice</p>
               <div className="flex items-center gap-2">

@@ -48,6 +48,6 @@ export async function POST(request: NextRequest) {
     // the authorizing /api/portal-photo proxy.
     return NextResponse.json({ path });
   } catch {
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    return NextResponse.json({ error: "Photo upload failed — check your connection and try again." }, { status: 500 });
   }
 }

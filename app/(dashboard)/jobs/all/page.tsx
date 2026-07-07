@@ -17,17 +17,22 @@ export default async function AllJobsPage() {
     .order("updated_at", { ascending: false })
     .returns<Job[]>();
 
-  // Fetch client names for jobs that have clients
+  // Fetch client names + saved-quote margins in parallel.
   const clientIds = Array.from(new Set((jobs ?? []).filter((j) => j.client_id).map((j) => j.client_id!)));
-  const { data: clients } = clientIds.length > 0
-    ? await supabase.from("clients").select("id, name").in("id", clientIds)
-    : { data: [] };
+  const [{ data: clients }, { data: estimates }] = await Promise.all([
+    clientIds.length > 0
+      ? supabase.from("clients").select("id, name").in("id", clientIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    supabase.from("estimates").select("job_id, profit_margin_pct").eq("user_id", user!.id).eq("type", "job_quote"),
+  ]);
 
   const clientMap = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  const marginMap = new Map((estimates ?? []).map((e) => [e.job_id, Number(e.profit_margin_pct)]));
 
   const enriched = (jobs ?? []).map((j) => ({
     ...j,
     clientName: j.client_id ? (clientMap.get(j.client_id) ?? null) : null,
+    margin: marginMap.has(j.id) ? (marginMap.get(j.id) as number) : null,
   }));
 
   return (

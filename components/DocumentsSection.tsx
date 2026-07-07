@@ -98,7 +98,7 @@ export default function DocumentsSection({ jobId, initialDocuments }: Props) {
           setDocuments((prev) => [doc, ...prev]);
         }
       } catch (e) {
-        errors.push(e instanceof Error ? e.message : "Upload failed");
+        errors.push(e instanceof Error ? e.message : "File upload failed — check your connection and try again.");
       }
     }
 

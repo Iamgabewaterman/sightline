@@ -24,7 +24,7 @@ export default function ConnectBankButton({ onboarded, hasAccountId }: Props) {
       }
       window.location.href = data.url;
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Could not start bank connection — check your internet connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ export default function ConnectBankButton({ onboarded, hasAccountId }: Props) {
       }
       window.open(res.url!, "_blank");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Could not open your payout dashboard — check your internet connection and try again.");
     } finally {
       setLoading(false);
     }

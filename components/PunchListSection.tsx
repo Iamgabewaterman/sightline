@@ -187,7 +187,7 @@ export default function PunchListSection({
       if (photo) setPhotos((prev) => [photo, ...prev]);
       resetPhotoSheet();
     } catch (e) {
-      setPhotoError(e instanceof Error ? e.message : "Upload failed");
+      setPhotoError(e instanceof Error ? e.message : "Photo upload failed — check your connection and try again.");
     }
     setUploadingPhoto(false);
   }

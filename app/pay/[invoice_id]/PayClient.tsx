@@ -30,7 +30,7 @@ export default function PayButton({
     if (result.url) {
       window.location.href = result.url;
     } else {
-      setError(result.error ?? "Something went wrong");
+      setError(result.error ?? "Could not start your payment — check your internet connection and try again.");
       setLoading(null);
     }
   }

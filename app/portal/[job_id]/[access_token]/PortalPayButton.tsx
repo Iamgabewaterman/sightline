@@ -42,7 +42,7 @@ export default function PortalPayButton({
         // Keep loading state — browser navigates away
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Could not start your payment — check your internet connection and try again.");
       setLoading(null);
     }
   }

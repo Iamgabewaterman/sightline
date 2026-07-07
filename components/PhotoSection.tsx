@@ -153,7 +153,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
         if (dbError) { errors.push(dbError.message); }
         else if (photo) { setPhotos((prev) => [photo, ...prev]); }
       } catch (e) {
-        errors.push(e instanceof Error ? e.message : "Upload failed");
+        errors.push(e instanceof Error ? e.message : "Photo upload failed — check your connection and try again.");
       }
     }
 
@@ -214,7 +214,7 @@ export default function PhotoSection({ jobId, jobName = "", jobAddress = "", job
       });
       setShowExport(false);
     } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Failed to generate report");
+      setExportError(e instanceof Error ? e.message : "Could not generate the photo report — try again in a moment.");
     } finally {
       setGenerating(false);
     }

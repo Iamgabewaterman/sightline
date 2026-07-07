@@ -44,7 +44,7 @@ export default function AvatarUpload({ name, currentAvatarPath, storagePath, onS
       setLocalUrl(url);
       await onSaved(storagePath);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Upload failed");
+      setSaveError(err instanceof Error ? err.message : "Photo upload failed — check your connection and try again.");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

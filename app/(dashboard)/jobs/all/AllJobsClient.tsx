@@ -13,7 +13,26 @@ type JobRow = {
   updated_at: string;
   job_number: string | null;
   clientName: string | null;
+  margin: number | null;
 };
+
+// Profitability indicator — color AND text, never color alone.
+function MarginPill({ margin }: { margin: number | null }) {
+  if (margin === null) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+        <span className="w-2 h-2 rounded-full bg-gray-600" /> No quote yet
+      </span>
+    );
+  }
+  const color = margin >= 20 ? "text-green-400" : margin >= 10 ? "text-yellow-400" : "text-red-400";
+  const dot = margin >= 20 ? "bg-green-500" : margin >= 10 ? "bg-yellow-400" : "bg-red-500";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${color}`}>
+      <span className={`w-2 h-2 rounded-full ${dot}`} /> {margin}% margin
+    </span>
+  );
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -163,9 +182,10 @@ const JobCard = memo(function JobCard({ job }: { job: JobRow }) {
         )}
         <TypeTags types={job.types} />
         <div className="flex items-center justify-between mt-3">
-          <p className="text-gray-400 text-sm truncate pr-4">{job.address}</p>
+          <MarginPill margin={job.margin} />
           <p className="text-gray-600 text-xs shrink-0">{formatDate(job.updated_at)}</p>
         </div>
+        {job.address && <p className="text-gray-400 text-sm truncate mt-2">{job.address}</p>}
       </Link>
     </li>
   );
