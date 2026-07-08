@@ -471,16 +471,20 @@ export default function InvoiceSection({
   // Portal handlers
   async function handlePortalToggle() {
     setPortalSaving(true);
-    if (portalEnabled) {
+    const wasEnabled = portalEnabled;
+    // Optimistic: flip the toggle immediately, roll back if the server rejects.
+    setPortalEnabled(!wasEnabled);
+    if (wasEnabled) {
       const res = await disablePortal(jobId);
-      if (!res?.error) setPortalEnabled(false);
+      if (res?.error) setPortalEnabled(true); // roll back
     } else {
       const res = await enablePortal(jobId);
       if (res.token) {
         setPortalToken(res.token);
-        setPortalEnabled(true);
         setPortalJustEnabled(true);
         setTimeout(() => setPortalJustEnabled(false), 2500);
+      } else {
+        setPortalEnabled(false); // roll back
       }
     }
     setPortalSaving(false);

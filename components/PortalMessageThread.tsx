@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { PortalMessage } from "@/types";
 import { getPortalMessages, sendPortalMessage } from "@/app/actions/portal-messages";
-import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
+import dynamic from "next/dynamic";
+const PhotoMarkupEditor = dynamic(() => import("@/components/PhotoMarkupEditor"), { ssr: false });
 import { compressImage } from "@/lib/compress-image";
 import { portalPhotoProxyUrl } from "@/lib/photo-url";
 

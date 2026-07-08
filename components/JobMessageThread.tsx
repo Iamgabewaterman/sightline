@@ -7,7 +7,8 @@ import {
   markPortalMessagesRead,
   getContractorMessages,
 } from "@/app/actions/portal-messages";
-import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
+import dynamic from "next/dynamic";
+const PhotoMarkupEditor = dynamic(() => import("@/components/PhotoMarkupEditor"), { ssr: false });
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
 import { photoProxyUrl } from "@/lib/photo-url";

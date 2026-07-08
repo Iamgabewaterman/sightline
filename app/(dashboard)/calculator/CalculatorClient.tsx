@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AIVisualEstimator from "@/components/AIVisualEstimator";
+import dynamic from "next/dynamic";
 import { RegionalCalcPricing } from "@/lib/regional-pricing-types";
+
+// Heavy client-only component (camera + AI) — only loaded when opened, keeping
+// it out of the calculator's initial bundle.
+const AIVisualEstimator = dynamic(() => import("@/components/AIVisualEstimator"), {
+  ssr: false,
+  loading: () => <div className="skeleton h-64 w-full rounded-2xl" />,
+});
 
 // Trade calc components
 import RoofingCalc from "./calcs/RoofingCalc";

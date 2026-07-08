@@ -9,7 +9,8 @@ import { useJobCost } from "@/components/JobCostContext";
 import { deletePhoto } from "@/app/actions/photos";
 import type { PhotoReportDocument } from "@/lib/generatePhotoReportPDF";
 import { notifyOwnerPhotosUploaded } from "@/app/actions/notify-photos";
-import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
+import dynamic from "next/dynamic";
+const PhotoMarkupEditor = dynamic(() => import("@/components/PhotoMarkupEditor"), { ssr: false });
 
 function TrashIcon() {
   return (

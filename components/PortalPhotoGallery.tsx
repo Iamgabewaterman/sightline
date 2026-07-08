@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
-import PhotoMarkupEditor from "@/components/PhotoMarkupEditor";
+import dynamic from "next/dynamic";
+const PhotoMarkupEditor = dynamic(() => import("@/components/PhotoMarkupEditor"), { ssr: false });
 
 interface Photo {
   id: string;
