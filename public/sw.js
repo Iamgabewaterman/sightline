@@ -1,7 +1,7 @@
 // Sightline Service Worker — sightline-v3
 // Cache strategy: network-first for HTML pages, cache-first for static assets and images
 
-const CACHE_VERSION = "sightline-v3";
+const CACHE_VERSION = "sightline-v4";
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const PAGES_CACHE   = `${CACHE_VERSION}-pages`;
 const IMAGES_CACHE  = `${CACHE_VERSION}-images`;
@@ -85,6 +85,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Next.js RSC payloads (App Router client-side navigation) — network-first,
+  // cached in PAGES_CACHE so tapping into a previously-visited/prefetched page
+  // works offline. On a cache miss the router falls back to a full navigation,
+  // which the HTML handler below serves from cache.
+  if (
+    url.searchParams.has("_rsc") ||
+    request.headers.get("RSC") === "1" ||
+    (request.headers.get("accept") || "").includes("text/x-component")
+  ) {
+    event.respondWith(networkFirstRSC(request));
+    return;
+  }
+
   // HTML navigation requests — network-first, fallback to cache
   if (request.mode === "navigate" || (request.headers.get("accept") || "").includes("text/html")) {
     event.respondWith(networkFirstPage(request));
@@ -109,6 +122,21 @@ async function networkFirstPage(request) {
     const cached = await cache.match(request);
     if (cached) return cached;
     return offlineFallback();
+  }
+}
+
+async function networkFirstRSC(request) {
+  const cache = await caches.open(PAGES_CACHE);
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) cache.put(request, networkResponse.clone());
+    return networkResponse;
+  } catch (_) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    // No cached RSC payload — signal failure so the App Router does a full
+    // navigation, which networkFirstPage serves from the cached HTML.
+    return new Response("", { status: 503 });
   }
 }
 

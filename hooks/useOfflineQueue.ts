@@ -4,8 +4,18 @@ import { get, set } from "idb-keyval";
 
 const QUEUE_KEY = "sightline_offline_queue";
 
+export interface MaterialEditFields {
+  quantity_ordered?: number;
+  quantity_used?: number | null;
+  unit_cost?: number | null;
+  length_ft?: number | null;
+  notes?: string | null;
+  trade?: string | null;
+}
+
 export type OfflineAction =
   | { type: "add_material"; payload: { jobId: string; name: string; quantity_ordered: string; unit: string; unit_cost: string } }
+  | { type: "update_material"; payload: { id: string; fields: MaterialEditFields } }
   | { type: "add_labor";    payload: { jobId: string; crew_name: string; hours: string; rate: string } }
   | { type: "toggle_punch"; payload: { itemId: string; completed: boolean } }
   | { type: "add_daily_log"; payload: { jobId: string; date: string; notes: string; crew: string } };

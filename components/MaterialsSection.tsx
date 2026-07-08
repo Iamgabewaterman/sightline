@@ -173,9 +173,22 @@ function MaterialRow({
     const length_ft        = effectiveLengthFt;
     const notes            = notesVal.trim() || null;
     const trade            = tradeVal || null;
-    const result = await updateMaterial(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
+    const fields = { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade };
+
+    // Offline — queue the edit and apply it locally; it syncs on reconnect.
+    // (Skip materials that were themselves created offline; their pending add
+    // will carry the latest values.)
+    if (typeof navigator !== "undefined" && !navigator.onLine && !material.id.startsWith("queued-")) {
+      enqueue({ type: "update_material", payload: { id: material.id, fields } });
+      onUpdate(material.id, fields);
+      setEditing(false);
+      setSaving(false);
+      return;
+    }
+
+    const result = await updateMaterial(material.id, fields);
     if (result.error) { setError(result.error); } else {
-      onUpdate(material.id, { quantity_ordered, quantity_used, unit_cost, length_ft, notes, trade });
+      onUpdate(material.id, fields);
       onPriceFlag?.(material.id, result.priceFlag ?? null);
       setEditing(false);
     }

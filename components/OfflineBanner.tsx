@@ -5,7 +5,7 @@ import { getQueue, clearQueue, setQueue, type QueuedAction } from "@/hooks/useOf
 import { togglePunchListItem } from "@/app/actions/punch-list";
 import { addLaborLog } from "@/app/actions/labor";
 import { addDailyLog } from "@/app/actions/daily-logs";
-import { addMaterial } from "@/app/actions/materials";
+import { addMaterial, updateMaterial } from "@/app/actions/materials";
 
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
@@ -29,6 +29,10 @@ export default function OfflineBanner() {
           fd.set("quantity_ordered", action.payload.quantity_ordered);
           fd.set("unit_cost", action.payload.unit_cost);
           const res = await addMaterial(action.payload.jobId, fd);
+          if (res.error) failed.push(item);
+          else synced++;
+        } else if (action.type === "update_material") {
+          const res = await updateMaterial(action.payload.id, action.payload.fields);
           if (res.error) failed.push(item);
           else synced++;
         } else if (action.type === "toggle_punch") {
