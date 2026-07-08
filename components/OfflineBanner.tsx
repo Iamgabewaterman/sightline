@@ -6,6 +6,7 @@ import { togglePunchListItem } from "@/app/actions/punch-list";
 import { addLaborLog } from "@/app/actions/labor";
 import { addDailyLog } from "@/app/actions/daily-logs";
 import { addMaterial, updateMaterial } from "@/app/actions/materials";
+import { updateJobStatus } from "@/app/actions/jobs";
 
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
@@ -33,6 +34,10 @@ export default function OfflineBanner() {
           else synced++;
         } else if (action.type === "update_material") {
           const res = await updateMaterial(action.payload.id, action.payload.fields);
+          if (res.error) failed.push(item);
+          else synced++;
+        } else if (action.type === "update_job_status") {
+          const res = await updateJobStatus(action.payload.jobId, action.payload.status);
           if (res.error) failed.push(item);
           else synced++;
         } else if (action.type === "toggle_punch") {

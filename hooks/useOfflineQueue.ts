@@ -16,6 +16,7 @@ export interface MaterialEditFields {
 export type OfflineAction =
   | { type: "add_material"; payload: { jobId: string; name: string; quantity_ordered: string; unit: string; unit_cost: string } }
   | { type: "update_material"; payload: { id: string; fields: MaterialEditFields } }
+  | { type: "update_job_status"; payload: { jobId: string; status: string } }
   | { type: "add_labor";    payload: { jobId: string; crew_name: string; hours: string; rate: string } }
   | { type: "toggle_punch"; payload: { itemId: string; completed: boolean } }
   | { type: "add_daily_log"; payload: { jobId: string; date: string; notes: string; crew: string } };

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateJobStatus } from "@/app/actions/jobs";
 import { JobStatus } from "@/types";
+import { enqueue } from "@/hooks/useOfflineQueue";
 
 const STATUSES: { value: JobStatus; label: string; description: string }[] = [
   { value: "active",    label: "Active",    description: "Job is in progress"    },
@@ -47,6 +48,13 @@ export default function JobStatusSelector({
     setStatus(next);
     setError("");
     setPendingNext(null);
+
+    // Offline — keep the optimistic change and queue it; syncs on reconnect.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueue({ type: "update_job_status", payload: { jobId, status: next } });
+      return;
+    }
+
     startTransition(async () => {
       const result = await updateJobStatus(jobId, next);
       if (result.error) {
