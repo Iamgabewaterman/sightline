@@ -2,6 +2,10 @@
 const nextConfig = {
   experimental: {
     optimizePackageImports: ["@supabase/supabase-js", "@supabase/ssr", "@anthropic-ai/sdk"],
+    // Client Router Cache: reuse already-visited pages so back-navigation is
+    // instant instead of refetching. dynamic=30s covers rapid back-and-forth
+    // between the job list and a job; static=300s (5 min) covers everything else.
+    staleTimes: { dynamic: 30, static: 300 },
   },
   async headers() {
     return [

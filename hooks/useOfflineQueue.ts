@@ -1,5 +1,7 @@
 "use client";
 
+import { get, set } from "idb-keyval";
+
 const QUEUE_KEY = "sightline_offline_queue";
 
 export type OfflineAction =
@@ -14,30 +16,60 @@ export interface QueuedAction {
   action: OfflineAction;
 }
 
-export function getQueue(): QueuedAction[] {
-  if (typeof window === "undefined") return [];
+// IndexedDB-backed (via idb-keyval) — more reliable than localStorage, survives
+// larger payloads, and isn't cleared by Safari's 7-day localStorage eviction.
+// One-time migration pulls any items left in the old localStorage queue.
+async function readAll(): Promise<QueuedAction[]> {
+  const existing = await get<QueuedAction[]>(QUEUE_KEY);
+  if (existing !== undefined) return existing;
+
+  let migrated: QueuedAction[] = [];
   try {
-    return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]");
+    if (typeof localStorage !== "undefined") {
+      const legacy = localStorage.getItem(QUEUE_KEY);
+      if (legacy) {
+        migrated = (JSON.parse(legacy) as QueuedAction[]) ?? [];
+        localStorage.removeItem(QUEUE_KEY);
+      }
+    }
+  } catch {
+    migrated = [];
+  }
+  await set(QUEUE_KEY, migrated);
+  return migrated;
+}
+
+export async function getQueue(): Promise<QueuedAction[]> {
+  try {
+    return await readAll();
   } catch {
     return [];
   }
 }
 
-export function enqueue(action: OfflineAction): void {
-  const queue = getQueue();
+export async function setQueue(items: QueuedAction[]): Promise<void> {
+  try {
+    await set(QUEUE_KEY, items);
+  } catch {
+    // IndexedDB unavailable (private mode / disabled) — nothing more we can do.
+  }
+}
+
+export async function enqueue(action: OfflineAction): Promise<void> {
+  const queue = await getQueue();
   queue.push({
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     action,
   });
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  await setQueue(queue);
 }
 
-export function clearQueue(): void {
-  localStorage.removeItem(QUEUE_KEY);
+export async function clearQueue(): Promise<void> {
+  await setQueue([]);
 }
 
-export function removeFromQueue(id: string): void {
-  const queue = getQueue().filter((item) => item.id !== id);
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+export async function removeFromQueue(id: string): Promise<void> {
+  const queue = await getQueue();
+  await setQueue(queue.filter((item) => item.id !== id));
 }

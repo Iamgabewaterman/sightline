@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getQueue, clearQueue, type QueuedAction } from "@/hooks/useOfflineQueue";
+import { getQueue, clearQueue, setQueue, type QueuedAction } from "@/hooks/useOfflineQueue";
 import { togglePunchListItem } from "@/app/actions/punch-list";
 import { addLaborLog } from "@/app/actions/labor";
 import { addDailyLog } from "@/app/actions/daily-logs";
@@ -12,7 +12,7 @@ export default function OfflineBanner() {
   const [syncToast, setSyncToast] = useState<string | null>(null);
 
   const syncQueue = useCallback(async () => {
-    const queue = getQueue();
+    const queue = await getQueue();
     if (queue.length === 0) return;
 
     let synced = 0;
@@ -61,9 +61,9 @@ export default function OfflineBanner() {
     }
 
     if (failed.length === 0) {
-      clearQueue();
+      await clearQueue();
     } else {
-      localStorage.setItem("sightline_offline_queue", JSON.stringify(failed));
+      await setQueue(failed);
     }
 
     if (synced > 0) {
